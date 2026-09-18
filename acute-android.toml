@@ -1,0 +1,17 @@
+[product]
+name = "Acute Web"
+application_id = "com.acuteweb.browser"
+repository = "iiankehn/acute-web-android"
+
+[upstream]
+repository = "https://github.com/mozilla-firefox/firefox.git"
+ref = "main"
+
+[updates]
+api = "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
+check_interval_hours = 24
+
+[privacy]
+telemetry = false
+crash_reporting = false
+

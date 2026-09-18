@@ -1,0 +1,11 @@
+.idea/
+.gradle/
+.mozbuild/
+firefox/
+dist/
+*.jks
+*.keystore
+local.properties
+__pycache__/
+*.pyc
+
