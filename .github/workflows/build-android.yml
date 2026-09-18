@@ -1,0 +1,175 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      firefox_ref:
+        description: Mozilla Firefox branch, tag, or commit
+        required: true
+        default: main
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      package: ${{ steps.release.outputs.package }}
+    env:
+      MOZBUILD_STATE_PATH: ${{ github.workspace }}/.mozbuild
+      FIREFOX_REF: ${{ inputs.firefox_ref || 'main' }}
+    steps:
+      - name: Check out Acute overlay
+        uses: actions/checkout@v4
+        with:
+          path: acute-overlay
+
+      - name: Reclaim runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+      - name: Check out Firefox source
+        run: |
+          git init firefox
+          git -C firefox remote add origin https://github.com/mozilla-firefox/firefox.git
+          git -C firefox fetch --depth=1 origin "$FIREFOX_REF"
+          git -C firefox checkout --detach FETCH_HEAD
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Bootstrap Firefox Android artifact build
+        working-directory: firefox
+        run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode --no-interactive
+
+      - name: Apply Acute Web overlay
+        run: python3 acute-overlay/scripts/apply_overlay.py firefox
+
+      - name: Prepare signing and version
+        id: release
+        env:
+          ACUTE_KEYSTORE_B64: ${{ secrets.ACUTE_KEYSTORE_B64 }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            test -n "$ACUTE_KEYSTORE_B64" || { echo "ACUTE_KEYSTORE_B64 is required for releases"; exit 1; }
+            printf '%s' "$ACUTE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/acute-web-release.jks"
+            chmod 600 "$RUNNER_TEMP/acute-web-release.jks"
+            echo "task=fenix:assembleRelease" >> "$GITHUB_OUTPUT"
+            echo "kind=release" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "package=com.acuteweb.browser" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
+            echo "kind=debug" >> "$GITHUB_OUTPUT"
+            echo "version=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build APK
+        working-directory: firefox
+        env:
+          ACUTE_VERSION_NAME: ${{ steps.release.outputs.version }}
+          ACUTE_KEYSTORE_PATH: ${{ runner.temp }}/acute-web-release.jks
+          ACUTE_KEYSTORE_PASSWORD: ${{ secrets.ACUTE_KEYSTORE_PASSWORD }}
+          ACUTE_KEY_ALIAS: ${{ secrets.ACUTE_KEY_ALIAS }}
+          ACUTE_KEY_PASSWORD: ${{ secrets.ACUTE_KEY_PASSWORD }}
+        run: ./mach gradle ${{ steps.release.outputs.task }}
+
+      - name: Collect universal APK
+        env:
+          BUILD_KIND: ${{ steps.release.outputs.kind }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p dist
+          apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/$BUILD_KIND/*universal*.apk" -print -quit)"
+          test -n "$apk" || { echo "Universal APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
+          cp "$apk" "dist/acute-web-${VERSION}-universal.apk"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: acute-web-${{ steps.release.outputs.version }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  tablet-smoke:
+    name: Tablet launch and rotation smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out Acute overlay
+        uses: actions/checkout@v4
+        with:
+          path: acute-overlay
+
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: acute-web-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Exercise tablet layouts
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        env:
+          ACUTE_PACKAGE_NAME: ${{ needs.build.outputs.package }}
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_tablet
+          disable-animations: true
+          script: bash acute-overlay/scripts/tablet_smoke.sh "$(find dist -name '*.apk' -print -quit)" tablet-results
+
+      - name: Upload tablet evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tablet-smoke-${{ needs.build.outputs.version }}
+          path: tablet-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish:
+    name: Publish tested GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, tablet-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested APK
+        uses: actions/download-artifact@v4
+        with:
+          name: acute-web-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --verify-tag --generate-notes --title "Acute Web $GITHUB_REF_NAME"
