@@ -60,6 +60,10 @@ jobs:
         working-directory: firefox
         run: ./mach configure --enable-bootstrap=no-update
 
+      - name: Build Firefox Android artifacts
+        working-directory: firefox
+        run: ./mach build
+
       - name: Apply Acute Web overlay
         run: python3 acute-overlay/scripts/apply_overlay.py firefox
 
