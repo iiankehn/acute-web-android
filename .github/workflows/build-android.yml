@@ -54,7 +54,7 @@ jobs:
 
       - name: Bootstrap Firefox Android artifact build
         working-directory: firefox
-        run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode --no-interactive
+        run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode
 
       - name: Apply Acute Web overlay
         run: python3 acute-overlay/scripts/apply_overlay.py firefox
