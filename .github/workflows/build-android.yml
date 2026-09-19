@@ -56,6 +56,15 @@ jobs:
         working-directory: firefox
         run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode
 
+      - name: Configure Firefox Android artifact build
+        working-directory: firefox
+        run: |
+          cat > mozconfig <<'EOF'
+          ac_add_options --enable-project=mobile/android
+          ac_add_options --enable-artifact-builds
+          mk_add_options MOZ_OBJDIR=./objdir-frontend
+          EOF
+
       - name: Apply Acute Web overlay
         run: python3 acute-overlay/scripts/apply_overlay.py firefox
 
