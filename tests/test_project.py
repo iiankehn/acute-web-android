@@ -16,14 +16,12 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("ACUTE_KEYSTORE_B64 is required for releases", workflow)
         self.assertIn("gh release create", workflow)
 
-    def test_tablet_smoke_follows_every_build(self):
+    def test_release_contains_arm64_firefox_engine(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("tablet-smoke:", workflow)
-        self.assertIn("profile: pixel_tablet", workflow)
-        self.assertIn("android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d", workflow)
-        self.assertIn("scripts/tablet_smoke.sh", workflow)
-        self.assertIn("needs: [build, tablet-smoke]", workflow)
-        self.assertIn("ACUTE_PACKAGE_NAME: ${{ needs.build.outputs.package }}", workflow)
+        self.assertIn("--target=aarch64-linux-android", workflow)
+        self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
+        self.assertIn("lib/arm64-v8a/libxul.so", workflow)
+        self.assertIn("needs: [build, abi-check]", workflow)
 
     def test_tablet_profiles_cover_large_screens(self):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()
