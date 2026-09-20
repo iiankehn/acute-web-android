@@ -57,6 +57,14 @@ android.defaultConfig.with {
 '''
 
 MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed to get distribution information from partners.
+    This is NOT required for the adjust plugin. -->
+    <uses-permission android:name="com.adjust.preinstall.READ_PERMISSION"/>
+
+    <!-- Needed to prompt the user directly for app uninstallation as part of an
+    'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
+
     <application
         android:label="@string/app_name">
         <activity android:name=".HomeActivity" android:resizeableActivity="true" />
@@ -191,10 +199,12 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("org.mozilla.firefox.sharedID", gradle)
         self.assertNotIn("sharedUserId", (app / "src/release/AndroidManifest.xml").read_text())
         self.assertNotIn("'TELEMETRY', 'true'", gradle)
-        self.assertIn("ACUTE_KEYSTORE_PATH", gradle)
+        self.assertNotIn("ACUTE_KEYSTORE_PATH", gradle)
         self.assertIn("ACUTE_VERSION_NAME", gradle)
         self.assertIn("GitHubUpdateProvider", manifest)
         self.assertIn("android.hardware.touchscreen", manifest)
+        self.assertNotIn("com.adjust.preinstall.READ_PERMISSION", manifest)
+        self.assertNotIn("android.permission.REQUEST_DELETE_PACKAGES", manifest)
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
         self.assertIn("appContext.isLargeScreenSize()", tablet_settings)
