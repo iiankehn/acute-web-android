@@ -123,7 +123,13 @@ jobs:
           ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}
           GRADLE_FLAGS: ${{ steps.version.outputs.gradle_flags }}
           GRADLE_TASK: ${{ steps.version.outputs.task }}
-        run: ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS
+        run: |
+          for attempt in 1 2 3; do
+            ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS && break
+            test "$attempt" -lt 3 || exit 1
+            echo "Gradle dependency resolution failed; retrying in 30 seconds"
+            sleep 30
+          done
 
       - name: Collect and verify ARM64 APK
         env:
@@ -187,7 +193,12 @@ jobs:
           cd ..
           python3 acute-overlay/scripts/apply_overlay.py firefox
           cd firefox
-          ACUTE_VERSION_NAME="0.2.1-smoke.${GITHUB_RUN_NUMBER}" ./mach gradle fenix:assembleDebug
+          for attempt in 1 2 3; do
+            ACUTE_VERSION_NAME="0.2.1-smoke.${GITHUB_RUN_NUMBER}" ./mach gradle fenix:assembleDebug && break
+            test "$attempt" -lt 3 || exit 1
+            echo "Gradle dependency resolution failed; retrying in 30 seconds"
+            sleep 30
+          done
           cd ..
           mkdir -p smoke-dist
           apk="$(find firefox -type f -path '*/fenix/app/outputs/apk/debug/*x86_64*.apk' -print -quit)"
