@@ -8,5 +8,6 @@ Acute Web inherits code from Mozilla Firefox. If a vulnerability is in
 Firefox or Gecko, follow Mozilla's security reporting process as well.
 
 Release signing keys must never be committed. Keep the keystore offline and
-store only its base64 representation and passwords in GitHub Actions secrets.
-
+store only its base64 representation and passwords in the protected
+`release-signing` GitHub Actions environment. Upstream Firefox and Gradle code
+must never execute in a job or step containing those secrets.

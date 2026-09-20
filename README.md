@@ -22,7 +22,8 @@ flags are disabled by the overlay.
 - builds debug APKs on demand and signed release APKs for `v*` tags.
 
 It intentionally does **not** contain a vendored copy of Firefox. GitHub
-Actions checks out Mozilla's source, applies this overlay, and builds it.
+Actions checks out a reviewed, pinned Mozilla commit, applies this overlay,
+and builds it without exposing the Acute release key to upstream build code.
 
 ## Local build
 
@@ -47,7 +48,8 @@ The APK is written below the Firefox object directory under
 2. Run **Build Android APK** from the Actions tab for a test APK.
 3. Complete [docs/SIGNING.md](docs/SIGNING.md) once.
 4. Push a semantic version tag such as `v0.1.0` to publish a signed GitHub
-   Release. The installed app checks the latest release once every 24 hours.
+   Release. The installed app checks the latest release at most once every six
+   hours and uses a one-hour retry delay after network failures.
 
 See [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) for exact setup commands and
 [docs/UPSTREAM.md](docs/UPSTREAM.md) for maintaining the Firefox base. Tablet
