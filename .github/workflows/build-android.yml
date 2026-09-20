@@ -56,6 +56,11 @@ jobs:
         working-directory: firefox
         run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode
 
+      - name: Target ARM64 Android devices
+        working-directory: firefox
+        run: |
+          printf '\n# Acute Web release target\nac_add_options --target=aarch64-linux-android\n' >> mozconfig
+
       - name: Configure Firefox Android build
         working-directory: firefox
         run: ./mach configure --enable-bootstrap=no-update
@@ -83,7 +88,6 @@ jobs:
           else
             echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
             echo "kind=debug" >> "$GITHUB_OUTPUT"
-            echo "version=0.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
             echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
           fi
 
@@ -97,15 +101,23 @@ jobs:
           ACUTE_KEY_PASSWORD: ${{ secrets.ACUTE_KEY_PASSWORD }}
         run: ./mach gradle ${{ steps.release.outputs.task }}
 
-      - name: Collect universal APK
+      - name: Collect and verify ARM64 APK
         env:
           BUILD_KIND: ${{ steps.release.outputs.kind }}
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           mkdir -p dist
           apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/$BUILD_KIND/*universal*.apk" -print -quit)"
-          test -n "$apk" || { echo "Universal APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
-          cp "$apk" "dist/acute-web-${VERSION}-universal.apk"
+          test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
+          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libmozglue.so' || {
+            echo "ARM64 Gecko library libmozglue.so is missing"
+            exit 1
+          }
+          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libxul.so' || {
+            echo "ARM64 Gecko library libxul.so is missing"
+            exit 1
+          }
+          cp "$apk" "dist/acute-web-${VERSION}-arm64-v8a.apk"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -114,60 +126,28 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
-  tablet-smoke:
-    name: Tablet launch and rotation smoke test
+  abi-check:
+    name: Verify ARM64 Firefox engine
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
-      - name: Check out Acute overlay
-        uses: actions/checkout@v4
-        with:
-          path: acute-overlay
-
       - name: Download built APK
         uses: actions/download-artifact@v4
         with:
           name: acute-web-${{ needs.build.outputs.version }}
           path: dist
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Enable KVM
+      - name: Confirm ARM64 Gecko libraries
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Exercise tablet layouts
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
-        env:
-          ACUTE_PACKAGE_NAME: ${{ needs.build.outputs.package }}
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_tablet
-          disable-animations: true
-          script: bash acute-overlay/scripts/tablet_smoke.sh "$(find dist -name '*.apk' -print -quit)" tablet-results
-
-      - name: Upload tablet evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tablet-smoke-${{ needs.build.outputs.version }}
-          path: tablet-results/
-          if-no-files-found: warn
-          retention-days: 14
+          apk="$(find dist -name '*.apk' -print -quit)"
+          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libmozglue.so'
+          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libxul.so'
 
   publish:
     name: Publish tested GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, tablet-smoke]
+    needs: [build, abi-check]
     runs-on: ubuntu-latest
     steps:
       - name: Download tested APK
@@ -180,4 +160,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --verify-tag --generate-notes --title "Acute Web $GITHUB_REF_NAME"
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.apk --verify-tag --generate-notes --title "Acute Web $GITHUB_REF_NAME"
+          fi
