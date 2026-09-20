@@ -323,16 +323,21 @@ jobs:
         with:
           subject-path: dist/*.apk
 
-      - name: Publish new release without replacing existing assets
+      - name: Publish release without replacing existing assets
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists; refusing to replace published files"
-            exit 1
+            asset_count="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq '.assets | length')"
+            test "$asset_count" = "0" || {
+              echo "Release $GITHUB_REF_NAME already contains assets; refusing to replace published files"
+              exit 1
+            }
+            gh release upload "$GITHUB_REF_NAME" dist/*
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --verify-tag \
+              --generate-notes \
+              --title "Acute Web $GITHUB_REF_NAME"
           fi
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --verify-tag \
-            --generate-notes \
-            --title "Acute Web $GITHUB_REF_NAME"
