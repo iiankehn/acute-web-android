@@ -23,10 +23,10 @@ git push -u origin main
 ## Produce a test APK
 
 Open **Actions → Build Android APK → Run workflow**. Leave the Firefox ref at
-`main` for the first smoke test. The unsigned-production/debug-signed test APK
-will be available as a workflow artifact. A second artifact contains portrait
-and landscape screenshots from the automated tablet smoke pass. Android may
-require permission to install unknown apps.
+the audited 40-character commit shown by default. The debug-signed test APK
+will be available as a workflow artifact. A second artifact contains Android 12
+launch and rotation evidence. Android may require permission to install unknown
+apps.
 
 ## Publish a signed sideload release
 
@@ -37,14 +37,18 @@ git tag -a v0.1.0 -m "Acute Web 0.1.0"
 git push origin v0.1.0
 ```
 
-The workflow derives the app version `0.1.0` from the tag, signs the universal
-APK, installs it in the tablet emulator, and publishes the GitHub Release only
-after the tablet smoke test passes. Existing installations will see the release
-through the built-in update checker.
+The workflow derives the app version from the tag, builds without release
+secrets, passes an Android 12 smoke test, signs the APK in an isolated job,
+verifies that the certificate matches v0.2.0, and publishes an immutable GitHub
+Release with its checksum, build inputs, and provenance attestation. Existing
+installations will see the release through the built-in update checker.
 
 ## Recommended repository settings
 
-- Enable Actions with read/write workflow permissions.
+- Keep the default Actions token permission read-only. The publish job requests
+  write access explicitly.
+- Create a `release-signing` environment and restrict deployment to protected
+  version tags. Add a required reviewer if your GitHub plan supports it.
 - Enable private vulnerability reporting.
 - Protect `main` and require the validation workflow.
 - Restrict who can create tags matching `v*`.

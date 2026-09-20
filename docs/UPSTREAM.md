@@ -1,8 +1,8 @@
 # Maintaining the Firefox base
 
-The workflow input and `acute-android.toml` default to Mozilla's `main` branch
-for early development. Reproducible public releases should pin a reviewed
-Firefox commit or release tag in the workflow dispatch input.
+The release workflow and `acute-android.toml` pin a reviewed, full Firefox
+commit. Tag builds always use that commit. Manual test builds accept another
+full commit for compatibility evaluation, but never receive release secrets.
 
 For each upstream update:
 

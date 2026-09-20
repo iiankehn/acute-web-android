@@ -27,8 +27,9 @@ base64 -w 0 acute-web-release.jks
 
 On macOS use `base64 < acute-web-release.jks | tr -d '\n'`.
 
-Add these repository secrets under **Settings → Secrets and variables →
-Actions**:
+Create a GitHub Actions environment named `release-signing`, then add these as
+environment secrets under **Settings → Environments → release-signing**. The
+workflow exposes them only to the isolated signing job:
 
 | Secret | Value |
 |---|---|
@@ -37,16 +38,19 @@ Actions**:
 | `ACUTE_KEY_ALIAS` | `acute-web` (or the alias you selected) |
 | `ACUTE_KEY_PASSWORD` | Private-key password |
 
-Tag-triggered releases deliberately fail if any signing secret is absent.
-Manual workflow runs create test builds and do not publish a release.
+Tag-triggered releases deliberately fail if any signing secret is absent or if
+the generated certificate differs from the certificate used for v0.2.0.
+Manual workflow runs create debug-signed test builds and do not publish a
+release.
 
 ## 3. Verify a release
 
 After downloading the APK, inspect its certificate:
 
 ```bash
-apksigner verify --verbose --print-certs acute-web-0.1.0-universal.apk
+apksigner verify --verbose --print-certs acute-web-0.2.1-arm64-v8a.apk
 ```
 
 Record the SHA-256 certificate digest somewhere independent of GitHub.
-
+Each release also contains an APK SHA-256 file, the exact Acute and Firefox
+commits, and a GitHub build-provenance attestation.
