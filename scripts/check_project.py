@@ -36,6 +36,30 @@ def main() -> int:
         if requirement not in overlay:
             print(f"Missing tablet requirement: {requirement}", file=sys.stderr)
             return 1
+    workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
+    workflow_requirements = (
+        "Build without release secrets",
+        "Sign with isolated release credentials",
+        "Android 12 launch smoke test",
+        "attest-build-provenance@",
+        "refusing to replace published files",
+        "permissions:\n  contents: read",
+    )
+    for requirement in workflow_requirements:
+        if requirement not in workflow:
+            print(f"Missing release hardening requirement: {requirement}", file=sys.stderr)
+            return 1
+    for mutable_action in (
+        "actions/checkout@v",
+        "actions/setup-java@v",
+        "actions/setup-python@v",
+        "actions/upload-artifact@v",
+        "actions/download-artifact@v",
+    ):
+        for workflow_path in (ROOT / ".github/workflows").glob("*.yml"):
+            if mutable_action in workflow_path.read_text():
+                print(f"Mutable action reference in {workflow_path}: {mutable_action}", file=sys.stderr)
+                return 1
     print("Project checks passed")
     return 0
 

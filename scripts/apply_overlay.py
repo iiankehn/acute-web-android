@@ -72,33 +72,6 @@ def patch_gradle(path: Path) -> None:
     for old, new in telemetry_patterns + crash_patterns:
         text = text.replace(old, new)
 
-    build_types = "    buildTypes {\n"
-    signing = """    signingConfigs {
-        acuteRelease {
-            def acuteKeystore = System.getenv("ACUTE_KEYSTORE_PATH")
-            if (acuteKeystore) {
-                storeFile file(acuteKeystore)
-                storePassword System.getenv("ACUTE_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ACUTE_KEY_ALIAS")
-                keyPassword System.getenv("ACUTE_KEY_PASSWORD")
-            }
-        }
-    }
-
-    buildTypes {
-"""
-    if build_types not in text:
-        raise OverlayError("Could not locate the Android buildTypes block")
-    text = text.replace(build_types, signing, 1)
-
-    release_open = "        release releaseTemplate >> {\n"
-    release_signed = """        release releaseTemplate >> {
-            if (System.getenv("ACUTE_KEYSTORE_PATH")) {
-                signingConfig signingConfigs.acuteRelease
-            }
-"""
-    text = replace_once(text, release_open, release_signed, "release build type")
-
     # Produce one updater-friendly universal APK in addition to ABI APKs.
     universal_pattern = re.compile(
         r"(splits\s*\{\s*abi\s*\{.*?)(if\s*\([^\n]*MOZILLA_OFFICIAL[^\n]*\)\s*\{\s*)"
@@ -128,6 +101,21 @@ def patch_gradle(path: Path) -> None:
 
 def patch_manifest(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
+    # Acute does not use Mozilla partner attribution or the Firefox uninstall
+    # survey. Removing these inherited permissions reduces package visibility
+    # and uninstall capabilities without affecting normal browsing or updates.
+    adjust_permission = '''    <!-- Needed to get distribution information from partners.
+    This is NOT required for the adjust plugin. -->
+    <uses-permission android:name="com.adjust.preinstall.READ_PERMISSION"/>
+
+'''
+    delete_permission = '''    <!-- Needed to prompt the user directly for app uninstallation as part of an
+    'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
+
+'''
+    text = replace_once(text, adjust_permission, "", "partner attribution permission")
+    text = replace_once(text, delete_permission, "", "uninstall survey permission")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
     <uses-feature
         android:name="android.hardware.touchscreen"
