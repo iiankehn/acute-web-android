@@ -176,6 +176,103 @@ def patch_tablet_defaults(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_branding_ui(fenix: Path) -> None:
+    """Apply Acute's CORE identity to prominent browser surfaces."""
+    wordmark = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt"
+    text = wordmark.read_text(encoding="utf-8")
+    text = replace_once(text, "import androidx.compose.foundation.layout.height\n",
+                        "import androidx.compose.foundation.layout.Column\nimport androidx.compose.foundation.layout.height\n",
+                        "wordmark Column import")
+    text = replace_once(text, "import androidx.compose.material3.MaterialTheme\n" if "import androidx.compose.material3.MaterialTheme\n" in text else "import androidx.compose.runtime.Composable\n",
+                        "import androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Text\nimport androidx.compose.runtime.Composable\n",
+                        "wordmark Material imports")
+    text = replace_once(text, "import androidx.compose.ui.unit.dp\n",
+                        "import androidx.compose.ui.text.font.FontWeight\nimport androidx.compose.ui.unit.dp\nimport androidx.compose.ui.unit.sp\n",
+                        "wordmark typography imports")
+    for unused_import in (
+        "import androidx.compose.ui.graphics.ColorFilter\n",
+        "import androidx.compose.ui.res.dimensionResource\n",
+        "import androidx.compose.ui.res.stringResource\n",
+    ):
+        text = replace_once(text, unused_import, "", f"unused wordmark import {unused_import.strip()}")
+    old_wordmark = '''    Image(
+        modifier =
+            Modifier.semantics {
+                    testTagsAsResourceId = true
+                    testTag = HOMEPAGE_WORDMARK_TEXT
+                }
+                .height(dimensionResource(R.dimen.wordmark_text_height)),
+        painter = painterResource(getAttr(R.attr.fenixWordmarkText)),
+        colorFilter = color?.let { ColorFilter.tint(it) },
+        contentDescription = stringResource(R.string.app_name),
+    )'''
+    new_wordmark = '''    Column(
+        modifier = Modifier.semantics {
+            testTagsAsResourceId = true
+            testTag = HOMEPAGE_WORDMARK_TEXT
+        },
+    ) {
+        Text(
+            text = "Acute",
+            color = color ?: MaterialTheme.colorScheme.onSurface,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 24.sp,
+        )
+        Text(
+            text = "by CORE",
+            color = Color(0xFF0072BC),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 10.sp,
+        )
+    }'''
+    text = replace_once(text, old_wordmark, new_wordmark, "home wordmark")
+    wordmark.write_text(text, encoding="utf-8")
+
+    colors = fenix / "app/src/main/res/values/colors.xml"
+    color_text = colors.read_text(encoding="utf-8")
+    replacements = {
+        '<color name="fx_mobile_primary">@color/novaViolet70</color>':
+            '<color name="fx_mobile_primary">#0072BC</color>',
+        '<color name="fx_mobile_primary_container">@color/novaViolet20</color>':
+            '<color name="fx_mobile_primary_container">#D8EEFC</color>',
+        '<color name="fx_mobile_tertiary">@color/novaViolet50</color>':
+            '<color name="fx_mobile_tertiary">#0072BC</color>',
+        '<color name="fx_mobile_splashscreen_background">#FCF3EE</color>':
+            '<color name="fx_mobile_splashscreen_background">#F4F9FC</color>',
+        '<color name="fx_mobile_private_primary">@color/novaViolet20</color>':
+            '<color name="fx_mobile_private_primary">#44C7F4</color>',
+        '<color name="fx_mobile_private_primary_container">@color/novaViolet60</color>':
+            '<color name="fx_mobile_private_primary_container">#005A94</color>',
+        '<color name="fx_mobile_private_background">@color/novaVioletDesaturated90</color>':
+            '<color name="fx_mobile_private_background">#071827</color>',
+        '<color name="fx_mobile_private_surface">@color/novaVioletDesaturated90</color>':
+            '<color name="fx_mobile_private_surface">#071827</color>',
+        '<color name="fx_mobile_private_surface_variant">@color/novaVioletDesaturated80</color>':
+            '<color name="fx_mobile_private_surface_variant">#0D2A40</color>',
+    }
+    for old, new in replacements.items():
+        color_text = replace_once(color_text, old, new, f"brand color {old}")
+    colors.write_text(color_text, encoding="utf-8")
+
+    preferences = fenix / "app/src/main/res/xml/customization_preferences.xml"
+    pref_text = preferences.read_text(encoding="utf-8")
+    icon_picker = '''    <androidx.preference.PreferenceCategory
+        android:layout="@layout/preference_cat_style"
+        android:title="@string/preferences_app_icon"
+        android:key="@string/pref_key_customization_category_app_icon"
+        app:allowDividerBelow="false"
+        app:iconSpaceReserved="false">
+        <org.mozilla.fenix.iconpicker.ui.AppIconPreference
+            android:key="@string/pref_key_app_icon" />
+    </androidx.preference.PreferenceCategory>
+
+'''
+    pref_text = replace_once(pref_text, icon_picker, "", "alternate app icon picker")
+    preferences.write_text(pref_text, encoding="utf-8")
+
+
 def validate_tablet_upstream(manifest: Path, desktop_mode: Path) -> None:
     """Fail fast if upstream removes the tablet behaviors Acute depends on."""
     manifest_text = manifest.read_text(encoding="utf-8")
@@ -242,6 +339,7 @@ def apply(checkout: Path) -> None:
     validate_tablet_upstream(manifest, desktop_mode)
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
+    patch_branding_ui(fenix)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     static_strings = values / "static_strings.xml"
