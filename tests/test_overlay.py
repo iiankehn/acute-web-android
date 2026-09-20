@@ -95,6 +95,59 @@ DESKTOP_MODE = '''class DefaultDesktopModeRepository(private val context: Contex
 }
 '''
 
+WORDMARK = '''import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+
+@Composable
+internal fun WordmarkText(color: Color?) {
+    Image(
+        modifier =
+            Modifier.semantics {
+                    testTagsAsResourceId = true
+                    testTag = HOMEPAGE_WORDMARK_TEXT
+                }
+                .height(dimensionResource(R.dimen.wordmark_text_height)),
+        painter = painterResource(getAttr(R.attr.fenixWordmarkText)),
+        colorFilter = color?.let { ColorFilter.tint(it) },
+        contentDescription = stringResource(R.string.app_name),
+    )
+}
+'''
+
+COLORS = '''<resources>
+<color name="fx_mobile_primary">@color/novaViolet70</color>
+<color name="fx_mobile_primary_container">@color/novaViolet20</color>
+<color name="fx_mobile_tertiary">@color/novaViolet50</color>
+<color name="fx_mobile_splashscreen_background">#FCF3EE</color>
+<color name="fx_mobile_private_primary">@color/novaViolet20</color>
+<color name="fx_mobile_private_primary_container">@color/novaViolet60</color>
+<color name="fx_mobile_private_background">@color/novaVioletDesaturated90</color>
+<color name="fx_mobile_private_surface">@color/novaVioletDesaturated90</color>
+<color name="fx_mobile_private_surface_variant">@color/novaVioletDesaturated80</color>
+</resources>'''
+
+CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
+    <androidx.preference.PreferenceCategory
+        android:layout="@layout/preference_cat_style"
+        android:title="@string/preferences_app_icon"
+        android:key="@string/pref_key_customization_category_app_icon"
+        app:allowDividerBelow="false"
+        app:iconSpaceReserved="false">
+        <org.mozilla.fenix.iconpicker.ui.AppIconPreference
+            android:key="@string/pref_key_app_icon" />
+    </androidx.preference.PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>'''
+
 
 class OverlayTests(unittest.TestCase):
     def make_checkout(self):
@@ -105,6 +158,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/res/values").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/utils").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
+        (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
         (app / "src/beta").mkdir(parents=True)
         (app / "build.gradle").write_text(GRADLE)
@@ -114,6 +169,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").write_text(SETTINGS)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt").write_text(
             DESKTOP_MODE)
+        (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
+        (app / "src/main/res/values/colors.xml").write_text(COLORS)
+        (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
         (app / "src/main/res/values/static_strings.xml").write_text(
             '<resources><string name="app_name">Firefox Fenix</string></resources>')
         (app / "src/main/res/values/strings.xml").write_text(
