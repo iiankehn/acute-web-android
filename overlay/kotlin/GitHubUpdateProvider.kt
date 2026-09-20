@@ -16,6 +16,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Lightweight GitHub Releases update check with no Fenix-internal dependency.
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors
  */
 class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCallbacks {
     private val worker = Executors.newSingleThreadExecutor()
+    private val checkInProgress = AtomicBoolean(false)
     private val main = Handler(Looper.getMainLooper())
     private var currentActivity: Activity? = null
     private var pendingRelease: Release? = null
@@ -31,8 +33,19 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
         app.registerActivityLifecycleCallbacks(this)
-        worker.execute { checkForUpdate() }
+        requestUpdateCheck()
         return true
+    }
+
+    private fun requestUpdateCheck() {
+        if (!checkInProgress.compareAndSet(false, true)) return
+        worker.execute {
+            try {
+                checkForUpdate()
+            } finally {
+                checkInProgress.set(false)
+            }
+        }
     }
 
     private fun checkForUpdate() {
@@ -40,8 +53,6 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         val prefs = ctx.getSharedPreferences(PREFS, 0)
         val now = System.currentTimeMillis()
         if (now - prefs.getLong(KEY_LAST_CHECK, 0) < CHECK_INTERVAL_MS) return
-        prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
-
         try {
             val connection = URL(RELEASE_API).openConnection() as HttpURLConnection
             connection.connectTimeout = 10_000
@@ -49,6 +60,9 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "Acute-Web-Android")
             connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+            if (connection.responseCode !in 200..299) {
+                throw IllegalStateException("GitHub returned HTTP ${connection.responseCode}")
+            }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(body)
             val version = json.getString("tag_name").removePrefix("v")
@@ -57,13 +71,18 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             for (index in 0 until assets.length()) {
                 val asset = assets.getJSONObject(index)
                 val name = asset.getString("name").lowercase()
-                if (name.endsWith(".apk") && (bestUrl == null || name.contains("universal"))) {
-                    bestUrl = asset.getString("browser_download_url")
+                val candidate = asset.getString("browser_download_url")
+                val uri = Uri.parse(candidate)
+                val trustedDownload = uri.scheme == "https" && uri.host == "github.com"
+                if (trustedDownload && name.endsWith(".apk") &&
+                    (bestUrl == null || name.contains("universal") || name.contains("arm64-v8a"))) {
+                    bestUrl = candidate
                 }
             }
             val installed = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "0"
+            prefs.edit().putLong(KEY_LAST_CHECK, now).apply()
             if (bestUrl != null && isNewer(version, installed) &&
-                prefs.getString(KEY_DISMISSED, null) != version) {
+                now >= prefs.getLong(KEY_REMIND_AFTER, 0)) {
                 pendingRelease = Release(version, bestUrl, json.getString("html_url"))
                 main.post { showIfReady() }
             }
@@ -89,13 +108,14 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             }
             .setNegativeButton("Later") { _, _ ->
                 context?.getSharedPreferences(PREFS, 0)?.edit()
-                    ?.putString(KEY_DISMISSED, release.version)?.apply()
+                    ?.putLong(KEY_REMIND_AFTER, System.currentTimeMillis() + REMIND_INTERVAL_MS)?.apply()
             }
             .show()
     }
 
     override fun onActivityResumed(activity: Activity) {
         currentActivity = activity
+        requestUpdateCheck()
         showIfReady()
     }
     override fun onActivityPaused(activity: Activity) {
@@ -131,10 +151,10 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val TAG = "AcuteUpdates"
         private const val PREFS = "acute_updates"
         private const val KEY_LAST_CHECK = "last_check_ms"
-        private const val KEY_DISMISSED = "dismissed_version"
-        private const val CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000
+        private const val KEY_REMIND_AFTER = "remind_after_ms"
+        private const val CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
+        private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val RELEASE_API =
             "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
     }
 }
-
