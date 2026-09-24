@@ -34,6 +34,14 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("refusing to replace published files", workflow)
         self.assertIn("gh release create", workflow)
 
+    def test_release_verification_uses_available_android_tools(self):
+        workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
+        self.assertIn('"$build_tools/aapt2" dump permissions', workflow)
+        self.assertNotIn("apkanalyzer manifest permissions", workflow)
+        self.assertIn("certificate_digest()", workflow)
+        self.assertIn("certificate SHA-256 digest:", workflow)
+        self.assertIn('test -n "$current_digest"', workflow)
+
     def test_release_contains_arm64_firefox_engine(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("--target=aarch64-linux-android", workflow)
