@@ -268,6 +268,7 @@ jobs:
           build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
+          test -x "$build_tools/aapt2"
           printf '%s' "$ACUTE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/acute-web-release.jks"
           chmod 600 "$RUNNER_TEMP/acute-web-release.jks"
           mkdir -p dist
@@ -280,10 +281,10 @@ jobs:
             --key-pass "env:ACUTE_KEY_PASSWORD" \
             --out "dist/acute-web-${VERSION}-arm64-v8a.apk" \
             "$RUNNER_TEMP/aligned.apk"
-          "$build_tools/apksigner" verify --verbose --print-certs "dist/acute-web-${VERSION}-arm64-v8a.apk" \
-            | tee dist/signing-certificate.txt
-          apkanalyzer manifest permissions "dist/acute-web-${VERSION}-arm64-v8a.apk" \
-            | tee dist/manifest-permissions.txt
+          signing_report="$("$build_tools/apksigner" verify --verbose --print-certs "dist/acute-web-${VERSION}-arm64-v8a.apk")"
+          printf '%s\n' "$signing_report" | tee dist/signing-certificate.txt
+          permissions_report="$("$build_tools/aapt2" dump permissions "dist/acute-web-${VERSION}-arm64-v8a.apk")"
+          printf '%s\n' "$permissions_report" | tee dist/manifest-permissions.txt
           ! grep -q 'com.adjust.preinstall.READ_PERMISSION' dist/manifest-permissions.txt
           ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' dist/manifest-permissions.txt
           sha256sum "dist/acute-web-${VERSION}-arm64-v8a.apk" > "dist/acute-web-${VERSION}-arm64-v8a.apk.sha256"
@@ -300,9 +301,16 @@ jobs:
           gh release download v0.2.0 --pattern '*.apk' --dir previous
           previous_apk="$(find previous -name '*.apk' -print -quit)"
           current_apk="$(find dist -name '*.apk' -print -quit)"
-          previous_digest="$("$build_tools/apksigner" verify --print-certs "$previous_apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
-          current_digest="$("$build_tools/apksigner" verify --print-certs "$current_apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+          certificate_digest() {
+            "$build_tools/apksigner" verify --verbose --print-certs "$1" \
+              | sed -n -E 's/^.*certificate SHA-256 digest: ([0-9a-fA-F]{64})$/\1/p' \
+              | head -1
+          }
+          previous_digest="$(certificate_digest "$previous_apk")"
+          current_digest="$(certificate_digest "$current_apk")"
           test -n "$previous_digest"
+          test -n "$current_digest"
+          printf 'Previous signer: %s\nCurrent signer:  %s\n' "$previous_digest" "$current_digest"
           test "$current_digest" = "$previous_digest"
 
       - name: Upload signed release
