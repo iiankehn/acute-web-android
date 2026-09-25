@@ -9,8 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 class ProjectTests(unittest.TestCase):
     def test_updater_uses_selected_public_repository(self):
         updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
-        self.assertIn("iiankehn/acute-web-android/releases/latest", updater)
+        self.assertIn("iiankehn/acute-web-android/releases?per_page=20", updater)
         self.assertIn("arm64-v8a.apk", updater)
+        self.assertIn('BuildConfig.BUILD_TYPE == "beta"', updater)
+        self.assertIn("candidate.optBoolean(\"prerelease\") == IS_BETA", updater)
+        self.assertIn("BETA_VERSION", updater)
         self.assertIn("requestUpdateCheck()", updater)
         self.assertIn('uri.host == "github.com"', updater)
         self.assertIn("KEY_REMIND_AFTER", updater)
