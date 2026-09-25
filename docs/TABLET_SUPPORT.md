@@ -1,29 +1,29 @@
 # Tablet and large-screen support
 
-Acute Web treats devices with a physical smallest width of at least 600 dp as
-tablets, matching Fenix's current large-screen threshold.
+Acute Web supports Android tablets, foldables, resizable windows, and
+keyboard/mouse-first ChromeOS devices. Devices with a physical smallest width
+of at least 600 dp use the tablet experience.
 
-## Enabled by default on tablets
+## Tablet behavior
 
-- A persistent tab strip at the top of the browser. Users can turn it off or
-  move it to the bottom in customization settings.
-- The expanded browser toolbar, which uses the available width for more direct
-  actions.
-- Desktop browsing mode for newly opened tabs. Users can change the default or
-  switch individual sites back to mobile mode.
-- Resizable windows, rotation, Android split screen, and picture-in-picture as
-  provided by the upstream Fenix activities.
-- Installation on keyboard/mouse-first ChromeOS hardware that does not report a
-  touchscreen.
+On qualifying devices, Acute enables:
 
-Fenix currently excludes hinged foldable devices from the tab strip while its
-foldable layouts are being improved. Acute keeps that safety check instead of
-forcing a tablet layout across a hinge.
+- a persistent tab strip, configurable in customization settings;
+- an expanded toolbar that uses the available width for direct actions;
+- desktop browsing mode for newly opened tabs, with per-site and default
+  overrides;
+- rotation and Android split-screen resizing;
+- picture-in-picture where supported by Android and the website;
+- installation on ChromeOS hardware that does not report a touchscreen.
 
-## Automated checks
+Hinged foldables retain the upstream safety checks for layouts that cross a
+physical hinge. Acute does not force the tablet tab strip where the layout
+cannot be presented safely.
 
-Every Android build is followed by an emulator smoke test at three effective
-large-screen configurations:
+## Automated coverage
+
+Every Android build runs launch and rotation smoke tests at three large-screen
+configurations:
 
 | Profile | Resolution | Density | Approximate smallest width |
 |---|---:|---:|---:|
@@ -31,25 +31,25 @@ large-screen configurations:
 | Standard tablet | 1600 × 2560 | 320 dpi | 800 dp |
 | Large tablet | 1848 × 2960 | 320 dpi | 924 dp |
 
-For each profile the test installs Acute Web, launches it in portrait and
+For each profile, the workflow installs Acute, launches it in portrait and
 landscape, sends keyboard navigation input, checks that the process remains
-alive, and captures screenshots as workflow artifacts.
+alive, and stores screenshots as build artifacts.
 
 ## Device acceptance checklist
 
-Before publishing the first APK, test at least one physical tablet with a
-hardware keyboard or trackpad:
+Automated smoke tests do not replace physical-device testing. Before a stable
+release, verify at least one tablet in both orientations:
 
-- onboarding and first-run consent screens in both orientations;
-- opening, selecting, closing, and restoring tabs from the tab strip;
-- combined search/address bar and text selection with keyboard and mouse;
+- first launch and permission prompts;
+- opening, selecting, closing, and restoring tabs;
+- the unified search/address bar and text selection;
 - bookmarks, history, downloads, saved passwords, and extension panels;
-- private browsing and switching between normal/private modes;
+- private browsing and normal/private mode switching;
 - desktop/mobile site switching and page zoom;
-- split-screen resize from narrow phone-like width to full tablet width;
+- split-screen resizing from narrow to full width;
+- hardware keyboard and pointer navigation;
 - video fullscreen and picture-in-picture;
-- installing a signed update over an earlier signed APK.
+- installation over the previous signed Acute release.
 
-The automated workflow is a crash/layout smoke test, not a substitute for this
-physical-device acceptance pass.
-
+Report device-specific problems through
+[GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
