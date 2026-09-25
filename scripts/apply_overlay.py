@@ -80,8 +80,8 @@ def patch_product_branding(fenix: Path) -> None:
     english.write_text(text, encoding="utf-8")
 
 
-def patch_app_labels(fenix: Path) -> None:
-    """Give every packaged channel the Acute Web launcher label."""
+def patch_app_labels(fenix: Path, channel: str) -> None:
+    """Give Stable and Beta distinct, user-visible launcher labels."""
     static_files = sorted((fenix / "app/src").glob("*/res/values*/static_strings.xml"))
     if not static_files:
         raise OverlayError("Could not locate any channel static_strings.xml files")
@@ -92,7 +92,8 @@ def patch_app_labels(fenix: Path) -> None:
     )
     for path in static_files:
         text = path.read_text(encoding="utf-8")
-        updated, count = app_name.subn(r"\1Acute Web\3", text, count=1)
+        label = "Acute Beta" if channel == "beta" and "/beta/" in path.as_posix() else "Acute Web"
+        updated, count = app_name.subn(rf"\1{label}\3", text, count=1)
         if count != 1:
             raise OverlayError(f"Could not locate app_name in {path}")
         path.write_text(updated, encoding="utf-8")
@@ -104,6 +105,8 @@ def patch_gradle(path: Path) -> None:
                         'applicationId "com.acuteweb.browser"', "application ID")
     text = replace_once(text, 'applicationIdSuffix ".fenix.debug"',
                         'applicationIdSuffix ".debug"', "debug application suffix")
+    text = replace_once(text, 'applicationIdSuffix ".firefox_beta"',
+                        'applicationIdSuffix ".beta"', "beta application suffix")
     text = replace_once(text, 'applicationIdSuffix ".firefox"',
                         '// Acute Web uses the base application ID for releases.',
                         "release application suffix")
@@ -159,6 +162,27 @@ def patch_gradle(path: Path) -> None:
 """
     text = replace_once(text, version_gate, version_override, "versioning gate")
 
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_dark_theme_default(path: Path) -> None:
+    """Use Acute's dark interface on first install while keeping theme controls."""
+    text = path.read_text(encoding="utf-8")
+    old = '''    var shouldUseDarkTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_dark_theme),
+            default = false,
+        )
+'''
+    new = '''    // Acute Web starts in dark mode. This is only the first-install default;
+    // users can still choose Light, Dark, or Follow system in settings.
+    var shouldUseDarkTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_dark_theme),
+            default = true,
+        )
+'''
+    text = replace_once(text, old, new, "dark theme preference")
     path.write_text(text, encoding="utf-8")
 
 
@@ -472,7 +496,9 @@ def copy_overlay(fenix: Path) -> None:
                 shutil.copy2(source, destination)
 
 
-def apply(checkout: Path) -> None:
+def apply(checkout: Path, channel: str = "stable") -> None:
+    if channel not in {"stable", "beta"}:
+        raise OverlayError(f"Unsupported Acute channel: {channel}")
     checkout = checkout.resolve()
     if not (checkout / "mach").is_file():
         raise OverlayError(f"Not a Firefox checkout: {checkout}")
@@ -500,27 +526,36 @@ def apply(checkout: Path) -> None:
     validate_tablet_upstream(manifest, desktop_mode)
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
+    patch_dark_theme_default(settings)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
-    patch_app_labels(fenix)
+    patch_app_labels(fenix, channel)
     static_strings = values / "static_strings.xml"
     static_strings.write_text(
         replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
     )
     patch_product_branding(fenix)
     copy_overlay(fenix)
-    (checkout / MARKER).write_text("Acute Web Android overlay applied\n", encoding="utf-8")
+    (checkout / MARKER).write_text(
+        f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("firefox_checkout", type=Path)
+    parser.add_argument(
+        "--channel",
+        choices=("stable", "beta"),
+        default="stable",
+        help="Acute release channel to configure (default: stable)",
+    )
     args = parser.parse_args()
     try:
-        apply(args.firefox_checkout)
+        apply(args.firefox_checkout, channel=args.channel)
     except OverlayError as error:
         parser.error(str(error))
     print(f"Applied Acute Web Android overlay to {args.firefox_checkout.resolve()}")

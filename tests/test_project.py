@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -57,7 +58,9 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@96b4a1ef", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("0.2.1-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("0.4.0-beta.dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("com.acuteweb.browser.beta", workflow)
+        self.assertIn("--prerelease", workflow)
 
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
@@ -72,7 +75,7 @@ class ProjectTests(unittest.TestCase):
 
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()
-        self.assertIn("sideloadable apk", readme)
+        self.assertRegex(readme, r"sideloadable\s+apk")
         self.assertNotIn("play store listing", readme)
 
 

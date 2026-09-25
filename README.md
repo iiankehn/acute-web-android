@@ -85,6 +85,7 @@ For release operations, see:
 - [Repository and release setup](docs/GITHUB_SETUP.md)
 - [APK signing](docs/SIGNING.md)
 - [Maintaining the Gecko/Firefox source base](docs/UPSTREAM.md)
+- [Stable and Beta release channels](docs/RELEASE_CHANNELS.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

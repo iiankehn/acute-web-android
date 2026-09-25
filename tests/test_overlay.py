@@ -91,6 +91,12 @@ class Settings(private val appContext: Context) {
             default = false,
         )
 
+    var shouldUseDarkTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_dark_theme),
+            default = false,
+        )
+
     var shouldUseExpandedToolbar by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_toolbar_expanded),
@@ -277,6 +283,7 @@ class OverlayTests(unittest.TestCase):
         strings = (app / "src/main/res/values/strings.xml").read_text()
         static_strings = (app / "src/main/res/values/static_strings.xml").read_text()
         self.assertIn('applicationId "com.acuteweb.browser"', gradle)
+        self.assertIn('applicationIdSuffix ".beta"', gradle)
         self.assertNotIn("org.mozilla.firefox.sharedID", gradle)
         self.assertNotIn("sharedUserId", (app / "src/release/AndroidManifest.xml").read_text())
         self.assertNotIn("'TELEMETRY', 'true'", gradle)
@@ -293,6 +300,8 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("get() = false", tablet_settings)
         self.assertIn("crashReportChoice: String", tablet_settings)
         self.assertIn("CrashReportOption.Never", tablet_settings)
+        self.assertIn("Acute Web starts in dark mode", tablet_settings)
+        self.assertIn("pref_key_dark_theme),\n            default = true", tablet_settings)
         onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
         self.assertIn("never displays Mozilla marketing", onboarding)
         self.assertNotIn("MarketingPageAdditionSupport(", onboarding)
@@ -323,6 +332,30 @@ class OverlayTests(unittest.TestCase):
         )
         self.assertTrue((app / "src/main/java/org/mozilla/fenix/acute/GitHubUpdateProvider.kt").is_file())
         self.assertTrue((root / ".acute-web-android-overlay").is_file())
+
+    def test_beta_channel_has_separate_identity(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        self.assertIn(
+            'name="app_name">Acute Beta<',
+            (app / "src/beta/res/values/static_strings.xml").read_text(),
+        )
+        self.assertIn(
+            'name="app_name">Acute Web<',
+            (app / "src/release/res/values/static_strings.xml").read_text(),
+        )
+        self.assertEqual(
+            (root / ".acute-web-android-overlay").read_text(),
+            "Acute Web Android overlay applied (beta)\n",
+        )
+
+    def test_rejects_unknown_channel(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        with self.assertRaises(OverlayError):
+            apply(root, channel="nightly")
 
     def test_refuses_second_application(self):
         temp, root = self.make_checkout()

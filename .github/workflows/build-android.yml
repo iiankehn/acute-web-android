@@ -30,6 +30,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       kind: ${{ steps.version.outputs.kind }}
       package: ${{ steps.version.outputs.package }}
+      channel: ${{ steps.version.outputs.channel }}
       firefox_ref: ${{ steps.version.outputs.firefox_ref }}
     steps:
       - name: Check out Acute overlay
@@ -45,26 +46,46 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
-            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-              echo "Release tags must use vMAJOR.MINOR.PATCH"
+            if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              channel=stable
+              task=fenix:assembleRelease
+              kind=release
+              package=com.acuteweb.browser
+            elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+              channel=beta
+              task=fenix:assembleBeta
+              kind=beta
+              package=com.acuteweb.browser.beta
+            else
+              echo "Tags must use vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.NUMBER"
               exit 1
-            }
-            echo "task=fenix:assembleRelease" >> "$GITHUB_OUTPUT"
+            fi
+            echo "task=$task" >> "$GITHUB_OUTPUT"
             echo "gradle_flags=-PlocalProperties.disableDebugSigning=true" >> "$GITHUB_OUTPUT"
-            echo "kind=release" >> "$GITHUB_OUTPUT"
+            echo "kind=$kind" >> "$GITHUB_OUTPUT"
             echo "version=$version" >> "$GITHUB_OUTPUT"
-            echo "package=com.acuteweb.browser" >> "$GITHUB_OUTPUT"
+            echo "package=$package" >> "$GITHUB_OUTPUT"
+            echo "channel=$channel" >> "$GITHUB_OUTPUT"
             echo "firefox_ref=$PINNED_FIREFOX_REF" >> "$GITHUB_OUTPUT"
           else
             [[ "$MANUAL_FIREFOX_REF" =~ ^[0-9a-f]{40}$ ]] || {
               echo "Manual builds require a full 40-character Firefox commit"
               exit 1
             }
-            echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
+            if [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
+              echo "task=fenix:assembleBeta" >> "$GITHUB_OUTPUT"
+              echo "kind=beta" >> "$GITHUB_OUTPUT"
+              echo "version=0.4.0-beta.dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
+              echo "channel=beta" >> "$GITHUB_OUTPUT"
+            else
+              echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
+              echo "kind=debug" >> "$GITHUB_OUTPUT"
+              echo "version=0.3.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
+              echo "channel=stable" >> "$GITHUB_OUTPUT"
+            fi
             echo "gradle_flags=" >> "$GITHUB_OUTPUT"
-            echo "kind=debug" >> "$GITHUB_OUTPUT"
-            echo "version=0.2.1-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-            echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
             echo "firefox_ref=$MANUAL_FIREFOX_REF" >> "$GITHUB_OUTPUT"
           fi
 
@@ -107,7 +128,7 @@ jobs:
         run: ./mach build
 
       - name: Apply Acute Web overlay
-        run: python3 acute-overlay/scripts/apply_overlay.py firefox
+        run: python3 acute-overlay/scripts/apply_overlay.py firefox --channel "${{ steps.version.outputs.channel }}"
 
       - name: Verify privacy flags and minimized permissions
         run: |
@@ -355,8 +376,11 @@ jobs:
             }
             gh release upload "$GITHUB_REF_NAME" dist/*
           else
+            prerelease=()
+            [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
             gh release create "$GITHUB_REF_NAME" dist/* \
               --verify-tag \
               --generate-notes \
+              "${prerelease[@]}" \
               --title "Acute Web $GITHUB_REF_NAME"
           fi
