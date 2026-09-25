@@ -1,11 +1,14 @@
 # APK signing
 
-Android accepts an update only when it is signed by the same key as the
-installed app. Back up this key: losing it means existing users cannot upgrade.
+Android accepts an app update only when the new APK is signed by the same key
+as the installed version. The Acute Web release key is therefore part of the
+product's long-term update identity. Losing it prevents existing installations
+from upgrading in place; exposing it allows an attacker to impersonate a
+release.
 
-## 1. Generate the key locally
+## Key generation
 
-Install a JDK, then run:
+Generate the key on a trusted local machine with a current JDK:
 
 ```bash
 keytool -genkeypair -v \
@@ -14,10 +17,10 @@ keytool -genkeypair -v \
   -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Do not place the `.jks` file inside the repository. Keep at least two encrypted
-offline backups.
+Never place the keystore in the repository. Maintain at least two encrypted,
+offline backups in separate locations.
 
-## 2. Add GitHub Actions secrets
+## GitHub Actions configuration
 
 Encode the keystore without line breaks:
 
@@ -25,32 +28,41 @@ Encode the keystore without line breaks:
 base64 -w 0 acute-web-release.jks
 ```
 
-On macOS use `base64 < acute-web-release.jks | tr -d '\n'`.
+On macOS:
 
-Create a GitHub Actions environment named `release-signing`, then add these as
-environment secrets under **Settings → Environments → release-signing**. The
-workflow exposes them only to the isolated signing job:
+```bash
+base64 < acute-web-release.jks | tr -d '\n'
+```
+
+Create a protected GitHub Actions environment named `release-signing` and add:
 
 | Secret | Value |
 |---|---|
-| `ACUTE_KEYSTORE_B64` | Base64 output from the keystore |
+| `ACUTE_KEYSTORE_B64` | Base64-encoded keystore |
 | `ACUTE_KEYSTORE_PASSWORD` | Keystore password |
-| `ACUTE_KEY_ALIAS` | `acute-web` (or the alias you selected) |
+| `ACUTE_KEY_ALIAS` | `acute-web` or the selected alias |
 | `ACUTE_KEY_PASSWORD` | Private-key password |
 
-Tag-triggered releases deliberately fail if any signing secret is absent or if
-the generated certificate differs from the certificate used for v0.2.0.
-Manual workflow runs create debug-signed test builds and do not publish a
-release.
+Only the isolated signing job may access these values. Upstream source,
+pull-request code, and the main compilation job must not receive them. Manual
+workflow runs create debug-signed artifacts and never publish a release.
 
-## 3. Verify a release
+## Verification
 
-After downloading the APK, inspect its certificate:
+Download the APK and inspect its signing certificate:
 
 ```bash
-apksigner verify --verbose --print-certs acute-web-0.2.1-arm64-v8a.apk
+apksigner verify --verbose --print-certs acute-web-0.3.0-arm64-v8a.apk
 ```
 
-Record the SHA-256 certificate digest somewhere independent of GitHub.
-Each release also contains an APK SHA-256 file, the exact Acute and Firefox
-commits, and a GitHub build-provenance attestation.
+Verify the accompanying SHA-256 checksum:
+
+```bash
+sha256sum -c acute-web-0.3.0-arm64-v8a.apk.sha256
+```
+
+Each stable release includes the APK checksum, signing-certificate report,
+manifest-permissions report, exact build inputs, and provenance attestation.
+Compare the certificate digest with a previously trusted Acute release before
+installing an update. Record the production certificate digest somewhere
+independent of GitHub.
