@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode Material surfaces backed by Acute's CORE Glass tokens. -->
+    <color name="fx_mobile_primary">@color/acute_glass_blue_soft</color>
+    <color name="fx_mobile_on_primary">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_primary_container">@color/acute_glass_blue_container</color>
+    <color name="fx_mobile_on_primary_container">@color/acute_glass_text</color>
+    <color name="fx_mobile_secondary">@color/acute_glass_text_muted</color>
+    <color name="fx_mobile_on_secondary">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_secondary_container">@color/acute_glass_surface_high</color>
+    <color name="fx_mobile_on_secondary_container">@color/acute_glass_text</color>
+    <color name="fx_mobile_tertiary">@color/acute_glass_blue_soft</color>
+    <color name="fx_mobile_on_tertiary">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_tertiary_container">@color/acute_glass_blue_container</color>
+    <color name="fx_mobile_on_tertiary_container">@color/acute_glass_text</color>
+    <color name="fx_mobile_background">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_on_background">@color/acute_glass_text</color>
+    <color name="fx_mobile_surface">@color/acute_glass_surface</color>
+    <color name="fx_mobile_on_surface">@color/acute_glass_text</color>
+    <color name="fx_mobile_surface_variant">@color/acute_glass_surface_high</color>
+    <color name="fx_mobile_on_surface_variant">@color/acute_glass_text_muted</color>
+    <color name="fx_mobile_surface_bright">@color/acute_glass_surface_high</color>
+    <color name="fx_mobile_surface_dim">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_surface_container">@color/acute_glass_surface</color>
+    <color name="fx_mobile_surface_container_high">@color/acute_glass_surface_high</color>
+    <color name="fx_mobile_surface_container_highest">@color/acute_glass_surface_high</color>
+    <color name="fx_mobile_surface_container_low">@color/acute_glass_surface_low</color>
+    <color name="fx_mobile_surface_container_lowest">@color/acute_glass_canvas</color>
+    <color name="fx_mobile_surface_container_selected">@color/acute_glass_surface_selected</color>
+    <color name="fx_mobile_outline">@color/acute_glass_outline</color>
+</resources>

@@ -87,9 +87,25 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@96b4a1ef", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("0.4.0-beta.dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("0.5.0-rc.dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
         self.assertIn("--prerelease", workflow)
+
+    def test_core_glass_dark_theme_tokens_are_packaged(self):
+        tokens = (ROOT / "overlay/res/values/acute_core_glass.xml").read_text()
+        theme = (ROOT / "overlay/res/values-night/acute_core_glass_theme.xml").read_text()
+        for color in (
+            "acute_glass_canvas",
+            "acute_glass_surface",
+            "acute_glass_surface_selected",
+            "acute_glass_outline",
+            "acute_glass_blue",
+        ):
+            self.assertIn(f'name="{color}"', tokens)
+        self.assertIn("#FF0072BC", tokens)
+        self.assertIn("@color/acute_glass_surface", theme)
+        self.assertIn("@color/acute_glass_surface_selected", theme)
+        self.assertIn("@color/acute_glass_blue_soft", theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()

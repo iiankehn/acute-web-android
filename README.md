@@ -91,9 +91,16 @@ For release operations, see:
 
 ## Project status
 
-Acute Web is under active development. Version 0.3 establishes the Acute Web by
-CORE identity, privacy defaults, update path, and Android phone/tablet
-experience. Bug reports and reproducible device feedback are welcome through
+Acute Web is under active development. Stable releases remain on `main`; new
+work is validated on `beta` before it can become a public release candidate.
+Version 0.5 development introduces the CORE Glass visual system: a dark
+black/grey canvas, layered translucent surfaces, restrained soft-blue accents,
+and accessible high-contrast text. The design is implemented as shared tokens
+so phones, tablets, foldables, and ChromeOS use one consistent interface.
+
+Version 0.3 established the Acute Web by CORE identity, privacy defaults,
+update path, and Android phone/tablet experience. Bug reports and reproducible
+device feedback are welcome through
 [GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
 
 ## Licensing and attribution
