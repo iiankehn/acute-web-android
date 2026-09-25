@@ -4,6 +4,12 @@ Acute Web supports Android tablets, foldables, resizable windows, and
 keyboard/mouse-first ChromeOS devices. Devices with a physical smallest width
 of at least 600 dp use the tablet experience.
 
+<p align="center">
+  <img src="assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web 0.3 in landscape orientation on an Android tablet" width="900">
+</p>
+
+*Landscape capture from the Android 12 standard-tablet smoke-test profile.*
+
 ## Tablet behavior
 
 On qualifying devices, Acute enables:
