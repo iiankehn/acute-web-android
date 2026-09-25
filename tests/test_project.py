@@ -23,8 +23,17 @@ class ProjectTests(unittest.TestCase):
 
     def test_core_branding_assets_are_packaged(self):
         self.assertTrue((ROOT / "overlay/res/drawable-nodpi/acute_brand_mark.png").is_file())
+        self.assertTrue((ROOT / "overlay/res/drawable-nodpi/acute_brand_monochrome.png").is_file())
         foreground = (ROOT / "overlay/res/drawable/acute_launcher_foreground.xml").read_text()
         self.assertIn("@drawable/acute_brand_mark", foreground)
+        background = (ROOT / "overlay/res/drawable/acute_launcher_background.xml").read_text()
+        self.assertIn("@android:color/transparent", background)
+        themed = (ROOT / "overlay/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
+        self.assertIn("<monochrome", themed)
+        self.assertIn("@drawable/acute_launcher_monochrome", themed)
+        legacy = (ROOT / "overlay/res/mipmap-anydpi/ic_launcher.xml").read_text()
+        self.assertIn("@drawable/acute_brand_mark", legacy)
+        self.assertNotIn("pathData", legacy)
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
         self.assertIn('text = "Acute"', overlay)
         self.assertIn('text = "by CORE"', overlay)

@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#101B36" android:pathData="M54,0 A54,54 0,1 0,54,108 A54,54 0,1 0,54,0" />
-    <path android:fillColor="#44D8FF" android:pathData="M19,82 L48,23 C50,19 57,19 59,23 L88,82 L71,82 L65,69 L41,69 L35,82 Z M47,56 L59,56 L53,42 Z" />
-    <path android:fillColor="#E8FCFF" android:pathData="M68,20 L73,32 L86,37 L73,42 L68,55 L63,42 L50,37 L63,32 Z" />
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/acute_brand_mark"
+    android:gravity="center" />
