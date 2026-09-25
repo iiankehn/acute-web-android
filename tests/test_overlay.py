@@ -79,6 +79,14 @@ CHANNEL_MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/re
 
 SETTINGS = '''package org.mozilla.fenix.utils
 class Settings(private val appContext: Context) {
+    @Suppress("DEPRECATION")
+    var showPocketRecommendationsFeature by
+        lazyFeatureFlagBooleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_pocket_homescreen_recommendations),
+            featureFlag = ContentRecommendationsFeatureHelper.isContentRecommendationsFeatureEnabled(appContext),
+            defaultValue = { homescreenSections[HomeScreenSection.POCKET] == true },
+        )
+
     var crashReportChoice by
         stringPreference(
             appContext.getPreferenceKey(R.string.pref_key_crash_reporting_choice),
@@ -110,6 +118,23 @@ class Settings(private val appContext: Context) {
             default =
                 FxNimbus.features.tabStrip.value().enabled &&
                     (isTabStripEligible(appContext) || FxNimbus.features.tabStrip.value().allowOnAllDevices),
+        )
+
+    var showContileFeature by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_contile),
+            default = true,
+        )
+
+    var currentWallpaperName by
+        stringPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_current_wallpaper),
+            default =
+                if (enableHomepageEdgeToEdgeBackgroundFeature) {
+                    Wallpaper.EdgeToEdge.name
+                } else {
+                    Wallpaper.Default.name
+                },
         )
 }
 '''
@@ -228,6 +253,72 @@ CORE = '''class Core {
     }
 }'''
 
+STYLES = '''<resources>
+<style name="NormalTheme">
+<item name="accent">@color/accent_normal_theme</item>
+<item name="accentBright">@color/photonViolet70</item>
+<item name="fenixLogo">@drawable/ic_logo_wordmark_normal</item>
+<item name="fenixWordmarkLogo">@drawable/ic_wordmark_logo</item>
+</style>
+<style name="PrivateTheme">
+<item name="fenixLogo">@drawable/ic_logo_wordmark_private</item>
+</style>
+</resources>'''
+
+ABOUT = '''class AboutFragment {
+    private lateinit var appName: String
+    private fun populateAboutList(): List<AboutPageItem> {
+        val context = requireContext()
+
+        return listOf(
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    WHATS_NEW,
+                    SupportUtils.WHATS_NEW_URL,
+                ),
+                // Note: Fenix only has release notes for 'Release' versions, NOT 'Beta' & 'Nightly'.
+                getString(R.string.about_whats_new, getString(R.string.firefox)),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    SUPPORT,
+                    SupportUtils.getSumoURLForTopic(context, SupportUtils.SumoTopic.HELP),
+                ),
+                getString(R.string.about_support),
+            ),
+            AboutPageItem(
+                AboutItem.Crashes,
+                getString(R.string.about_crashes),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    PRIVACY_NOTICE,
+                    SupportUtils.getMozillaPageUrl(SupportUtils.MozillaPage.PRIVACY_NOTICE),
+                ),
+                getString(R.string.about_privacy_notice),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    RIGHTS,
+                    SupportUtils.getSumoURLForTopic(context, SupportUtils.SumoTopic.YOUR_RIGHTS),
+                ),
+                getString(R.string.about_know_your_rights),
+            ),
+        )
+    }
+    fun clicked(item: AboutItem) {
+        when (item.type) {
+                    WHATS_NEW -> {
+                        WhatsNew.userViewedWhatsNew(requireContext())
+                        Events.whatsNewTapped.record(Events.WhatsNewTappedExtra(source = "ABOUT"))
+                    }
+        }
+    }
+    companion object {
+        private const val ABOUT_LICENSE_URL = "about:license"
+    }
+}'''
+
 
 class OverlayTests(unittest.TestCase):
     def make_checkout(self):
@@ -241,6 +332,7 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/onboarding").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/components").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/settings/about").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
@@ -257,10 +349,12 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
+        (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").write_text(ABOUT)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt").write_text(
             DESKTOP_MODE)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
         (app / "src/main/res/values/colors.xml").write_text(COLORS)
+        (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
         (app / "src/main/res/xml/preferences.xml").write_text(PREFERENCES)
         (app / "src/main/res/values/static_strings.xml").write_text(
@@ -335,6 +429,20 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("CrashReportOption.Never", tablet_settings)
         self.assertIn("Acute Web starts in dark mode", tablet_settings)
         self.assertIn("pref_key_dark_theme),\n            default = true", tablet_settings)
+        self.assertIn("showPocketRecommendationsFeature: Boolean", tablet_settings)
+        self.assertIn("showContileFeature: Boolean", tablet_settings)
+        self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
+        self.assertNotIn("showContileFeature by", tablet_settings)
+        styles = (app / "src/main/res/values/styles.xml").read_text()
+        self.assertNotIn("ic_logo_wordmark", styles)
+        self.assertNotIn("ic_wordmark_logo", styles)
+        self.assertIn("@drawable/acute_brand_mark", styles)
+        about = (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").read_text()
+        self.assertIn("ACUTE_RELEASES_URL", about)
+        self.assertIn("ACUTE_ISSUES_URL", about)
+        self.assertIn("ACUTE_PRIVACY_URL", about)
+        self.assertNotIn("SupportUtils.WHATS_NEW_URL", about)
+        self.assertNotIn("AboutItem.Crashes", about)
         onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
         self.assertIn("never displays Mozilla marketing", onboarding)
         self.assertNotIn("MarketingPageAdditionSupport(", onboarding)

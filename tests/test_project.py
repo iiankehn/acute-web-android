@@ -107,6 +107,11 @@ class ProjectTests(unittest.TestCase):
         self.assertRegex(readme, r"sideloadable\s+apk")
         self.assertNotIn("play store listing", readme)
 
+    def test_acute_privacy_notice_is_present(self):
+        privacy = (ROOT / "docs/PRIVACY.md").read_text()
+        self.assertIn("collecting telemetry", privacy)
+        self.assertIn("Mozilla's open-source Gecko engine", privacy)
+
 
 if __name__ == "__main__":
     unittest.main()

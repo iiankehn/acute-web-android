@@ -437,6 +437,29 @@ def patch_branding_ui(fenix: Path) -> None:
         color_text = replace_once(color_text, old, new, f"brand color {old}")
     colors.write_text(color_text, encoding="utf-8")
 
+    # Replace every prominent Firefox logo reference with Acute's own mark.
+    # The About-page disclosure remains truthful text; trademarks are not
+    # needed to satisfy the source license.
+    styles = fenix / "app/src/main/res/values/styles.xml"
+    style_text = styles.read_text(encoding="utf-8")
+    for old in (
+        "@drawable/ic_logo_wordmark_normal",
+        "@drawable/ic_logo_wordmark_private",
+        "@drawable/ic_wordmark_logo",
+    ):
+        if old not in style_text:
+            raise OverlayError(f"Could not locate inherited branding asset {old}")
+        style_text = style_text.replace(old, "@drawable/acute_brand_mark")
+    style_text = style_text.replace(
+        '<item name="accent">@color/accent_normal_theme</item>',
+        '<item name="accent">@color/fx_mobile_primary</item>',
+    )
+    style_text = style_text.replace(
+        '<item name="accentBright">@color/photonViolet70</item>',
+        '<item name="accentBright">@color/fx_mobile_primary</item>',
+    )
+    styles.write_text(style_text, encoding="utf-8")
+
     preferences = fenix / "app/src/main/res/xml/customization_preferences.xml"
     pref_text = preferences.read_text(encoding="utf-8")
     icon_picker = '''    <androidx.preference.PreferenceCategory
@@ -452,6 +475,132 @@ def patch_branding_ui(fenix: Path) -> None:
 '''
     pref_text = replace_once(pref_text, icon_picker, "", "alternate app icon picker")
     preferences.write_text(pref_text, encoding="utf-8")
+
+
+def patch_home_content_policy(settings: Path) -> None:
+    """Remove inherited sponsored tiles and Mozilla editorial feeds."""
+    text = settings.read_text(encoding="utf-8")
+    stories = '''    @Suppress("DEPRECATION")
+    var showPocketRecommendationsFeature by
+        lazyFeatureFlagBooleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_pocket_homescreen_recommendations),
+            featureFlag = ContentRecommendationsFeatureHelper.isContentRecommendationsFeatureEnabled(appContext),
+            defaultValue = { homescreenSections[HomeScreenSection.POCKET] == true },
+        )
+'''
+    stories_off = '''    // Acute Web does not ship Mozilla's editorial or sponsored content feed.
+    var showPocketRecommendationsFeature: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    text = replace_once(text, stories, stories_off, "home stories preference")
+
+    sponsored_tiles = '''    var showContileFeature by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_contile),
+            default = true,
+        )
+'''
+    sponsored_tiles_off = '''    // Acute Web does not request or display sponsored shortcut tiles.
+    var showContileFeature: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    text = replace_once(text, sponsored_tiles, sponsored_tiles_off, "sponsored shortcut preference")
+
+    wallpaper_old = '''            default =
+                if (enableHomepageEdgeToEdgeBackgroundFeature) {
+                    Wallpaper.EdgeToEdge.name
+                } else {
+                    Wallpaper.Default.name
+                },
+'''
+    wallpaper_new = '''            // Acute's black/grey interface is the default instead of Firefox artwork.
+            default = Wallpaper.Default.name,
+'''
+    text = replace_once(text, wallpaper_old, wallpaper_new, "home wallpaper default")
+    settings.write_text(text, encoding="utf-8")
+
+
+def patch_about_page(path: Path) -> None:
+    """Keep license disclosures while routing product links to Acute resources."""
+    text = path.read_text(encoding="utf-8")
+    old_list = '''        val context = requireContext()
+
+        return listOf(
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    WHATS_NEW,
+                    SupportUtils.WHATS_NEW_URL,
+                ),
+                // Note: Fenix only has release notes for 'Release' versions, NOT 'Beta' & 'Nightly'.
+                getString(R.string.about_whats_new, getString(R.string.firefox)),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    SUPPORT,
+                    SupportUtils.getSumoURLForTopic(context, SupportUtils.SumoTopic.HELP),
+                ),
+                getString(R.string.about_support),
+            ),
+            AboutPageItem(
+                AboutItem.Crashes,
+                getString(R.string.about_crashes),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    PRIVACY_NOTICE,
+                    SupportUtils.getMozillaPageUrl(SupportUtils.MozillaPage.PRIVACY_NOTICE),
+                ),
+                getString(R.string.about_privacy_notice),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(
+                    RIGHTS,
+                    SupportUtils.getSumoURLForTopic(context, SupportUtils.SumoTopic.YOUR_RIGHTS),
+                ),
+                getString(R.string.about_know_your_rights),
+            ),
+'''
+    new_list = '''        return listOf(
+            AboutPageItem(
+                AboutItem.ExternalLink(WHATS_NEW, ACUTE_RELEASES_URL),
+                getString(R.string.about_whats_new, appName),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(SUPPORT, ACUTE_ISSUES_URL),
+                getString(R.string.about_support),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(PRIVACY_NOTICE, ACUTE_PRIVACY_URL),
+                getString(R.string.about_privacy_notice),
+            ),
+            AboutPageItem(
+                AboutItem.ExternalLink(RIGHTS, ACUTE_LICENSE_URL),
+                getString(R.string.about_know_your_rights),
+            ),
+'''
+    text = replace_once(text, old_list, new_list, "About product links")
+    old_event = '''                    WHATS_NEW -> {
+                        WhatsNew.userViewedWhatsNew(requireContext())
+                        Events.whatsNewTapped.record(Events.WhatsNewTappedExtra(source = "ABOUT"))
+                    }
+'''
+    text = replace_once(text, old_event, "                    WHATS_NEW -> {}\n", "What's New telemetry")
+    text = replace_once(
+        text,
+        '        private const val ABOUT_LICENSE_URL = "about:license"\n',
+        '''        private const val ABOUT_LICENSE_URL = "about:license"
+        private const val ACUTE_RELEASES_URL = "https://github.com/iiankehn/acute-web-android/releases"
+        private const val ACUTE_ISSUES_URL = "https://github.com/iiankehn/acute-web-android/issues"
+        private const val ACUTE_PRIVACY_URL =
+            "https://github.com/iiankehn/acute-web-android/blob/main/docs/PRIVACY.md"
+        private const val ACUTE_LICENSE_URL =
+            "https://github.com/iiankehn/acute-web-android/blob/main/LICENSE"
+''',
+        "About Acute URLs",
+    )
+    path.write_text(text, encoding="utf-8")
 
 
 def patch_midnight_pages(core: Path, channel: str) -> None:
@@ -542,9 +691,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
     core = fenix / "app/src/main/java/org/mozilla/fenix/components/Core.kt"
+    about = fenix / "app/src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt"
     values = fenix / "app/src/main/res/values"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
-                preferences, search_providers, desktop_mode, core,
+                preferences, search_providers, desktop_mode, core, about,
                 values / "static_strings.xml", values / "strings.xml"]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -560,6 +710,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
+    patch_home_content_policy(settings)
+    patch_about_page(about)
     patch_midnight_pages(core, channel)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
