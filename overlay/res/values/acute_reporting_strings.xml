@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acute_report_issue_title">Report an issue</string>
+    <string name="acute_report_issue_summary">Open Acute Web Issues on GitHub</string>
+    <string name="acute_issues_url" translatable="false">https://github.com/iiankehn/acute-web-android/issues/new/choose</string>
+</resources>
