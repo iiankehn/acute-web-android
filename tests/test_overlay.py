@@ -79,6 +79,18 @@ CHANNEL_MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/re
 
 SETTINGS = '''package org.mozilla.fenix.utils
 class Settings(private val appContext: Context) {
+    var crashReportChoice by
+        stringPreference(
+            appContext.getPreferenceKey(R.string.pref_key_crash_reporting_choice),
+            default = CrashReportOption.Ask.toString(),
+        )
+
+    var isMarketingTelemetryEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_marketing_telemetry),
+            default = false,
+        )
+
     var shouldUseExpandedToolbar by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_toolbar_expanded),
@@ -93,6 +105,53 @@ class Settings(private val appContext: Context) {
                 FxNimbus.features.tabStrip.value().enabled &&
                     (isTabStripEligible(appContext) || FxNimbus.features.tabStrip.value().allowOnAllDevices),
         )
+}
+'''
+
+ONBOARDING = '''class OnboardingFragment {
+    private val pagesToDisplay by lazy {
+        allOnboardingPages
+            .filterNot {
+                it.type == OnboardingPageUiData.Type.MARKETING_DATA &&
+                    !requireComponents.settings.shouldShowMarketingOnboarding
+            }
+            .distinctBy { it.type }
+            .toMutableStateList()
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        addMarketingFeature.set(
+            feature =
+                MarketingPageAdditionSupport(
+                    prefKey = requireContext().getString(R.string.pref_key_should_show_marketing_onboarding),
+                    pagesToDisplay = pagesToDisplay,
+                    marketingPage = marketingPage,
+                    settings = requireComponents.settings,
+                    lifecycleOwner = viewLifecycleOwner,
+                ),
+            owner = this,
+            view = view,
+        )
+        super.onViewCreated(view, savedInstanceState)
+    }
+}
+'''
+
+PREFERENCES = '''<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+        <androidx.preference.Preference
+            android:key="@string/pref_key_data_choices"
+            app:iconSpaceReserved="false"
+            android:title="@string/preferences_data_collection" />
+</PreferenceScreen>
+'''
+
+SEARCH_PROVIDERS = '''import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider
+
+class SettingsSearchProviders {
+    val providers = listOf(
+        DataChoicesSearchProvider,
+    )
 }
 '''
 
@@ -164,26 +223,48 @@ class OverlayTests(unittest.TestCase):
         (root / "mach").write_text("#!/bin/sh\n")
         app = root / "mobile/android/fenix/app"
         (app / "src/main/res/values").mkdir(parents=True)
+        (app / "src/main/res/values-es").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/utils").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/onboarding").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/components").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
         (app / "src/beta").mkdir(parents=True)
+        (app / "src/release/res/values").mkdir(parents=True)
+        (app / "src/beta/res/values").mkdir(parents=True)
         (app / "build.gradle").write_text(GRADLE)
         (app / "src/main/AndroidManifest.xml").write_text(MANIFEST)
         (app / "src/release/AndroidManifest.xml").write_text(CHANNEL_MANIFEST)
         (app / "src/beta/AndroidManifest.xml").write_text(CHANNEL_MANIFEST)
         (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").write_text(SETTINGS)
+        (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").write_text(
+            ONBOARDING)
+        (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
+            SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt").write_text(
             DESKTOP_MODE)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
         (app / "src/main/res/values/colors.xml").write_text(COLORS)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
+        (app / "src/main/res/xml/preferences.xml").write_text(PREFERENCES)
         (app / "src/main/res/values/static_strings.xml").write_text(
             '<resources><string name="app_name">Firefox Fenix</string></resources>')
+        (app / "src/release/res/values/static_strings.xml").write_text(
+            '<resources><string name="app_name">Firefox</string></resources>')
+        (app / "src/beta/res/values/static_strings.xml").write_text(
+            '<resources><string name="app_name">Firefox Beta</string></resources>')
         (app / "src/main/res/values/strings.xml").write_text(
-            '<resources><string name="welcome">Welcome to Mozilla Firefox</string></resources>')
+            '<resources>'
+            '<string name="about_content">%1$s is produced by Mozilla.</string>'
+            '<string name="welcome">Welcome to Mozilla Firefox</string>'
+            '<string name="marketing">Tell a partner that you’re a Firefox user.</string>'
+            '<string name="onboarding_term_of_service_line_one_link_text_2">Firefox Terms of Use</string>'
+            '<string name="sync_connect_device_dialog">Sign in to Firefox on another device.</string>'
+            '</resources>')
+        (app / "src/main/res/values-es/strings.xml").write_text(
+            '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
         return temp, root
 
     def test_applies_branding_privacy_updater_and_signing(self):
@@ -208,8 +289,38 @@ class OverlayTests(unittest.TestCase):
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
         self.assertIn("appContext.isLargeScreenSize()", tablet_settings)
+        self.assertIn("isMarketingTelemetryEnabled: Boolean", tablet_settings)
+        self.assertIn("get() = false", tablet_settings)
+        self.assertIn("crashReportChoice: String", tablet_settings)
+        self.assertIn("CrashReportOption.Never", tablet_settings)
+        onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
+        self.assertIn("never displays Mozilla marketing", onboarding)
+        self.assertNotIn("MarketingPageAdditionSupport(", onboarding)
+        preferences = (app / "src/main/res/xml/preferences.xml").read_text()
+        self.assertIn('android:key="acute_report_issue"', preferences)
+        self.assertNotIn("pref_key_data_choices", preferences)
+        providers = (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").read_text()
+        self.assertNotIn("DataChoicesSearchProvider", providers)
+        reporting_strings = (app / "src/main/res/values/acute_reporting_strings.xml").read_text()
+        self.assertIn("issues/new/choose", reporting_strings)
         self.assertIn("Welcome to Acute Web", strings)
+        self.assertIn("you’re an Acute Web user", strings)
+        self.assertIn("developed by CORE using Mozilla’s open-source Gecko engine", strings)
+        self.assertIn("Firefox Terms of Use", strings)
+        self.assertIn("Sign in to Firefox on another device", strings)
+        self.assertIn(
+            "Bienvenido a Acute Web",
+            (app / "src/main/res/values-es/strings.xml").read_text(),
+        )
         self.assertIn('name="app_name">Acute Web<', static_strings)
+        self.assertIn(
+            'name="app_name">Acute Web<',
+            (app / "src/release/res/values/static_strings.xml").read_text(),
+        )
+        self.assertIn(
+            'name="app_name">Acute Web<',
+            (app / "src/beta/res/values/static_strings.xml").read_text(),
+        )
         self.assertTrue((app / "src/main/java/org/mozilla/fenix/acute/GitHubUpdateProvider.kt").is_file())
         self.assertTrue((root / ".acute-web-android-overlay").is_file())
 
