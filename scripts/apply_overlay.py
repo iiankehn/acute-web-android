@@ -166,23 +166,68 @@ def patch_gradle(path: Path) -> None:
 
 
 def patch_dark_theme_default(path: Path) -> None:
-    """Use Acute's dark interface on first install while keeping theme controls."""
+    """Lock Acute's application chrome to Midnight mode."""
     text = path.read_text(encoding="utf-8")
-    old = '''    var shouldUseDarkTheme by
+    light = '''    var shouldUseLightTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_light_theme),
+            default = false,
+        )
+'''
+    light_locked = '''    // Acute 0.5 has one application theme: Midnight.
+    var shouldUseLightTheme: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    text = replace_once(text, light, light_locked, "light theme preference")
+
+    dark = '''    var shouldUseDarkTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_dark_theme),
             default = false,
         )
 '''
-    new = '''    // Acute Web starts in dark mode. This is only the first-install default;
-    // users can still choose Light, Dark, or Follow system in settings.
-    var shouldUseDarkTheme by
+    dark_locked = '''    // Keep Android resources and Compose surfaces in Midnight mode.
+    var shouldUseDarkTheme: Boolean
+        get() = true
+        set(value) = Unit
+'''
+    text = replace_once(text, dark, dark_locked, "dark theme preference")
+
+    oled = '''    var shouldUseOledTheme by
         booleanPreference(
-            appContext.getPreferenceKey(R.string.pref_key_dark_theme),
-            default = true,
+            appContext.getPreferenceKey(R.string.pref_key_oled_theme),
+            default = false,
         )
 '''
-    text = replace_once(text, old, new, "dark theme preference")
+    oled_locked = '''    var shouldUseOledTheme: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    text = replace_once(text, oled, oled_locked, "OLED theme preference")
+
+    follow = '''    var shouldFollowDeviceTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_follow_device_theme),
+            default = false,
+        )
+'''
+    follow_locked = '''    var shouldFollowDeviceTheme: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    text = replace_once(text, follow, follow_locked, "follow-device theme preference")
+
+    auto = '''    val shouldUseAutoBatteryTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
+            default = false,
+        )
+'''
+    auto_locked = '''    val shouldUseAutoBatteryTheme: Boolean
+        get() = false
+'''
+    text = replace_once(text, auto, auto_locked, "automatic battery theme preference")
     path.write_text(text, encoding="utf-8")
 
 
@@ -462,6 +507,41 @@ def patch_branding_ui(fenix: Path) -> None:
 
     preferences = fenix / "app/src/main/res/xml/customization_preferences.xml"
     pref_text = preferences.read_text(encoding="utf-8")
+    theme_category = '''    <androidx.preference.PreferenceCategory
+        android:layout="@layout/preference_cat_style"
+        android:title="@string/preferences_theme"
+        app:iconSpaceReserved="false">
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="@bool/underAPI28"
+            android:key="@string/pref_key_light_theme"
+            android:title="@string/preference_light_theme" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_dark_theme"
+            android:title="@string/preference_dark_theme" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_oled_theme"
+            android:title="@string/preference_oled_theme"
+            android:visible="false" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_auto_battery_theme"
+            android:title="@string/preference_auto_battery_theme"
+            app:isPreferenceVisible="@bool/underAPI28" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="@bool/API28"
+            android:key="@string/pref_key_follow_device_theme"
+            android:title="@string/preference_follow_device_theme"
+            app:isPreferenceVisible="@bool/API28" />
+    </androidx.preference.PreferenceCategory>
+
+'''
+    pref_text = replace_once(pref_text, theme_category, "", "application theme settings")
     icon_picker = '''    <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
         android:title="@string/preferences_app_icon"
@@ -475,6 +555,23 @@ def patch_branding_ui(fenix: Path) -> None:
 '''
     pref_text = replace_once(pref_text, icon_picker, "", "alternate app icon picker")
     preferences.write_text(pref_text, encoding="utf-8")
+
+    customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
+    customization_text = customization.read_text(encoding="utf-8")
+    theme_setup = '''        bindFollowDeviceTheme()
+        bindDarkTheme()
+        bindDarkestTheme()
+        bindLightTheme()
+        bindAutoBatteryTheme()
+        setupRadioGroups()
+'''
+    customization_text = replace_once(
+        customization_text,
+        theme_setup,
+        "        // Acute's browser UI is permanently rendered with the Midnight theme.\n",
+        "customization theme bindings",
+    )
+    customization.write_text(customization_text, encoding="utf-8")
 
 
 def patch_home_content_policy(settings: Path) -> None:
@@ -692,9 +789,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
     core = fenix / "app/src/main/java/org/mozilla/fenix/components/Core.kt"
     about = fenix / "app/src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt"
+    customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
-                preferences, search_providers, desktop_mode, core, about,
+                preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml"]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:

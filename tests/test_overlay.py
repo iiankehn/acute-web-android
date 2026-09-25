@@ -99,9 +99,27 @@ class Settings(private val appContext: Context) {
             default = false,
         )
 
+    var shouldUseLightTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_light_theme),
+            default = false,
+        )
+
     var shouldUseDarkTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_dark_theme),
+            default = false,
+        )
+
+    var shouldUseOledTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_oled_theme),
+            default = false,
+        )
+
+    var shouldFollowDeviceTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_follow_device_theme),
             default = false,
         )
 
@@ -135,6 +153,12 @@ class Settings(private val appContext: Context) {
                 } else {
                     Wallpaper.Default.name
                 },
+        )
+
+    val shouldUseAutoBatteryTheme by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
+            default = false,
         )
 }
 '''
@@ -236,6 +260,39 @@ COLORS = '''<resources>
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
+        android:title="@string/preferences_theme"
+        app:iconSpaceReserved="false">
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="@bool/underAPI28"
+            android:key="@string/pref_key_light_theme"
+            android:title="@string/preference_light_theme" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_dark_theme"
+            android:title="@string/preference_dark_theme" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_oled_theme"
+            android:title="@string/preference_oled_theme"
+            android:visible="false" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_auto_battery_theme"
+            android:title="@string/preference_auto_battery_theme"
+            app:isPreferenceVisible="@bool/underAPI28" />
+
+        <org.mozilla.fenix.settings.RadioButtonPreference
+            android:defaultValue="@bool/API28"
+            android:key="@string/pref_key_follow_device_theme"
+            android:title="@string/preference_follow_device_theme"
+            app:isPreferenceVisible="@bool/API28" />
+    </androidx.preference.PreferenceCategory>
+
+    <androidx.preference.PreferenceCategory
+        android:layout="@layout/preference_cat_style"
         android:title="@string/preferences_app_icon"
         android:key="@string/pref_key_customization_category_app_icon"
         app:allowDividerBelow="false"
@@ -245,6 +302,18 @@ CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     </androidx.preference.PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>'''
+
+CUSTOMIZATION_FRAGMENT = '''class CustomizationFragment {
+    private fun setupPreferences() {
+        bindFollowDeviceTheme()
+        bindDarkTheme()
+        bindDarkestTheme()
+        bindLightTheme()
+        bindAutoBatteryTheme()
+        setupRadioGroups()
+        setupToolbarCategory()
+    }
+}'''
 
 CORE = '''class Core {
     val store = BrowserStore().apply {
@@ -333,6 +402,7 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/onboarding").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/components").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/settings/about").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/settings").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
@@ -350,6 +420,8 @@ class OverlayTests(unittest.TestCase):
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").write_text(ABOUT)
+        (app / "src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt").write_text(
+            CUSTOMIZATION_FRAGMENT)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt").write_text(
             DESKTOP_MODE)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
@@ -427,8 +499,17 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("get() = false", tablet_settings)
         self.assertIn("crashReportChoice: String", tablet_settings)
         self.assertIn("CrashReportOption.Never", tablet_settings)
-        self.assertIn("Acute Web starts in dark mode", tablet_settings)
-        self.assertIn("pref_key_dark_theme),\n            default = true", tablet_settings)
+        self.assertIn("one application theme: Midnight", tablet_settings)
+        self.assertIn("shouldUseDarkTheme: Boolean", tablet_settings)
+        self.assertIn("get() = true", tablet_settings)
+        self.assertIn("shouldUseLightTheme: Boolean", tablet_settings)
+        self.assertIn("shouldFollowDeviceTheme: Boolean", tablet_settings)
+        customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
+        self.assertNotIn("preferences_theme", customization)
+        self.assertNotIn("pref_key_light_theme", customization)
+        fragment = (app / "src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt").read_text()
+        self.assertNotIn("bindLightTheme()", fragment)
+        self.assertIn("permanently rendered with the Midnight theme", fragment)
         self.assertIn("showPocketRecommendationsFeature: Boolean", tablet_settings)
         self.assertIn("showContileFeature: Boolean", tablet_settings)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
