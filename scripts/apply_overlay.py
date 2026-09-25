@@ -454,6 +454,26 @@ def patch_branding_ui(fenix: Path) -> None:
     preferences.write_text(pref_text, encoding="utf-8")
 
 
+def patch_midnight_pages(core: Path, channel: str) -> None:
+    """Install Acute's local page-darkening engine in Beta builds only."""
+    if channel != "beta":
+        return
+    text = core.read_text(encoding="utf-8")
+    anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
+                icons.install(engine, this)
+'''
+    install = '''                // Acute Beta: install the local-only Midnight Pages renderer. It does not
+                // contact a service or expose browsing data outside GeckoView.
+                engine.installBuiltInWebExtension(
+                    id = "midnight-pages@acuteweb.core",
+                    url = "resource://android/assets/extensions/acute-midnight/",
+                )
+
+'''
+    text = replace_once(text, anchor, anchor + install, "Midnight Pages extension hook")
+    core.write_text(text, encoding="utf-8")
+
+
 def validate_tablet_upstream(manifest: Path, desktop_mode: Path) -> None:
     """Fail fast if upstream removes the tablet behaviors Acute depends on."""
     manifest_text = manifest.read_text(encoding="utf-8")
@@ -495,6 +515,15 @@ def copy_overlay(fenix: Path) -> None:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
 
+    source_assets = ROOT / "overlay/assets"
+    target_assets = fenix / "app/src/main/assets"
+    if source_assets.is_dir():
+        for source in source_assets.rglob("*"):
+            if source.is_file():
+                destination = target_assets / source.relative_to(source_assets)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+
 
 def apply(checkout: Path, channel: str = "stable") -> None:
     if channel not in {"stable", "beta"}:
@@ -512,9 +541,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
+    core = fenix / "app/src/main/java/org/mozilla/fenix/components/Core.kt"
     values = fenix / "app/src/main/res/values"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
-                preferences, search_providers, desktop_mode,
+                preferences, search_providers, desktop_mode, core,
                 values / "static_strings.xml", values / "strings.xml"]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -530,6 +560,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
+    patch_midnight_pages(core, channel)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     patch_app_labels(fenix, channel)

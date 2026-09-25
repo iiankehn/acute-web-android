@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Acute Midnight Pages",
+  "version": "0.1.0",
+  "description": "Local page-darkening support for Acute Beta.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "midnight-pages@acuteweb.core"
+    }
+  },
+  "permissions": [
+    "storage",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["midnight.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

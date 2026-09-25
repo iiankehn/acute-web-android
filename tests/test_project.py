@@ -39,6 +39,18 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('text = "by CORE"', overlay)
         self.assertIn("#0072BC", overlay)
 
+    def test_midnight_pages_is_local_and_conservative(self):
+        extension = ROOT / "overlay/assets/extensions/acute-midnight"
+        manifest = (extension / "manifest.json").read_text()
+        script = (extension / "midnight.js").read_text()
+        self.assertIn('"<all_urls>"', manifest)
+        self.assertNotIn("http://", script)
+        self.assertNotIn("https://", script)
+        self.assertIn("inIncognitoContext", script)
+        self.assertIn("application/pdf", script)
+        self.assertIn("checkout", script)
+        self.assertIn("color-scheme", script)
+
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("Sign with isolated release credentials", workflow)

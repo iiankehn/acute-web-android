@@ -221,6 +221,13 @@ CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
 
 </androidx.preference.PreferenceScreen>'''
 
+CORE = '''class Core {
+    val store = BrowserStore().apply {
+                // Install the "icons" WebExtension to automatically load icons for every visited website.
+                icons.install(engine, this)
+    }
+}'''
+
 
 class OverlayTests(unittest.TestCase):
     def make_checkout(self):
@@ -249,6 +256,7 @@ class OverlayTests(unittest.TestCase):
             ONBOARDING)
         (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
             SEARCH_PROVIDERS)
+        (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt").write_text(
             DESKTOP_MODE)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
@@ -272,6 +280,28 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
         return temp, root
+
+    def test_midnight_pages_is_beta_only(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        core = (app / "src/main/java/org/mozilla/fenix/components/Core.kt").read_text()
+        self.assertIn("midnight-pages@acuteweb.core", core)
+        self.assertTrue(
+            (app / "src/main/assets/extensions/acute-midnight/manifest.json").is_file()
+        )
+        self.assertTrue(
+            (app / "src/main/assets/extensions/acute-midnight/midnight.js").is_file()
+        )
+
+        stable_temp, stable_root = self.make_checkout()
+        self.addCleanup(stable_temp.cleanup)
+        apply(stable_root, channel="stable")
+        stable_core = (
+            stable_root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt"
+        ).read_text()
+        self.assertNotIn("midnight-pages@acuteweb.core", stable_core)
 
     def test_applies_branding_privacy_updater_and_signing(self):
         temp, root = self.make_checkout()
