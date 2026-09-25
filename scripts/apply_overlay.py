@@ -24,15 +24,78 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-def replace_text_nodes(xml: str) -> str:
-    """Replace visible English branding without touching resource identifiers."""
-    def update(match: re.Match[str]) -> str:
-        text = match.group(1)
-        text = text.replace("Mozilla Firefox", "Acute Web")
-        text = text.replace("Firefox", "Acute Web")
-        return f">{text}<"
+UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
+    "account",
+    "fxa_",
+    "privacy_notice",
+    "sync_",
+    "synced_tabs",
+    "term_of_service",
+    "tou_",
+)
 
-    return re.sub(r">([^<]+)<", update, xml)
+
+def replace_product_branding(xml: str) -> str:
+    """Rename the product while preserving truthful upstream disclosures."""
+    string = re.compile(
+        r'(<string\b[^>]*\bname="([^"]+)"[^>]*>)(.*?)(</string>)',
+        flags=re.DOTALL,
+    )
+
+    def update(match: re.Match[str]) -> str:
+        name = match.group(2)
+        value = match.group(3)
+        protected = any(part in name for part in UPSTREAM_DISCLOSURE_RESOURCE_PARTS)
+        protected = protected or "client=firefox" in value.lower()
+        if protected:
+            return match.group(0)
+        value = value.replace("Mozilla Firefox", "Acute Web")
+        value = value.replace("Firefox", "Acute Web")
+        value = value.replace("a Acute Web user", "an Acute Web user")
+        return f"{match.group(1)}{value}{match.group(4)}"
+
+    return string.sub(update, xml)
+
+
+def patch_product_branding(fenix: Path) -> None:
+    """Patch user-facing product names in every bundled locale."""
+    resource_root = fenix / "app/src/main/res"
+    for path in sorted(resource_root.glob("values*/strings.xml")):
+        text = path.read_text(encoding="utf-8")
+        path.write_text(replace_product_branding(text), encoding="utf-8")
+
+    english = resource_root / "values/strings.xml"
+    text = english.read_text(encoding="utf-8")
+    about = re.compile(
+        r'(<string\b[^>]*\bname="about_content"[^>]*>)(.*?)(</string>)',
+        flags=re.DOTALL,
+    )
+    text, count = about.subn(
+        r"\1%1$s is developed by CORE using Mozilla’s open-source Gecko engine.\3",
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise OverlayError("Could not locate the About product attribution")
+    english.write_text(text, encoding="utf-8")
+
+
+def patch_app_labels(fenix: Path) -> None:
+    """Give every packaged channel the Acute Web launcher label."""
+    static_files = sorted((fenix / "app/src").glob("*/res/values*/static_strings.xml"))
+    if not static_files:
+        raise OverlayError("Could not locate any channel static_strings.xml files")
+
+    app_name = re.compile(
+        r'(<string\b[^>]*\bname="app_name"[^>]*>)(.*?)(</string>)',
+        flags=re.DOTALL,
+    )
+    for path in static_files:
+        text = path.read_text(encoding="utf-8")
+        updated, count = app_name.subn(r"\1Acute Web\3", text, count=1)
+        if count != 1:
+            raise OverlayError(f"Could not locate app_name in {path}")
+        path.write_text(updated, encoding="utf-8")
 
 
 def patch_gradle(path: Path) -> None:
@@ -162,6 +225,112 @@ def patch_tablet_defaults(path: Path) -> None:
 """
     text = replace_once(text, tab_strip_old, tab_strip_new, "tablet tab-strip default")
     path.write_text(text, encoding="utf-8")
+
+
+def patch_marketing_policy(settings: Path, onboarding: Path) -> None:
+    """Disable Mozilla marketing collection and remove its onboarding page."""
+    settings_text = settings.read_text(encoding="utf-8")
+    preference = '''    var isMarketingTelemetryEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_marketing_telemetry),
+            default = false,
+        )
+'''
+    enforced = '''    // Acute Web does not collect or share marketing attribution data.
+    var isMarketingTelemetryEnabled: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    settings_text = replace_once(
+        settings_text, preference, enforced, "marketing telemetry preference"
+    )
+    settings.write_text(settings_text, encoding="utf-8")
+
+    onboarding_text = onboarding.read_text(encoding="utf-8")
+    conditional_filter = '''            .filterNot {
+                it.type == OnboardingPageUiData.Type.MARKETING_DATA &&
+                    !requireComponents.settings.shouldShowMarketingOnboarding
+            }
+'''
+    unconditional_filter = '''            // Acute Web never displays Mozilla marketing consent or promotion pages.
+            .filterNot { it.type == OnboardingPageUiData.Type.MARKETING_DATA }
+'''
+    onboarding_text = replace_once(
+        onboarding_text, conditional_filter, unconditional_filter, "marketing page filter"
+    )
+    feature_start = '''        addMarketingFeature.set(
+            feature =
+                MarketingPageAdditionSupport(
+                    prefKey = requireContext().getString(R.string.pref_key_should_show_marketing_onboarding),
+                    pagesToDisplay = pagesToDisplay,
+                    marketingPage = marketingPage,
+                    settings = requireComponents.settings,
+                    lifecycleOwner = viewLifecycleOwner,
+                ),
+            owner = this,
+            view = view,
+        )
+'''
+    onboarding_text = replace_once(
+        onboarding_text, feature_start, "", "dynamic marketing page registration"
+    )
+    onboarding.write_text(onboarding_text, encoding="utf-8")
+
+
+def patch_user_reporting(settings: Path, preferences: Path, search_providers: Path) -> None:
+    """Remove upload controls and direct voluntary bug reports to GitHub."""
+    settings_text = settings.read_text(encoding="utf-8")
+    crash_choice = '''    var crashReportChoice by
+        stringPreference(
+            appContext.getPreferenceKey(R.string.pref_key_crash_reporting_choice),
+            default = CrashReportOption.Ask.toString(),
+        )
+'''
+    disabled_choice = '''    // Acute Web keeps crash details local; users can report issues on GitHub.
+    var crashReportChoice: String
+        get() = CrashReportOption.Never.toString()
+        set(value) = Unit
+'''
+    settings_text = replace_once(
+        settings_text, crash_choice, disabled_choice, "crash report upload preference"
+    )
+    settings.write_text(settings_text, encoding="utf-8")
+
+    preference_text = preferences.read_text(encoding="utf-8")
+    data_choices = '''        <androidx.preference.Preference
+            android:key="@string/pref_key_data_choices"
+            app:iconSpaceReserved="false"
+            android:title="@string/preferences_data_collection" />
+'''
+    issue_link = '''        <androidx.preference.Preference
+            android:key="acute_report_issue"
+            app:iconSpaceReserved="false"
+            android:title="@string/acute_report_issue_title"
+            android:summary="@string/acute_report_issue_summary">
+            <intent
+                android:action="android.intent.action.VIEW"
+                android:data="@string/acute_issues_url" />
+        </androidx.preference.Preference>
+'''
+    preference_text = replace_once(
+        preference_text, data_choices, issue_link, "data collection settings entry"
+    )
+    preferences.write_text(preference_text, encoding="utf-8")
+
+    providers_text = search_providers.read_text(encoding="utf-8")
+    providers_text = replace_once(
+        providers_text,
+        "import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider\n",
+        "",
+        "data choices search import",
+    )
+    providers_text = replace_once(
+        providers_text,
+        "        DataChoicesSearchProvider,\n",
+        "",
+        "data choices search provider",
+    )
+    search_providers.write_text(providers_text, encoding="utf-8")
 
 
 def patch_branding_ui(fenix: Path) -> None:
@@ -313,9 +482,13 @@ def apply(checkout: Path) -> None:
     release_manifest = fenix / "app/src/release/AndroidManifest.xml"
     beta_manifest = fenix / "app/src/beta/AndroidManifest.xml"
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
+    onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
+    preferences = fenix / "app/src/main/res/xml/preferences.xml"
+    search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
     values = fenix / "app/src/main/res/values"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, desktop_mode,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
+                preferences, search_providers, desktop_mode,
                 values / "static_strings.xml", values / "strings.xml"]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -327,15 +500,17 @@ def apply(checkout: Path) -> None:
     validate_tablet_upstream(manifest, desktop_mode)
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
+    patch_marketing_policy(settings, onboarding)
+    patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
+    patch_app_labels(fenix)
     static_strings = values / "static_strings.xml"
-    static_text = static_strings.read_text(encoding="utf-8")
-    static_text = static_text.replace(">Firefox Fenix<", ">Acute Web<")
-    static_strings.write_text(replace_text_nodes(static_text), encoding="utf-8")
-    for path in (values / "strings.xml",):
-        path.write_text(replace_text_nodes(path.read_text(encoding="utf-8")), encoding="utf-8")
+    static_strings.write_text(
+        replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
+    )
+    patch_product_branding(fenix)
     copy_overlay(fenix)
     (checkout / MARKER).write_text("Acute Web Android overlay applied\n", encoding="utf-8")
 
