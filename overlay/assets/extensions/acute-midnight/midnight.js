@@ -27,8 +27,17 @@
     return /(?:^|\s)dark(?:\s|$)/i.test(scheme);
   };
 
+  const hasDarkBackground = () => {
+    const color = getComputedStyle(document.body || document.documentElement).backgroundColor;
+    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return false;
+    const [, red, green, blue] = match.map(Number);
+    const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+    return luminance < 0.32;
+  };
+
   const enable = () => {
-    if (mode === "automatic" && hasNativeDarkSignal()) return;
+    if (mode === "automatic" && (hasNativeDarkSignal() || hasDarkBackground())) return;
     const style = document.createElement("style");
     style.id = "acute-midnight-pages";
     style.textContent = `

@@ -1,0 +1,25 @@
+:root {
+  color-scheme: dark;
+  font: 15px/1.4 system-ui, sans-serif;
+  background: #0b0f14;
+  color: #e8eef5;
+}
+body { margin: 0; min-width: 280px; }
+main { padding: 18px; }
+h1 { margin: 2px 0 4px; font-size: 21px; }
+p { margin: 0; color: #aebdca; }
+.eyebrow, .section-label { color: #69bff2; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+fieldset, section {
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid #2b3b49;
+  border-radius: 14px;
+  background: #121922;
+}
+legend { padding: 0 6px; color: #c9d7e4; font-weight: 650; }
+fieldset label { display: block; padding: 8px 2px; }
+input { accent-color: #69bff2; }
+small { color: #69bff2; }
+#site-name { display: block; overflow: hidden; margin: 3px 0 9px; text-overflow: ellipsis; }
+.switch-row { display: flex; gap: 8px; align-items: center; }
+.privacy { margin-top: 14px; font-size: 12px; }

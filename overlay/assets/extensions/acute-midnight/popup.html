@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Midnight Pages</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">ACUTE BETA</span>
+        <h1>Midnight Pages</h1>
+        <p>Darken bright websites locally on this device.</p>
+      </header>
+      <fieldset>
+        <legend>Page appearance</legend>
+        <label><input type="radio" name="mode" value="off"> Off</label>
+        <label><input type="radio" name="mode" value="automatic"> Automatic <small>Recommended</small></label>
+        <label><input type="radio" name="mode" value="always"> Always</label>
+      </fieldset>
+      <section id="site-controls" hidden>
+        <span class="section-label">Current website</span>
+        <strong id="site-name"></strong>
+        <label class="switch-row">
+          <input id="site-enabled" type="checkbox">
+          Use Midnight Pages here
+        </label>
+      </section>
+      <p class="privacy">No page content or browsing data leaves your device.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

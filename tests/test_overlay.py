@@ -294,6 +294,9 @@ class OverlayTests(unittest.TestCase):
         self.assertTrue(
             (app / "src/main/assets/extensions/acute-midnight/midnight.js").is_file()
         )
+        self.assertTrue(
+            (app / "src/main/assets/extensions/acute-midnight/popup.html").is_file()
+        )
 
         stable_temp, stable_root = self.make_checkout()
         self.addCleanup(stable_temp.cleanup)

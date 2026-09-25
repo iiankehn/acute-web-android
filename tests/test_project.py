@@ -43,6 +43,7 @@ class ProjectTests(unittest.TestCase):
         extension = ROOT / "overlay/assets/extensions/acute-midnight"
         manifest = (extension / "manifest.json").read_text()
         script = (extension / "midnight.js").read_text()
+        popup = (extension / "popup.js").read_text()
         self.assertIn('"<all_urls>"', manifest)
         self.assertNotIn("http://", script)
         self.assertNotIn("https://", script)
@@ -50,6 +51,10 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("application/pdf", script)
         self.assertIn("checkout", script)
         self.assertIn("color-scheme", script)
+        for mode in ("off", "automatic", "always"):
+            self.assertIn(mode, popup)
+        self.assertIn("disabledHosts", popup)
+        self.assertIn("textContent = host", popup)
 
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
