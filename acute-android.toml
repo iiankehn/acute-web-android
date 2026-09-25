@@ -19,6 +19,7 @@ ref = "4452e9a17a29f762c5af6326f45c000dcf3117bb"
 
 [updates]
 api = "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
+beta_api = "https://api.github.com/repos/iiankehn/acute-web-android/releases?per_page=20"
 check_interval_hours = 24
 
 [privacy]
