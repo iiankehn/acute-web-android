@@ -1,5 +1,9 @@
 # Acute Web for Android
 
+<p align="center">
+  <img src="docs/acute-mark.png" alt="Acute Web cat-fox mark" width="160">
+</p>
+
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
 open-source Gecko engine. It is distributed directly as a signed, sideloadable
 APK for ARM64 phones, tablets, foldables, and ChromeOS devices.
@@ -18,6 +22,14 @@ APK for ARM64 phones, tablets, foldables, and ChromeOS devices.
 - Built-in update checks against signed releases from this repository
 - Acute telemetry, diagnostic reporting, and crash uploads disabled
 - Direct issue reporting through GitHub
+
+## Acute on Android
+
+<p align="center">
+  <img src="docs/assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web 0.3 home screen on an Android tablet" width="900">
+</p>
+
+*Acute Web 0.3 running on the Android 12 tablet test profile.*
 
 ## Supported devices
 
