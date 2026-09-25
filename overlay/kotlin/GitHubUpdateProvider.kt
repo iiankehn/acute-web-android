@@ -14,7 +14,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.fenix.BuildConfig
 import java.io.ByteArrayOutputStream
 import java.lang.ref.WeakReference
 import java.net.HttpURLConnection
@@ -85,11 +87,22 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                 }
                 output.toString(Charsets.UTF_8.name())
             }
-            val json = JSONObject(body)
-            val version = json.getString("tag_name").removePrefix("v")
-            if (!RELEASE_VERSION.matches(version)) {
-                throw IllegalStateException("Latest release has an unsupported version")
+            val releases = JSONArray(body)
+            var json: JSONObject? = null
+            for (index in 0 until releases.length()) {
+                val candidate = releases.getJSONObject(index)
+                val version = candidate.optString("tag_name").removePrefix("v")
+                val expectedChannel =
+                    !candidate.optBoolean("draft") &&
+                        candidate.optBoolean("prerelease") == IS_BETA &&
+                        channelVersion.matches(version)
+                if (expectedChannel) {
+                    json = candidate
+                    break
+                }
             }
+            json ?: return
+            val version = json.getString("tag_name").removePrefix("v")
             val assets = json.getJSONArray("assets")
             val expectedAsset = "acute-web-$version-arm64-v8a.apk"
             var apkUrl: String? = null
@@ -131,8 +144,9 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         val release = pendingRelease ?: return
         if (activity.isFinishing || activity.isDestroyed) return
         pendingRelease = null
+        val productName = if (IS_BETA) "Acute Beta" else "Acute Web"
         AlertDialog.Builder(activity)
-            .setTitle("Acute Web ${release.version} is available")
+            .setTitle("$productName ${release.version} is available")
             .setMessage("Download the signed APK from GitHub, then approve Android's install prompt.")
             .setPositiveButton("Download") { _, _ ->
                 openSafely(activity, release.apkUrl)
@@ -179,17 +193,25 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     }
 
     private fun isNewer(candidate: String, installed: String): Boolean {
-        if (!RELEASE_VERSION.matches(candidate) || !RELEASE_VERSION.matches(installed)) return false
-        val left = candidate.split('.').map { it.toInt() }
-        val right = installed.split('.').map { it.toInt() }
-        for (index in left.indices) {
-            val comparison = left[index].compareTo(right[index])
+        val left = parseVersion(candidate) ?: return false
+        val right = parseVersion(installed) ?: return false
+        for (index in left.core.indices) {
+            val comparison = left.core[index].compareTo(right.core[index])
             if (comparison != 0) return comparison > 0
         }
-        return false
+        return left.beta.compareTo(right.beta) > 0
+    }
+
+    private fun parseVersion(version: String): ParsedVersion? {
+        val match = channelVersion.matchEntire(version) ?: return null
+        val core = listOf(match.groupValues[1], match.groupValues[2], match.groupValues[3])
+            .map { it.toInt() }
+        val beta = if (IS_BETA) match.groupValues[4].toInt() else 0
+        return ParsedVersion(core, beta)
     }
 
     private data class Release(val version: String, val apkUrl: String, val pageUrl: String)
+    private data class ParsedVersion(val core: List<Int>, val beta: Int)
 
     companion object {
         private const val TAG = "AcuteUpdates"
@@ -201,8 +223,11 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val RETRY_INTERVAL_MS = 60L * 60 * 1000
         private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
-        private val RELEASE_VERSION = Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")
+        private val IS_BETA = BuildConfig.BUILD_TYPE == "beta"
+        private val STABLE_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+        private val BETA_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)-beta\\.([0-9]+)$")
+        private val channelVersion = if (IS_BETA) BETA_VERSION else STABLE_VERSION
         private const val RELEASE_API =
-            "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
+            "https://api.github.com/repos/iiankehn/acute-web-android/releases?per_page=20"
     }
 }
