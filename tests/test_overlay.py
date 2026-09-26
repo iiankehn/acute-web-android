@@ -257,6 +257,36 @@ COLORS = '''<resources>
 <color name="fx_mobile_private_surface_variant">@color/novaVioletDesaturated80</color>
 </resources>'''
 
+NIGHT_COLORS = '''<resources>
+<color name="fx_mobile_primary">@color/novaViolet20</color>
+<color name="fx_mobile_on_primary">@color/novaGray80</color>
+<color name="fx_mobile_primary_container">@color/novaViolet60</color>
+<color name="fx_mobile_on_primary_container">@color/novaVioletDesaturated0</color>
+<color name="fx_mobile_secondary">@color/novaGray20</color>
+<color name="fx_mobile_on_secondary">@color/novaGray80</color>
+<color name="fx_mobile_secondary_container">@color/novaVioletDesaturated70</color>
+<color name="fx_mobile_on_secondary_container">@color/novaVioletDesaturated0</color>
+<color name="fx_mobile_tertiary">@color/novaViolet30</color>
+<color name="fx_mobile_on_tertiary">@color/novaGray80</color>
+<color name="fx_mobile_tertiary_container">@color/novaVioletDesaturated90</color>
+<color name="fx_mobile_on_tertiary_container">@color/novaVioletDesaturated0</color>
+<color name="fx_mobile_background">@color/novaGray75</color>
+<color name="fx_mobile_on_background">@color/novaVioletDesaturated0</color>
+<color name="fx_mobile_surface">@color/novaGray75</color>
+<color name="fx_mobile_on_surface">@color/novaVioletDesaturated0</color>
+<color name="fx_mobile_surface_variant">@color/novaGray65</color>
+<color name="fx_mobile_on_surface_variant">@color/novaVioletDesaturated0A70</color>
+<color name="fx_mobile_outline">@color/novaGray45</color>
+<color name="fx_mobile_surface_bright">@color/novaGray65</color>
+<color name="fx_mobile_surface_dim">@color/novaGray85</color>
+<color name="fx_mobile_surface_container">@color/novaGray75</color>
+<color name="fx_mobile_surface_container_high">@color/novaGray70</color>
+<color name="fx_mobile_surface_container_highest">@color/novaGray65</color>
+<color name="fx_mobile_surface_container_low">@color/novaGray80</color>
+<color name="fx_mobile_surface_container_lowest">@color/novaGray85</color>
+<color name="fx_mobile_surface_container_selected">@color/novaGray55</color>
+</resources>'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -396,6 +426,7 @@ class OverlayTests(unittest.TestCase):
         (root / "mach").write_text("#!/bin/sh\n")
         app = root / "mobile/android/fenix/app"
         (app / "src/main/res/values").mkdir(parents=True)
+        (app / "src/main/res/values-night").mkdir(parents=True)
         (app / "src/main/res/values-es").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/utils").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode").mkdir(parents=True)
@@ -426,6 +457,7 @@ class OverlayTests(unittest.TestCase):
             DESKTOP_MODE)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
         (app / "src/main/res/values/colors.xml").write_text(COLORS)
+        (app / "src/main/res/values-night/colors.xml").write_text(NIGHT_COLORS)
         (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
         (app / "src/main/res/xml/preferences.xml").write_text(PREFERENCES)
@@ -504,6 +536,15 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("get() = true", tablet_settings)
         self.assertIn("shouldUseLightTheme: Boolean", tablet_settings)
         self.assertIn("shouldFollowDeviceTheme: Boolean", tablet_settings)
+        night_colors = (app / "src/main/res/values-night/colors.xml").read_text()
+        self.assertIn(
+            '<color name="fx_mobile_primary">@color/acute_glass_blue_soft</color>',
+            night_colors,
+        )
+        self.assertIn(
+            '<color name="fx_mobile_surface">@color/acute_glass_surface</color>',
+            night_colors,
+        )
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)
         self.assertNotIn("pref_key_light_theme", customization)

@@ -35,6 +35,55 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
 )
 
 
+MIDNIGHT_COLOR_OVERRIDES = {
+    "fx_mobile_primary": "@color/acute_glass_blue_soft",
+    "fx_mobile_on_primary": "@color/acute_glass_canvas",
+    "fx_mobile_primary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_on_primary_container": "@color/acute_glass_text",
+    "fx_mobile_secondary": "@color/acute_glass_text_muted",
+    "fx_mobile_on_secondary": "@color/acute_glass_canvas",
+    "fx_mobile_secondary_container": "@color/acute_glass_surface_high",
+    "fx_mobile_on_secondary_container": "@color/acute_glass_text",
+    "fx_mobile_tertiary": "@color/acute_glass_blue_soft",
+    "fx_mobile_on_tertiary": "@color/acute_glass_canvas",
+    "fx_mobile_tertiary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_on_tertiary_container": "@color/acute_glass_text",
+    "fx_mobile_background": "@color/acute_glass_canvas",
+    "fx_mobile_on_background": "@color/acute_glass_text",
+    "fx_mobile_surface": "@color/acute_glass_surface",
+    "fx_mobile_on_surface": "@color/acute_glass_text",
+    "fx_mobile_surface_variant": "@color/acute_glass_surface_high",
+    "fx_mobile_on_surface_variant": "@color/acute_glass_text_muted",
+    "fx_mobile_surface_bright": "@color/acute_glass_surface_high",
+    "fx_mobile_surface_dim": "@color/acute_glass_canvas",
+    "fx_mobile_surface_container": "@color/acute_glass_surface",
+    "fx_mobile_surface_container_high": "@color/acute_glass_surface_high",
+    "fx_mobile_surface_container_highest": "@color/acute_glass_surface_high",
+    "fx_mobile_surface_container_low": "@color/acute_glass_surface_low",
+    "fx_mobile_surface_container_lowest": "@color/acute_glass_canvas",
+    "fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected",
+    "fx_mobile_outline": "@color/acute_glass_outline",
+}
+
+
+def patch_midnight_palette(path: Path) -> None:
+    """Replace upstream night colors in place so Android sees one definition."""
+    text = path.read_text(encoding="utf-8")
+    for name, value in MIDNIGHT_COLOR_OVERRIDES.items():
+        color = re.compile(
+            rf'(<color\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</color>)',
+            flags=re.DOTALL,
+        )
+        text, count = color.subn(
+            lambda match: f"{match.group(1)}{value}{match.group(2)}",
+            text,
+            count=1,
+        )
+        if count != 1:
+            raise OverlayError(f"Could not locate night color {name} in {path}")
+    path.write_text(text, encoding="utf-8")
+
+
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
     string = re.compile(
@@ -791,9 +840,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     about = fenix / "app/src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt"
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
+    night_colors = fenix / "app/src/main/res/values-night/colors.xml"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
-                values / "static_strings.xml", values / "strings.xml"]
+                values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise OverlayError("Missing expected Fenix files: " + ", ".join(missing))
@@ -805,6 +855,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
     patch_dark_theme_default(settings)
+    patch_midnight_palette(night_colors)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)

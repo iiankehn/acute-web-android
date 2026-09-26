@@ -93,7 +93,7 @@ class ProjectTests(unittest.TestCase):
 
     def test_core_glass_dark_theme_tokens_are_packaged(self):
         tokens = (ROOT / "overlay/res/values/acute_core_glass.xml").read_text()
-        theme = (ROOT / "overlay/res/values-night/acute_core_glass_theme.xml").read_text()
+        theme = (ROOT / "scripts/apply_overlay.py").read_text()
         for color in (
             "acute_glass_canvas",
             "acute_glass_surface",
@@ -103,9 +103,12 @@ class ProjectTests(unittest.TestCase):
         ):
             self.assertIn(f'name="{color}"', tokens)
         self.assertIn("#FF0072BC", tokens)
-        self.assertIn("@color/acute_glass_surface", theme)
-        self.assertIn("@color/acute_glass_surface_selected", theme)
-        self.assertIn("@color/acute_glass_blue_soft", theme)
+        self.assertIn('"fx_mobile_surface": "@color/acute_glass_surface"', theme)
+        self.assertIn(
+            '"fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected"',
+            theme,
+        )
+        self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
