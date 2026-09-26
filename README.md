@@ -5,12 +5,30 @@
 </p>
 
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
-open-source Gecko engine. It is distributed directly as a signed, sideloadable
-APK for ARM64 phones, tablets, foldables, and ChromeOS devices.
+open-source Gecko engine. It is distributed directly as a signed, sideloadable APK
+for ARM64 phones, tablets, foldables, and ChromeOS devices.
 
 [Website](https://acute.iiankehn.com/) ·
-[Download the latest release](https://github.com/iiankehn/acute-web-android/releases/latest) ·
+[Stable releases](https://github.com/iiankehn/acute-web-android/releases/latest) ·
+[Beta releases](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) ·
 [Report an issue](https://github.com/iiankehn/acute-web-android/issues/new/choose)
+
+> **You are viewing the Stable source branch.** GitHub opens this branch by
+> default because it represents published Acute releases. Active development is
+> publicly available from the
+> [Beta source (`beta`)](https://github.com/iiankehn/acute-web-android/tree/beta).
+
+## Release channels
+
+| Channel | Public source | Downloads | Purpose |
+|---|---|---|---|
+| Stable | [`main`](https://github.com/iiankehn/acute-web-android/tree/main) | [Signed stable APK](https://github.com/iiankehn/acute-web-android/releases/latest) | Tested releases intended for everyday use |
+| Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Feature development and release-candidate testing |
+
+The branches use separate Android application IDs, so Stable and Beta can be
+installed together. The complete Acute source, build transformations, tests,
+and documentation for each channel are available from its corresponding
+branch.
 
 ## Highlights
 
@@ -85,14 +103,19 @@ For release operations, see:
 - [Repository and release setup](docs/GITHUB_SETUP.md)
 - [APK signing](docs/SIGNING.md)
 - [Maintaining the Gecko/Firefox source base](docs/UPSTREAM.md)
+- [Stable and Beta release channels](docs/RELEASE_CHANNELS.md)
+- [Source availability and license compliance](docs/SOURCE_AND_LICENSE.md)
+- [Acute modifications to the upstream project](docs/MODIFICATIONS.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
 ## Project status
 
-Acute Web is under active development. Version 0.3 establishes the Acute Web by
-CORE identity, privacy defaults, update path, and Android phone/tablet
-experience. Bug reports and reproducible device feedback are welcome through
+Acute Web is under active development. Stable source and releases remain on
+`main`; upcoming work is published and tested on `beta` before promotion.
+Version 0.3 establishes the Acute Web by CORE identity, privacy defaults,
+update path, and Android phone/tablet experience. Bug reports and reproducible
+device feedback are welcome through
 [GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
 
 ## Licensing and attribution
@@ -101,6 +124,10 @@ Acute Web is developed by CORE using Mozilla's open-source Gecko and Firefox
 for Android code. Source files derived from Mozilla retain their original
 copyright notices and licensing terms. This repository is available under the
 [Mozilla Public License 2.0](LICENSE).
+
+The exact upstream revision used by each build and a map from released binaries
+to corresponding source are documented in
+[Source availability and license compliance](docs/SOURCE_AND_LICENSE.md).
 
 Firefox and Mozilla are trademarks of the Mozilla Foundation. Acute Web is an
 independent project and is not endorsed by or affiliated with Mozilla.
