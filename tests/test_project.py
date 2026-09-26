@@ -33,6 +33,9 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("refusing to replace published files", workflow)
         self.assertIn("gh release create", workflow)
+        self.assertIn("Publish release links to GitHub Pages", workflow)
+        self.assertIn("scripts/update_site_release.py", workflow)
+        self.assertIn("git push origin HEAD:main", workflow)
 
     def test_release_verification_uses_available_android_tools(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
