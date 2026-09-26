@@ -8,14 +8,14 @@
         layers are intended for controls that sit above that canvas.
     -->
     <color name="acute_glass_canvas">#FF090B0E</color>
-    <color name="acute_glass_surface">#E61B1E23</color>
-    <color name="acute_glass_surface_low">#CC12151A</color>
-    <color name="acute_glass_surface_high">#F0272B31</color>
-    <color name="acute_glass_surface_selected">#E6294052</color>
-    <color name="acute_glass_outline">#3D9FCBE8</color>
+    <color name="acute_glass_surface">#B81B1E23</color>
+    <color name="acute_glass_surface_low">#9912151A</color>
+    <color name="acute_glass_surface_high">#C0272B31</color>
+    <color name="acute_glass_surface_selected">#D6294052</color>
+    <color name="acute_glass_outline">#739FCBE8</color>
     <color name="acute_glass_text">#FFF4F8FB</color>
     <color name="acute_glass_text_muted">#FFB8C3CC</color>
     <color name="acute_glass_blue">#FF0072BC</color>
     <color name="acute_glass_blue_soft">#FF8ACEEF</color>
-    <color name="acute_glass_blue_container">#FF173B52</color>
+    <color name="acute_glass_blue_container">#C4173B52</color>
 </resources>

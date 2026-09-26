@@ -287,6 +287,30 @@ NIGHT_COLORS = '''<resources>
 <color name="fx_mobile_surface_container_selected">@color/novaGray55</color>
 </resources>'''
 
+BROWSER_TOOLBAR = '''import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+
+class BrowserToolbarComposable {
+    fun Content() {
+                    MaterialTheme(colorScheme = colorScheme) {
+                        when (!shouldUseBottomToolbar) {
+                            true ->
+                                Column(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
+                                }
+                            false ->
+                                Column(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
+                                }
+                        }
+                    }
+    }
+}
+'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -432,6 +456,7 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/browser/desktopmode").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/onboarding").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/components").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/components/toolbar").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/settings/about").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/settings").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
@@ -450,6 +475,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
+        (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
+            BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").write_text(ABOUT)
         (app / "src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt").write_text(
             CUSTOMIZATION_FRAGMENT)
@@ -545,6 +572,13 @@ class OverlayTests(unittest.TestCase):
             '<color name="fx_mobile_surface">@color/acute_glass_surface</color>',
             night_colors,
         )
+        toolbar = (
+            app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
+        ).read_text()
+        self.assertIn("acuteCoreGlassModifier", toolbar)
+        self.assertIn("Brush.verticalGradient", toolbar)
+        self.assertIn("Color(0x667AC6EA)", toolbar)
+        self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)
         self.assertNotIn("pref_key_light_theme", customization)

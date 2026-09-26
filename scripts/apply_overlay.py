@@ -84,6 +84,62 @@ def patch_midnight_palette(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_core_glass_toolbar(path: Path) -> None:
+    """Give the browser toolbar a visibly layered CORE Glass treatment."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import androidx.compose.foundation.background\n",
+        "import androidx.compose.foundation.background\n"
+        "import androidx.compose.ui.draw.drawWithContent\n",
+        "toolbar glass draw import",
+    )
+    text = replace_once(
+        text,
+        "import androidx.compose.ui.graphics.Color\n",
+        "import androidx.compose.ui.geometry.Offset\n"
+        "import androidx.compose.ui.graphics.Brush\n"
+        "import androidx.compose.ui.graphics.Color\n",
+        "toolbar glass graphics imports",
+    )
+    theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
+    glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
+                        // CORE Glass uses a translucent charcoal stack over a subtle
+                        // signature-blue glow. The child surfaces retain their own alpha,
+                        // so the address field and selected tabs read as separate layers.
+                        val acuteCoreGlassModifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors =
+                                            listOf(
+                                                Color(0xE6121820),
+                                                Color(0xD90B1117),
+                                                Color(0xCC07121A),
+                                            )
+                                    )
+                                )
+                                .drawWithContent {
+                                    drawContent()
+                                    drawLine(
+                                        color = Color(0x667AC6EA),
+                                        start = Offset(0f, size.height - 1f),
+                                        end = Offset(size.width, size.height - 1f),
+                                        strokeWidth = 1f,
+                                    )
+                                }
+'''
+    text = replace_once(text, theme_open, glass_open, "toolbar glass theme wrapper")
+    column = "Column(modifier = Modifier.fillMaxWidth().wrapContentHeight())"
+    count = text.count(column)
+    if count != 2:
+        raise OverlayError(f"Expected two browser toolbar columns; found {count}")
+    text = text.replace(column, "Column(modifier = acuteCoreGlassModifier)")
+    path.write_text(text, encoding="utf-8")
+
+
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
     string = re.compile(
@@ -832,6 +888,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     release_manifest = fenix / "app/src/release/AndroidManifest.xml"
     beta_manifest = fenix / "app/src/beta/AndroidManifest.xml"
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
+    browser_toolbar = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
+    )
     onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
@@ -841,7 +901,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, onboarding,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
@@ -856,6 +916,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_tablet_defaults(settings)
     patch_dark_theme_default(settings)
     patch_midnight_palette(night_colors)
+    patch_core_glass_toolbar(browser_toolbar)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
