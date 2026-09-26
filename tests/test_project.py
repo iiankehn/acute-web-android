@@ -123,6 +123,8 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Color(0xC2383D46)", theme)
         self.assertIn("Color(0x997AC6EA)", theme)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)
+        self.assertIn("engineViewParent.translationY = 0f", theme)
+        self.assertIn("toolbar.collapse()", theme)
         self.assertIn("Config.generateFennecVersionCode(abi) + acuteBuildNumber", theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):

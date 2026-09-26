@@ -370,6 +370,32 @@ BASE_BROWSER_FRAGMENT = '''class BaseBrowserFragment {
 }
 '''
 
+ENGINE_VIEW_CLIPPING_BEHAVIOR = '''class EngineViewClippingBehavior(
+    private val engineViewParent: View,
+    private val topToolbarHeight: Int,
+) {
+    fun update(recentTopToolbarTranslation: Float) {
+        if (topToolbarHeight > 0) {
+                engineViewParent.translationY = recentTopToolbarTranslation + topToolbarHeight
+        }
+    }
+}
+'''
+
+TOOLBAR_BEHAVIOR_CONTROLLER = '''class ToolbarBehaviorController {
+    private lateinit var toolbar: ScrollableToolbar
+
+    fun update(state: State) {
+        if (state.content.loading) {
+            expandToolbar()
+            disableScrolling()
+                        } else if (!state.content.loading) {
+                            enableScrolling()
+                        }
+    }
+}
+'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -539,6 +565,22 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
+        clipping_behavior = (
+            root
+            / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior"
+        )
+        clipping_behavior.mkdir(parents=True, exist_ok=True)
+        (clipping_behavior / "EngineViewClippingBehavior.kt").write_text(
+            ENGINE_VIEW_CLIPPING_BEHAVIOR
+        )
+        toolbar_feature = (
+            root
+            / "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar"
+        )
+        toolbar_feature.mkdir(parents=True, exist_ok=True)
+        (toolbar_feature / "ToolbarBehaviorController.kt").write_text(
+            TOOLBAR_BEHAVIOR_CONTROLLER
+        )
         compose_toolbar = (
             root
             / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar"
@@ -606,10 +648,24 @@ class OverlayTests(unittest.TestCase):
             root
             / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
         ).read_text()
+        clipping_behavior = (
+            root
+            / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt"
+        ).read_text()
+        toolbar_behavior = (
+            root
+            / "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt"
+        ).read_text()
         self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
-        self.assertIn("topToolbarHeight = acuteGlassTopOverlayHeight", browser_fragment)
+        self.assertIn(
+            "setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)",
+            browser_fragment,
+        )
+        self.assertIn("topToolbarHeight = topToolbarHeight", browser_fragment)
         self.assertIn("swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight", browser_fragment)
+        self.assertIn("engineViewParent.translationY = 0f", clipping_behavior)
+        self.assertIn("toolbar.collapse()", toolbar_behavior)
 
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()

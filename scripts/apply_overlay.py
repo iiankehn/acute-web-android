@@ -140,8 +140,13 @@ def patch_core_glass_toolbar(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def patch_core_glass_compositor(toolbar_path: Path, browser_fragment_path: Path) -> None:
-    """Render Gecko below the toolbar and keep the toolbar canvas transparent."""
+def patch_core_glass_compositor(
+    toolbar_path: Path,
+    browser_fragment_path: Path,
+    clipping_behavior_path: Path,
+    toolbar_behavior_path: Path,
+) -> None:
+    """Render Gecko below a glass toolbar while preserving dynamic scrolling."""
     toolbar = toolbar_path.read_text(encoding="utf-8")
     toolbar = replace_once(
         toolbar,
@@ -168,18 +173,19 @@ def patch_core_glass_compositor(toolbar_path: Path, browser_fragment_path: Path)
 '''
     replacement = '''        // CORE Glass requires live page pixels below the top toolbar. Keeping the
         // Gecko viewport at y=0 also lets the translucent Compose layers blend with
-        // the page instead of an opaque parent surface.
+        // the page instead of an opaque parent surface. Gecko still receives the
+        // real toolbar height so nested scrolling can collapse and restore it.
         val acuteGlassTopOverlayHeight = 0
 
         if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
-            getEngineView().setDynamicToolbarMaxHeight(acuteGlassTopOverlayHeight + bottomToolbarHeight)
+            getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
 
             (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
                 EngineViewClippingBehavior(
                     context = context,
                     attrs = null,
                     engineViewParent = getSwipeRefreshLayout(),
-                    topToolbarHeight = acuteGlassTopOverlayHeight,
+                    topToolbarHeight = topToolbarHeight,
                     bottomToolbarHeight = bottomToolbarHeight,
                 )
         } else {
@@ -192,6 +198,35 @@ def patch_core_glass_compositor(toolbar_path: Path, browser_fragment_path: Path)
         "fixed Gecko toolbar overlay margin",
     )
     browser_fragment_path.write_text(fragment, encoding="utf-8")
+
+    clipping = clipping_behavior_path.read_text(encoding="utf-8")
+    clipping = replace_once(
+        clipping,
+        "                engineViewParent.translationY = recentTopToolbarTranslation + topToolbarHeight\n",
+        "                // CORE Glass keeps live page pixels below the translucent toolbar.\n"
+        "                // The toolbar still receives the real height for nested-scroll behavior.\n"
+        "                engineViewParent.translationY = 0f\n",
+        "glass engine overlay translation",
+    )
+    clipping_behavior_path.write_text(clipping, encoding="utf-8")
+
+    toolbar_behavior = toolbar_behavior_path.read_text(encoding="utf-8")
+    toolbar_behavior = replace_once(
+        toolbar_behavior,
+        '''                        } else if (!state.content.loading) {
+                            enableScrolling()
+                        }
+''',
+        '''                        } else if (!state.content.loading) {
+                            enableScrolling()
+                            // Acute reveals the top of each page after loading. Scrolling
+                            // upward restores the toolbar through the standard behavior.
+                            toolbar.collapse()
+                        }
+''',
+        "collapse glass toolbar after page load",
+    )
+    toolbar_behavior_path.write_text(toolbar_behavior, encoding="utf-8")
 
 
 def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
@@ -1041,6 +1076,14 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
+    clipping_behavior = (
+        checkout
+        / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt"
+    )
+    toolbar_behavior = (
+        checkout
+        / "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt"
+    )
     onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
@@ -1051,7 +1094,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar,
-                display_toolbar, edit_toolbar, toolbar_surface, browser_fragment, onboarding,
+                display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
+                clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
@@ -1068,7 +1112,12 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_midnight_palette(night_colors)
     patch_core_glass_toolbar(browser_toolbar)
     patch_core_glass_address_bar(display_toolbar, edit_toolbar)
-    patch_core_glass_compositor(toolbar_surface, browser_fragment)
+    patch_core_glass_compositor(
+        toolbar_surface,
+        browser_fragment,
+        clipping_behavior,
+        toolbar_behavior,
+    )
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
