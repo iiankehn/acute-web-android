@@ -31,6 +31,14 @@ stability work required for eventual Stable promotion.
 Stable releases use tags such as `v0.5.0`. Beta releases use tags such as
 `v0.5.0-beta.1` and are published as GitHub prereleases.
 
+## Website publication
+
+After the release job publishes its assets, the website job validates the
+release tag, channel, non-empty signed ARM64 APK, and official GitHub asset URL
+before changing the website. Stable releases update Stable version labels and
+download buttons; prereleases update the Beta card and Beta download buttons.
+The resulting commit to `main` triggers the existing GitHub Pages deployment.
+
 ## Upstream policy
 
 Both channels use a reviewed, pinned commit from Mozilla's Stable source line.
