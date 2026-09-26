@@ -311,6 +311,32 @@ class BrowserToolbarComposable {
 }
 '''
 
+FULL_DISPLAY_TOOLBAR = '''import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+fun FullDisplayToolbar() {
+    Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                shape = CircleShape,
+                            )
+}
+'''
+
+BROWSER_EDIT_TOOLBAR = '''import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+fun BrowserEditToolbar() {
+    Modifier
+                        .clip(shape = CircleShape)
+                        .background(color = MaterialTheme.colorScheme.surfaceContainerHighest),
+}
+'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -477,6 +503,13 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
+        compose_toolbar = (
+            root
+            / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar"
+        )
+        (compose_toolbar / "ui").mkdir(parents=True)
+        (compose_toolbar / "ui/FullDisplayToolbar.kt").write_text(FULL_DISPLAY_TOOLBAR)
+        (compose_toolbar / "BrowserEditToolbar.kt").write_text(BROWSER_EDIT_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").write_text(ABOUT)
         (app / "src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt").write_text(
             CUSTOMIZATION_FRAGMENT)
@@ -505,6 +538,24 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
         return temp, root
+
+    def test_styles_display_and_edit_address_fields(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        compose_toolbar = (
+            root
+            / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar"
+        )
+        for source in (
+            compose_toolbar / "ui/FullDisplayToolbar.kt",
+            compose_toolbar / "BrowserEditToolbar.kt",
+        ):
+            text = source.read_text()
+            self.assertIn("Brush.horizontalGradient", text)
+            self.assertIn("Color(0xC2383D46)", text)
+            self.assertIn("Color(0x997AC6EA)", text)
+            self.assertIn("import androidx.compose.foundation.border", text)
 
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()

@@ -140,6 +140,91 @@ def patch_core_glass_toolbar(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
+    """Style the address pill itself instead of relying on ambient theme colors."""
+    display = display_path.read_text(encoding="utf-8")
+    display = replace_once(
+        display,
+        "import androidx.compose.foundation.background\n",
+        "import androidx.compose.foundation.background\nimport androidx.compose.foundation.border\n",
+        "display address bar border import",
+    )
+    display = replace_once(
+        display,
+        "import androidx.compose.ui.graphics.Color\n",
+        "import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n",
+        "display address bar brush import",
+    )
+    display_fill = '''                            .background(
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                shape = CircleShape,
+                            )
+'''
+    glass_fill = '''                            .background(
+                                brush =
+                                    Brush.horizontalGradient(
+                                        colors =
+                                            listOf(
+                                                Color(0xC2383D46),
+                                                Color(0xA8263A4A),
+                                                Color(0xB82A3038),
+                                            )
+                                    ),
+                                shape = CircleShape,
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush =
+                                    Brush.horizontalGradient(
+                                        colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                    ),
+                                shape = CircleShape,
+                            )
+'''
+    display = replace_once(display, display_fill, glass_fill, "display address bar fill")
+    display_path.write_text(display, encoding="utf-8")
+
+    edit = edit_path.read_text(encoding="utf-8")
+    edit = replace_once(
+        edit,
+        "import androidx.compose.foundation.background\n",
+        "import androidx.compose.foundation.background\nimport androidx.compose.foundation.border\n",
+        "edit address bar border import",
+    )
+    edit = replace_once(
+        edit,
+        "import androidx.compose.ui.graphics.Color\n",
+        "import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n",
+        "edit address bar brush import",
+    )
+    edit_fill = '''                        .clip(shape = CircleShape)
+                        .background(color = MaterialTheme.colorScheme.surfaceContainerHighest),
+'''
+    edit_glass_fill = '''                        .clip(shape = CircleShape)
+                        .background(
+                            brush =
+                                Brush.horizontalGradient(
+                                    colors =
+                                        listOf(
+                                            Color(0xC2383D46),
+                                            Color(0xA8263A4A),
+                                            Color(0xB82A3038),
+                                        )
+                                )
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush =
+                                Brush.horizontalGradient(
+                                    colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                ),
+                            shape = CircleShape,
+                        ),
+'''
+    edit = replace_once(edit, edit_fill, edit_glass_fill, "edit address bar fill")
+    edit_path.write_text(edit, encoding="utf-8")
+
+
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
     string = re.compile(
@@ -892,6 +977,13 @@ def apply(checkout: Path, channel: str = "stable") -> None:
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
     )
+    compose_toolbar = (
+        checkout
+        / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java"
+        / "mozilla/components/compose/browser/toolbar"
+    )
+    display_toolbar = compose_toolbar / "ui/FullDisplayToolbar.kt"
+    edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
@@ -901,7 +993,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar, onboarding,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar,
+                display_toolbar, edit_toolbar, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
@@ -917,6 +1010,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_dark_theme_default(settings)
     patch_midnight_palette(night_colors)
     patch_core_glass_toolbar(browser_toolbar)
+    patch_core_glass_address_bar(display_toolbar, edit_toolbar)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)

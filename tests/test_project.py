@@ -112,7 +112,10 @@ class ProjectTests(unittest.TestCase):
         )
         self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
         self.assertIn("patch_core_glass_toolbar", theme)
+        self.assertIn("patch_core_glass_address_bar", theme)
         self.assertIn("Brush.verticalGradient", theme)
+        self.assertIn("Color(0xC2383D46)", theme)
+        self.assertIn("Color(0x997AC6EA)", theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
