@@ -119,7 +119,9 @@ class ProjectTests(unittest.TestCase):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()
         for profile in ("compact-tablet", "standard-tablet", "large-tablet"):
             self.assertIn(profile, script)
-        self.assertIn("KEYCODE_TAB", script)
+        self.assertIn("https://en.wikipedia.org/wiki/Web_browser", script)
+        self.assertIn("android.intent.action.VIEW", script)
+        self.assertNotIn("KEYCODE_TAB", script)
 
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()
