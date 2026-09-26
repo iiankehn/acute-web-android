@@ -337,6 +337,39 @@ fun BrowserEditToolbar() {
 }
 '''
 
+COMPOSE_BROWSER_TOOLBAR = '''import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
+
+fun BrowserToolbar() {
+    val backgroundColor = MaterialTheme.colorScheme.surface
+}
+'''
+
+BASE_BROWSER_FRAGMENT = '''class BaseBrowserFragment {
+    fun initializeEngineView(topToolbarHeight: Int, bottomToolbarHeight: Int) {
+        val context = requireContext()
+
+        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
+            getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
+
+            (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
+                EngineViewClippingBehavior(
+                    context = context,
+                    attrs = null,
+                    engineViewParent = getSwipeRefreshLayout(),
+                    topToolbarHeight = topToolbarHeight,
+                    bottomToolbarHeight = bottomToolbarHeight,
+                )
+        } else {
+            getEngineView().setDynamicToolbarMaxHeight(0)
+            val swipeRefreshParams = getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams
+            swipeRefreshParams.topMargin = topToolbarHeight
+            swipeRefreshParams.bottomMargin = bottomToolbarHeight
+        }
+    }
+}
+'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -503,6 +536,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
+        (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
+        (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
+            BASE_BROWSER_FRAGMENT)
         compose_toolbar = (
             root
             / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar"
@@ -510,6 +546,7 @@ class OverlayTests(unittest.TestCase):
         (compose_toolbar / "ui").mkdir(parents=True)
         (compose_toolbar / "ui/FullDisplayToolbar.kt").write_text(FULL_DISPLAY_TOOLBAR)
         (compose_toolbar / "BrowserEditToolbar.kt").write_text(BROWSER_EDIT_TOOLBAR)
+        (compose_toolbar / "BrowserToolbar.kt").write_text(COMPOSE_BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt").write_text(ABOUT)
         (app / "src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt").write_text(
             CUSTOMIZATION_FRAGMENT)
@@ -556,6 +593,23 @@ class OverlayTests(unittest.TestCase):
             self.assertIn("Color(0xC2383D46)", text)
             self.assertIn("Color(0x997AC6EA)", text)
             self.assertIn("import androidx.compose.foundation.border", text)
+
+    def test_composites_toolbar_over_live_gecko_content(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        compose_toolbar = (
+            root
+            / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt"
+        ).read_text()
+        browser_fragment = (
+            root
+            / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
+        ).read_text()
+        self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
+        self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
+        self.assertIn("topToolbarHeight = acuteGlassTopOverlayHeight", browser_fragment)
+        self.assertIn("swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight", browser_fragment)
 
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()

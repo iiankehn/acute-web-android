@@ -60,6 +60,8 @@ class ProjectTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("Sign with isolated release credentials", workflow)
         self.assertIn("Build without release secrets", workflow)
+        self.assertIn("github.ref == 'refs/heads/beta'", workflow)
+        self.assertIn("ACUTE_BUILD_NUMBER: ${{ github.run_number }}", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("refusing to replace published files", workflow)
         self.assertIn("gh release create", workflow)
@@ -113,9 +115,12 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
         self.assertIn("patch_core_glass_toolbar", theme)
         self.assertIn("patch_core_glass_address_bar", theme)
+        self.assertIn("patch_core_glass_compositor", theme)
         self.assertIn("Brush.verticalGradient", theme)
         self.assertIn("Color(0xC2383D46)", theme)
         self.assertIn("Color(0x997AC6EA)", theme)
+        self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)
+        self.assertIn("Config.generateFennecVersionCode(abi) + acuteBuildNumber", theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()

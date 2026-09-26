@@ -115,9 +115,9 @@ def patch_core_glass_toolbar(path: Path) -> None:
                                     Brush.verticalGradient(
                                         colors =
                                             listOf(
-                                                Color(0xE6121820),
-                                                Color(0xD90B1117),
-                                                Color(0xCC07121A),
+                                                Color(0xA6121820),
+                                                Color(0x990B1117),
+                                                Color(0x8C07121A),
                                             )
                                     )
                                 )
@@ -138,6 +138,60 @@ def patch_core_glass_toolbar(path: Path) -> None:
         raise OverlayError(f"Expected two browser toolbar columns; found {count}")
     text = text.replace(column, "Column(modifier = acuteCoreGlassModifier)")
     path.write_text(text, encoding="utf-8")
+
+
+def patch_core_glass_compositor(toolbar_path: Path, browser_fragment_path: Path) -> None:
+    """Render Gecko below the toolbar and keep the toolbar canvas transparent."""
+    toolbar = toolbar_path.read_text(encoding="utf-8")
+    toolbar = replace_once(
+        toolbar,
+        "    val backgroundColor = MaterialTheme.colorScheme.surface\n",
+        "    // CORE Glass is composited over Gecko content by Fenix.\n"
+        "    val backgroundColor = Color.Transparent\n",
+        "transparent browser toolbar surface",
+    )
+    toolbar_path.write_text(toolbar, encoding="utf-8")
+
+    fragment = browser_fragment_path.read_text(encoding="utf-8")
+    original = '''        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
+            getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
+
+            (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
+                EngineViewClippingBehavior(
+                    context = context,
+                    attrs = null,
+                    engineViewParent = getSwipeRefreshLayout(),
+                    topToolbarHeight = topToolbarHeight,
+                    bottomToolbarHeight = bottomToolbarHeight,
+                )
+        } else {
+'''
+    replacement = '''        // CORE Glass requires live page pixels below the top toolbar. Keeping the
+        // Gecko viewport at y=0 also lets the translucent Compose layers blend with
+        // the page instead of an opaque parent surface.
+        val acuteGlassTopOverlayHeight = 0
+
+        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
+            getEngineView().setDynamicToolbarMaxHeight(acuteGlassTopOverlayHeight + bottomToolbarHeight)
+
+            (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
+                EngineViewClippingBehavior(
+                    context = context,
+                    attrs = null,
+                    engineViewParent = getSwipeRefreshLayout(),
+                    topToolbarHeight = acuteGlassTopOverlayHeight,
+                    bottomToolbarHeight = bottomToolbarHeight,
+                )
+        } else {
+'''
+    fragment = replace_once(fragment, original, replacement, "Gecko toolbar overlay geometry")
+    fragment = replace_once(
+        fragment,
+        "            swipeRefreshParams.topMargin = topToolbarHeight\n",
+        "            swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight\n",
+        "fixed Gecko toolbar overlay margin",
+    )
+    browser_fragment_path.write_text(fragment, encoding="utf-8")
 
 
 def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
@@ -342,11 +396,12 @@ def patch_gradle(path: Path) -> None:
     # version-code generator because its values are monotonic and ABI-aware.
     version_gate = "        if (buildType in ['nightly', 'beta', 'release', 'benchmark']) {\n"
     version_override = """        def acuteVersion = System.getenv("ACUTE_VERSION_NAME")
+        def acuteBuildNumber = System.getenv("ACUTE_BUILD_NUMBER")?.toInteger() ?: 0
         if (acuteVersion) {
             variant.outputs.each { output ->
                 def abi = output.filters.find { it.filterType == FilterConfiguration.FilterType.ABI }?.identifier ?: "universal"
                 output.versionName.set(acuteVersion)
-                output.versionCode.set(Config.generateFennecVersionCode(abi))
+                output.versionCode.set(Config.generateFennecVersionCode(abi) + acuteBuildNumber)
             }
         } else if (buildType in ['nightly', 'beta', 'release', 'benchmark']) {
 """
@@ -984,6 +1039,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     )
     display_toolbar = compose_toolbar / "ui/FullDisplayToolbar.kt"
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
+    toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
+    browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
     onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
@@ -994,7 +1051,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar,
-                display_toolbar, edit_toolbar, onboarding,
+                display_toolbar, edit_toolbar, toolbar_surface, browser_fragment, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
@@ -1011,6 +1068,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_midnight_palette(night_colors)
     patch_core_glass_toolbar(browser_toolbar)
     patch_core_glass_address_bar(display_toolbar, edit_toolbar)
+    patch_core_glass_compositor(toolbar_surface, browser_fragment)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
