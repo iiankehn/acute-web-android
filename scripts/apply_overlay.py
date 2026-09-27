@@ -403,6 +403,19 @@ def validate_product_identity(fenix: Path) -> None:
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
                     violations.append(f"{path}: {name}: {phrase}")
+    code_roots = (
+        fenix / "app/src/main/java",
+        fenix / "app/src/main/kotlin",
+    )
+    code_extensions = {".kt", ".java"}
+    for root in code_roots:
+        if not root.exists():
+            continue
+        for path in sorted(p for p in root.rglob("*") if p.suffix in code_extensions):
+            compact = re.sub(r"\\s+", " ", path.read_text(encoding="utf-8"))
+            for phrase in prohibited:
+                if phrase.lower() in compact.lower():
+                    violations.append(f"{path}: {phrase}")
     xml_roots = (
         resource_root / "xml",
         resource_root / "layout",
