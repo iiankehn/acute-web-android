@@ -64,6 +64,10 @@ MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/androi
     <!-- Needed for Google Play policy https://support.google.com/googleplay/android-developer/answer/6048248 -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
 
+    <!-- Needed to interact with all apps installed on a device -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <!-- Needed to prompt the user directly for app uninstallation as part of an
     'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
@@ -715,6 +719,7 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("android.hardware.touchscreen", manifest)
         self.assertNotIn("com.adjust.preinstall.READ_PERMISSION", manifest)
         self.assertNotIn("com.google.android.gms.permission.AD_ID", manifest)
+        self.assertNotIn("android.permission.QUERY_ALL_PACKAGES", manifest)
         self.assertNotIn("android.permission.REQUEST_DELETE_PACKAGES", manifest)
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
