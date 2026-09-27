@@ -482,8 +482,52 @@ STYLES = '''<resources>
 </style>
 </resources>'''
 
-ABOUT = '''class AboutFragment {
+ABOUT = '''import android.os.Build
+import android.view.View
+import org.mozilla.fenix.BuildConfig
+import org.mozilla.geckoview.BuildConfig as GeckoViewBuildConfig
+
+class AboutFragment {
     private lateinit var appName: String
+    private fun populateAboutHeader() {
+        val aboutText =
+            try {
+                val packageInfo =
+                    requireContext()
+                        .packageManagerCompatHelper
+                        .getPackageInfoCompat(requireContext().packageName, 0)
+                val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+                val maybeFenixVcsHash = if (BuildConfig.VCS_HASH.isNotBlank()) ", ${BuildConfig.VCS_HASH}" else ""
+                val maybeGecko = getString(R.string.gecko_view_abbreviation)
+                val geckoVersion = GeckoViewBuildConfig.MOZ_APP_VERSION + "-" + GeckoViewBuildConfig.MOZ_APP_BUILDID
+                val appServicesAbbreviation = getString(R.string.app_services_abbreviation)
+                val appServicesVersion = mozilla.components.Build.APPLICATION_SERVICES_VERSION
+                val operatingSystemAbbrevation = "OS"
+                val operatingSystemVersion = "Android ${Build.VERSION.RELEASE}"
+
+                String.format(
+                    "%s (Build #%s)%s\\n%s: %s\\n%s: %s\\n%s: %s",
+                    packageInfo.versionName,
+                    versionCode,
+                    maybeFenixVcsHash,
+                    maybeGecko,
+                    geckoVersion,
+                    appServicesAbbreviation,
+                    appServicesVersion,
+                    operatingSystemAbbrevation,
+                    operatingSystemVersion,
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                ""
+            }
+
+        val content = getString(R.string.about_content, appName)
+        val buildDate = BuildConfig.BUILD_DATE
+
+        binding.aboutText.text = aboutText
+        binding.aboutContent.text = content
+        binding.buildDate.text = buildDate
+    }
     private fun populateAboutList(): List<AboutPageItem> {
         val context = requireContext()
 
@@ -772,6 +816,10 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("ACUTE_PRIVACY_URL", about)
         self.assertNotIn("SupportUtils.WHATS_NEW_URL", about)
         self.assertNotIn("AboutItem.Crashes", about)
+        self.assertIn('"${packageInfo.versionName} (Build #$versionCode)"', about)
+        self.assertNotIn("GeckoViewBuildConfig", about)
+        self.assertNotIn("VCS_HASH", about)
+        self.assertIn("binding.buildDate.visibility = View.GONE", about)
         onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
         self.assertIn("never displays Mozilla marketing", onboarding)
         self.assertNotIn("MarketingPageAdditionSupport(", onboarding)

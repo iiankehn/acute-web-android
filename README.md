@@ -117,7 +117,7 @@ For release operations, see:
 
 Acute Web is under active development. Stable releases remain on `main`; new
 work is validated on `beta` before it can become a public release candidate.
-Version 0.5 development introduces the CORE Glass visual system: a dark
+Version 0.7 brings the CORE Glass visual system: a dark
 black/grey canvas, layered translucent surfaces, restrained soft-blue accents,
 and accessible high-contrast text. The application interface is Midnight-only;
 the separate Midnight Pages control still lets users choose how websites are

@@ -87,13 +87,13 @@ jobs:
               # Keep branch builds parseable by the GitHub updater. The
               # monotonically increasing ACUTE_BUILD_NUMBER still permits
               # install-over updates between Beta artifacts.
-              echo "version=0.5.0-beta.0" >> "$GITHUB_OUTPUT"
+              echo "version=0.7.0-beta.0" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
               echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
               echo "kind=debug" >> "$GITHUB_OUTPUT"
-              echo "version=0.5.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "version=0.7.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi

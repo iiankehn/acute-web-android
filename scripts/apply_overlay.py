@@ -558,7 +558,7 @@ def patch_dark_theme_default(path: Path) -> None:
             default = false,
         )
 '''
-    light_locked = '''    // Acute 0.5 has one application theme: Midnight.
+    light_locked = '''    // Acute has one application theme: Midnight.
     var shouldUseLightTheme: Boolean
         get() = false
         set(value) = Unit
@@ -1032,8 +1032,54 @@ def patch_home_content_policy(settings: Path) -> None:
 
 
 def patch_about_page(path: Path) -> None:
-    """Keep license disclosures while routing product links to Acute resources."""
+    """Show Acute's package version and build number, retaining license links."""
     text = path.read_text(encoding="utf-8")
+    old_header = '''                val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+                val maybeFenixVcsHash = if (BuildConfig.VCS_HASH.isNotBlank()) ", ${BuildConfig.VCS_HASH}" else ""
+                val maybeGecko = getString(R.string.gecko_view_abbreviation)
+                val geckoVersion = GeckoViewBuildConfig.MOZ_APP_VERSION + "-" + GeckoViewBuildConfig.MOZ_APP_BUILDID
+                val appServicesAbbreviation = getString(R.string.app_services_abbreviation)
+                val appServicesVersion = mozilla.components.Build.APPLICATION_SERVICES_VERSION
+                val operatingSystemAbbrevation = "OS"
+                val operatingSystemVersion = "Android ${Build.VERSION.RELEASE}"
+
+                String.format(
+                    "%s (Build #%s)%s\\n%s: %s\\n%s: %s\\n%s: %s",
+                    packageInfo.versionName,
+                    versionCode,
+                    maybeFenixVcsHash,
+                    maybeGecko,
+                    geckoVersion,
+                    appServicesAbbreviation,
+                    appServicesVersion,
+                    operatingSystemAbbrevation,
+                    operatingSystemVersion,
+                )
+'''
+    new_header = '''                val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+                "${packageInfo.versionName} (Build #$versionCode)"
+'''
+    text = replace_once(text, old_header, new_header, "About version and build")
+    text = replace_once(
+        text,
+        '''        val buildDate = BuildConfig.BUILD_DATE
+
+        binding.aboutText.text = aboutText
+        binding.aboutContent.text = content
+        binding.buildDate.text = buildDate
+''',
+        '''        binding.aboutText.text = aboutText
+        binding.aboutContent.text = content
+        binding.buildDate.visibility = View.GONE
+''',
+        "About build date",
+    )
+    for unused_import in (
+        "import android.os.Build\n",
+        "import org.mozilla.fenix.BuildConfig\n",
+        "import org.mozilla.geckoview.BuildConfig as GeckoViewBuildConfig\n",
+    ):
+        text = replace_once(text, unused_import, "", f"unused {unused_import.strip()}")
     old_list = '''        val context = requireContext()
 
         return listOf(
