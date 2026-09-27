@@ -83,7 +83,7 @@ jobs:
             else
               echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
               echo "kind=debug" >> "$GITHUB_OUTPUT"
-              echo "version=0.3.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "version=0.5.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi
@@ -218,7 +218,7 @@ jobs:
           python3 acute-overlay/scripts/apply_overlay.py firefox
           cd firefox
           for attempt in 1 2 3; do
-            ACUTE_VERSION_NAME="0.2.1-smoke.${GITHUB_RUN_NUMBER}" ./mach gradle fenix:assembleDebug && break
+            ACUTE_VERSION_NAME="0.5.0-smoke.${GITHUB_RUN_NUMBER}" ./mach gradle fenix:assembleDebug && break
             test "$attempt" -lt 3 || exit 1
             echo "Gradle dependency resolution failed; retrying in 30 seconds"
             sleep 30
