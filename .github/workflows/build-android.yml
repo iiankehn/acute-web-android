@@ -191,8 +191,7 @@ jobs:
           fi
           if [[ -n "$variant" ]]; then
             gradle_resource_args+=(
-              -x ":fenix:lintVitalAnalyze${variant}"
-              -x ":fenix:lintVitalReport${variant}"
+              -x ":fenix:lintVital${variant}"
             )
           fi
           for attempt in 1 2 3; do
