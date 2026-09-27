@@ -791,6 +791,19 @@ class OverlayTests(unittest.TestCase):
         self.assertTrue((app / "src/main/java/org/mozilla/fenix/acute/GitHubUpdateProvider.kt").is_file())
         self.assertTrue((root / ".acute-web-android-overlay").is_file())
 
+    def test_product_identity_gate_rejects_hardcoded_upstream_promotions(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        strings = root / "mobile/android/fenix/app/src/main/res/values/strings.xml"
+        text = strings.read_text()
+        text = text.replace(
+            "</resources>",
+            '<string name="juno_onboarding_add_search_widget_title">Try the Firefox search widget</string></resources>',
+        )
+        strings.write_text(text)
+        with self.assertRaises(OverlayError):
+            apply(root, channel="beta")
+
     def test_beta_channel_has_separate_identity(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
