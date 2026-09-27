@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import re
 import unittest
 
@@ -27,7 +28,7 @@ class ProjectTests(unittest.TestCase):
         foreground = (ROOT / "overlay/res/drawable/acute_launcher_foreground.xml").read_text()
         self.assertIn("@drawable/acute_brand_mark", foreground)
         background = (ROOT / "overlay/res/drawable/acute_launcher_background.xml").read_text()
-        self.assertIn("@android:color/transparent", background)
+        self.assertIn("#071827", background)
         themed = (ROOT / "overlay/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
         self.assertIn("<monochrome", themed)
         self.assertIn("@drawable/acute_launcher_monochrome", themed)
@@ -39,11 +40,22 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('text = "by CORE"', overlay)
         self.assertIn("#0072BC", overlay)
 
+    def test_clear_glass_branding_matches_ios_masters(self):
+        stable_hash = "832be7ecb30d8abc1bab6956ee572e80eb9ca5cfd59bf9dcfcd2536ae5b185af"
+        beta_hash = "327505ed63137dd7f3eb015af6c31a9f1f71f51b1007a3e23d846db111032034"
+        stable_assets = (
+            ROOT / "overlay/res/drawable-nodpi/acute_brand_mark.png",
+            ROOT / "docs/acute-mark.png",
+        )
+        for asset in stable_assets:
+            self.assertEqual(hashlib.sha256(asset.read_bytes()).hexdigest(), stable_hash)
+        beta_asset = ROOT / "overlay/beta-res/drawable-nodpi/acute_brand_mark_beta.png"
+        self.assertEqual(hashlib.sha256(beta_asset.read_bytes()).hexdigest(), beta_hash)
+
     def test_beta_launcher_badge_is_channel_specific(self):
         beta = ROOT / "overlay/beta-res"
         foreground = (beta / "drawable/acute_beta_launcher_foreground.xml").read_text()
-        self.assertIn("@drawable/acute_launcher_foreground", foreground)
-        self.assertIn("@drawable/acute_beta_badge", foreground)
+        self.assertIn("@drawable/acute_brand_mark_beta", foreground)
         themed = (beta / "mipmap-anydpi-v33/ic_launcher.xml").read_text()
         self.assertIn("@drawable/acute_beta_launcher_foreground", themed)
         self.assertIn("@drawable/acute_beta_launcher_monochrome", themed)
