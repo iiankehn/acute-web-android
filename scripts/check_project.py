@@ -24,7 +24,7 @@ def main() -> int:
         print("Missing required files: " + ", ".join(missing), file=sys.stderr)
         return 1
     updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
-    expected = "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
+    expected = "https://api.github.com/repos/iiankehn/acute-web-android/releases?per_page=20"
     if expected not in updater:
         print("Updater repository URL is incorrect", file=sys.stderr)
         return 1
