@@ -811,6 +811,19 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
 
+    def test_product_identity_gate_rejects_upstream_promotions(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        strings = root / "mobile/android/fenix/app/src/main/res/values/strings.xml"
+        text = strings.read_text()
+        text = text.replace(
+            "</resources>",
+            '<string name="promo">Mozilla VPN</string></resources>',
+        )
+        strings.write_text(text)
+        with self.assertRaises(OverlayError):
+            apply(root, channel="beta")
+
     def test_product_identity_gate_rejects_runtime_ui_branding(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
