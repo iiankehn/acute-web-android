@@ -32,8 +32,22 @@ run_profile() {
     adb shell settings put system user_rotation "$rotation"
     adb shell am force-stop "$package_name"
     adb shell monkey -p "$package_name" -c android.intent.category.LAUNCHER 1 >/dev/null
-    sleep 4
-    adb shell pidof "$package_name" >/dev/null
+    # Emulator startup can take longer after changing tablet size/density.
+    # Wait for the browser process instead of failing on a fixed 4-second delay.
+    launched=false
+    for _ in {1..20}; do
+      if adb shell pidof "$package_name" >/dev/null 2>&1; then
+        launched=true
+        break
+      fi
+      sleep 1
+    done
+    if [[ "$launched" != "true" ]]; then
+      echo "Browser failed to stay running for $name $orientation" >&2
+      adb shell dumpsys activity activities | tail -n 80 >&2 || true
+      adb logcat -d -t 200 >&2 || true
+      return 1
+    fi
     adb shell am start -W \
       -a android.intent.action.VIEW \
       -d "$page_url" \
