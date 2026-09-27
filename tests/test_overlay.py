@@ -814,10 +814,10 @@ class OverlayTests(unittest.TestCase):
     def test_product_identity_gate_rejects_upstream_promotions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
-        values = root / "mobile/android/fenix/app/src/main/res/values-es"
-        values.mkdir(parents=True, exist_ok=True)
-        (values / "strings.xml").write_text(
-            '<resources><string name="promo">Try Mozilla VPN</string></resources>'
+        source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
+        source.mkdir(parents=True, exist_ok=True)
+        (source / "UpstreamPromotion.kt").write_text(
+            'val promotion = "Try Mozilla VPN"'
         )
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
@@ -836,10 +836,10 @@ class OverlayTests(unittest.TestCase):
     def test_product_identity_gate_rejects_hardcoded_upstream_promotions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
-        values = root / "mobile/android/fenix/app/src/main/res/values-es"
-        values.mkdir(parents=True, exist_ok=True)
-        (values / "strings.xml").write_text(
-            '<resources><string name="juno_onboarding_add_search_widget_title">Try the Firefox search widget</string></resources>'
+        source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
+        source.mkdir(parents=True, exist_ok=True)
+        (source / "UpstreamOnboardingPromotion.kt").write_text(
+            'val promotion = "Pocket recommendations"'
         )
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
