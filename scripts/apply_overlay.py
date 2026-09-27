@@ -422,7 +422,13 @@ def validate_product_identity(fenix: Path) -> None:
             continue
         for path in sorted(p for p in root.rglob("*") if p.suffix in code_extensions):
             source = path.read_text(encoding="utf-8")
-            literals = " ".join(match.group(0) for match in quoted_literal.finditer(source))
+            # Ignore KDoc/block/line comments: quoted product names in documentation
+            # are not runtime UI. Resource-backed UI remains covered by the XML scan.
+            source_without_comments = re.sub(r"/\\*.*?\\*/", "", source, flags=re.DOTALL)
+            source_without_comments = re.sub(r"//[^\\n]*", "", source_without_comments)
+            literals = " ".join(
+                match.group(0) for match in quoted_literal.finditer(source_without_comments)
+            )
             compact = re.sub(r"\\s+", " ", literals)
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
