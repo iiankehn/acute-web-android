@@ -4,13 +4,12 @@
   <img src="docs/acute-mark.png" alt="Acute Web clear-glass cat-fox mark" width="160">
 </p>
 
-The clear-glass icon is Acute Web's cross-platform master artwork, shared with
-the iOS/iPadOS project and the public website. Beta uses the coordinated
-badged variant rather than a separate product mark.
+The clear-glass icon in this Android repository is Acute Web's canonical product artwork.
+Beta uses the coordinated badged variant rather than a separate product mark.
 
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
 open-source Gecko engine. It is distributed directly as a signed, sideloadable APK
-for ARM64 phones, tablets, foldables, and ChromeOS devices.
+for ARM64 phones, tablets, and ChromeOS devices.
 
 [Website](https://acute.iiankehn.com/) ·
 [Stable releases](https://github.com/iiankehn/acute-web-android/releases/latest) ·
@@ -123,7 +122,7 @@ black/grey canvas, layered translucent surfaces, restrained soft-blue accents,
 and accessible high-contrast text. The application interface is Midnight-only;
 the separate Midnight Pages control still lets users choose how websites are
 rendered. The design is implemented as shared tokens so phones, tablets,
-foldables, and ChromeOS use one consistent interface.
+large-screen Android and ChromeOS devices use one consistent interface.
 
 Version 0.3 established the Acute Web by CORE identity, privacy defaults,
 update path, and Android phone/tablet experience. Bug reports and reproducible
