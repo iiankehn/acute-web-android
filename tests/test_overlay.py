@@ -833,6 +833,17 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
 
+    def test_product_identity_gate_ignores_internal_upstream_references(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
+        source.mkdir(parents=True, exist_ok=True)
+        (source / "InternalFeature.kt").write_text(
+            "// Pocket recommendations are disabled by Acute\\n"
+            "val firefoxSuggestEnabled = false"
+        )
+        apply(root, channel="beta")
+
     def test_product_identity_gate_rejects_hardcoded_upstream_promotions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
