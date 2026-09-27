@@ -391,7 +391,9 @@ def validate_product_identity(fenix: Path) -> None:
         r'<string\\b[^>]*\\bname="([^"]+)"[^>]*>(.*?)</string>',
         flags=re.DOTALL,
     )
-    for path in sorted(resource_root.glob("values*/strings.xml")):
+    string_files = sorted(resource_root.glob("values*/strings.xml"))
+    string_files += sorted(resource_root.glob("values*/static_strings.xml"))
+    for path in string_files:
         text = path.read_text(encoding="utf-8")
         for match in string.finditer(text):
             name, value = match.group(1), match.group(2)
