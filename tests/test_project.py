@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import unittest
 
 
@@ -25,6 +26,15 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('text = "Acute"', overlay)
         self.assertIn('text = "by CORE"', overlay)
         self.assertIn("#0072BC", overlay)
+
+    def test_clear_glass_branding_matches_ios_master(self):
+        expected = "832be7ecb30d8abc1bab6956ee572e80eb9ca5cfd59bf9dcfcd2536ae5b185af"
+        assets = (
+            ROOT / "overlay/res/drawable-nodpi/acute_brand_mark.png",
+            ROOT / "docs/acute-mark.png",
+        )
+        for asset in assets:
+            self.assertEqual(hashlib.sha256(asset.read_bytes()).hexdigest(), expected)
 
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()

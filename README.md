@@ -1,8 +1,12 @@
 # Acute Web for Android
 
 <p align="center">
-  <img src="docs/acute-mark.png" alt="Acute Web cat-fox mark" width="160">
+  <img src="docs/acute-mark.png" alt="Acute Web clear-glass cat-fox mark" width="160">
 </p>
+
+The clear-glass icon is Acute Web's cross-platform master artwork, shared with
+the iOS/iPadOS project and the public website. Beta uses the coordinated
+badged variant rather than a separate product mark.
 
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
 open-source Gecko engine. It is distributed directly as a signed, sideloadable APK
