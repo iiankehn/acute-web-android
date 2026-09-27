@@ -165,6 +165,7 @@ class ProjectTests(unittest.TestCase):
     def test_unneeded_upstream_permissions_are_removed(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
         self.assertIn("com.adjust.preinstall.READ_PERMISSION", overlay)
+        self.assertIn("com.google.android.gms.permission.AD_ID", overlay)
         self.assertIn("android.permission.REQUEST_DELETE_PACKAGES", overlay)
 
     def test_tablet_profiles_cover_large_screens(self):
