@@ -339,7 +339,9 @@ def replace_product_branding(xml: str) -> str:
 def patch_product_branding(fenix: Path) -> None:
     """Patch user-facing product names in every bundled locale."""
     resource_root = fenix / "app/src/main/res"
-    for path in sorted(resource_root.glob("values*/strings.xml")):
+    string_files = sorted(resource_root.glob("values*/strings.xml"))
+    string_files += sorted(resource_root.glob("values*/static_strings.xml"))
+    for path in string_files:
         text = path.read_text(encoding="utf-8")
         path.write_text(replace_product_branding(text), encoding="utf-8")
 
