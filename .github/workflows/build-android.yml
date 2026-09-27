@@ -41,16 +41,6 @@ jobs:
           path: acute-overlay
           persist-credentials: false
 
-      - name: Apply approved clear branding
-        shell: bash
-        run: |
-          STABLE="https://raw.githubusercontent.com/iiankehn/acute-web-ios/main/AcuteWeb/Assets.xcassets/AppIcon.appiconset/AcuteWebIcon-Clear.png"
-          BETA="https://raw.githubusercontent.com/iiankehn/acute-web-ios/main/AcuteWeb/Assets.xcassets/BetaAppIcon.appiconset/AcuteWebBetaIcon-Clear.png"
-          ICON="$STABLE"
-          if [[ "${GITHUB_REF_NAME}" == "beta" || "${GITHUB_REF_NAME}" == *-beta.* ]]; then ICON="$BETA"; fi
-          curl --fail --location "$ICON" -o acute-overlay/overlay/res/drawable-nodpi/acute_brand_mark.png
-          curl --fail --location "$ICON" -o acute-overlay/overlay/res/drawable-nodpi/acute_brand_monochrome.png
-
       - name: Select immutable build inputs
         id: version
         env:
@@ -197,16 +187,6 @@ jobs:
         with:
           path: acute-overlay
           persist-credentials: false
-
-      - name: Apply approved clear branding
-        shell: bash
-        run: |
-          STABLE="https://raw.githubusercontent.com/iiankehn/acute-web-ios/main/AcuteWeb/Assets.xcassets/AppIcon.appiconset/AcuteWebIcon-Clear.png"
-          BETA="https://raw.githubusercontent.com/iiankehn/acute-web-ios/main/AcuteWeb/Assets.xcassets/BetaAppIcon.appiconset/AcuteWebBetaIcon-Clear.png"
-          ICON="$STABLE"
-          if [[ "${GITHUB_REF_NAME}" == "beta" || "${GITHUB_REF_NAME}" == *-beta.* ]]; then ICON="$BETA"; fi
-          curl --fail --location "$ICON" -o acute-overlay/overlay/res/drawable-nodpi/acute_brand_mark.png
-          curl --fail --location "$ICON" -o acute-overlay/overlay/res/drawable-nodpi/acute_brand_monochrome.png
 
       - name: Reclaim runner disk space
         run: |
