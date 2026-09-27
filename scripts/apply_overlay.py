@@ -359,6 +359,45 @@ def patch_product_branding(fenix: Path) -> None:
     english.write_text(text, encoding="utf-8")
 
 
+def validate_product_identity(fenix: Path) -> None:
+    """Fail if obvious upstream consumer branding survives the Acute overlay."""
+    resource_root = fenix / "app/src/main/res"
+    prohibited = (
+        "Rate on Google Play",
+        "Try the Firefox search widget",
+        "Add Firefox widget",
+        "Find out why millions love Firefox",
+        "Notifications help you stay safer with Firefox",
+        "make Firefox your own",
+        "Firefox Suggest",
+    )
+    allowed_name_parts = UPSTREAM_DISCLOSURE_RESOURCE_PARTS + (
+        "license",
+        "mozilla",
+        "gecko",
+    )
+    violations: list[str] = []
+    string = re.compile(
+        r'<string\\b[^>]*\\bname="([^"]+)"[^>]*>(.*?)</string>',
+        flags=re.DOTALL,
+    )
+    for path in sorted(resource_root.glob("values*/strings.xml")):
+        text = path.read_text(encoding="utf-8")
+        for match in string.finditer(text):
+            name, value = match.group(1), match.group(2)
+            if any(part in name.lower() for part in allowed_name_parts):
+                continue
+            compact = re.sub(r"\\s+", " ", value)
+            for phrase in prohibited:
+                if phrase.lower() in compact.lower():
+                    violations.append(f"{path}: {name}: {phrase}")
+    if violations:
+        raise OverlayError(
+            "Product-facing upstream branding survived the Acute overlay:\\n"
+            + "\\n".join(violations)
+        )
+
+
 def patch_app_labels(fenix: Path, channel: str) -> None:
     """Give Stable and Beta distinct, user-visible launcher labels."""
     static_files = sorted((fenix / "app/src").glob("*/res/values*/static_strings.xml"))
@@ -1143,6 +1182,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
         replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
     )
     patch_product_branding(fenix)
+    validate_product_identity(fenix)
     copy_overlay(fenix, channel)
     (checkout / MARKER).write_text(
         f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"
