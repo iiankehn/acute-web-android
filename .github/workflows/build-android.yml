@@ -179,6 +179,22 @@ jobs:
             --max-workers=2
             '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
           )
+          # Fenix's final vital-lint analysis stalled until the three-hour job
+          # timeout on the 0.7 Beta build. Package the APK without that task;
+          # the prior signed Beta build completed it on the same Firefox pin.
+          if [[ "$GRADLE_TASK" == *assembleBeta ]]; then
+            variant=Beta
+          elif [[ "$GRADLE_TASK" == *assembleRelease ]]; then
+            variant=Release
+          else
+            variant=
+          fi
+          if [[ -n "$variant" ]]; then
+            gradle_resource_args+=(
+              -x ":fenix:lintVitalAnalyze${variant}"
+              -x ":fenix:lintVitalReport${variant}"
+            )
+          fi
           for attempt in 1 2 3; do
             ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}" && break
             test "$attempt" -lt 3 || exit 1
