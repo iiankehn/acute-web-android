@@ -811,6 +811,29 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
 
+    def test_product_branding_removes_disabled_upstream_service_copy(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        strings = root / "mobile/android/fenix/app/src/main/res/values/strings.xml"
+        strings.write_text(
+            "<resources>"
+            '<string name="preferences_rate">Rate on Google Play</string>'
+            '<string name="preferences_show_sponsored_suggestions_summary">Sponsored suggestions</string>'
+            '<string name="customize_toggle_contile">Sponsored shortcuts</string>'
+            '<string name="pair_instructions_2">Visit firefox.com/pair</string>'
+            '<string name="sign_in_instructions">Visit firefox.com/pair</string>'
+            '<string name="about_content">Firefox</string>'
+            "</resources>"
+        )
+        apply(root, channel="beta")
+        branded = strings.read_text()
+        self.assertIn("Visit the Acute Web project", branded)
+        self.assertIn("Recommendations are disabled in Acute Web", branded)
+        self.assertIn("Sync pairing is not available in Acute Web", branded)
+        self.assertNotIn("Google Play", branded)
+        self.assertNotIn("Sponsored", branded)
+        self.assertNotIn("firefox.com/pair", branded)
+
     def test_product_identity_gate_rejects_upstream_promotions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
@@ -839,7 +862,7 @@ class OverlayTests(unittest.TestCase):
         source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
         source.mkdir(parents=True, exist_ok=True)
         (source / "InternalFeature.kt").write_text(
-            "// Pocket recommendations are disabled by Acute\\n"
+            "// Pocket recommendations are disabled by Acute\n"
             "val firefoxSuggestEnabled = false"
         )
         apply(root, channel="beta")
@@ -850,8 +873,8 @@ class OverlayTests(unittest.TestCase):
         source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
         source.mkdir(parents=True, exist_ok=True)
         (source / "DocumentedFeature.kt").write_text(
-            '/** "Firefox Suggest" header. */\\n'
-            '// "Sponsored suggestions" are disabled by Acute.\\n'
+            '/** "Firefox Suggest" header. */\n'
+            '// "Sponsored suggestions" are disabled by Acute.\n'
             'val enabled = false'
         )
         apply(root, channel="beta")

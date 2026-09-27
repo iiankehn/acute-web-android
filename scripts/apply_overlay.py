@@ -316,6 +316,13 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
 
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
+    acute_resource_values = {
+        "preferences_rate": "Visit the Acute Web project",
+        "preferences_show_sponsored_suggestions_summary": "Recommendations are disabled in Acute Web",
+        "customize_toggle_contile": "Recommendations",
+        "pair_instructions_2": "Sync pairing is not available in Acute Web",
+        "sign_in_instructions": "Sync pairing is not available in Acute Web",
+    }
     string = re.compile(
         r'(<string\b[^>]*\bname="([^"]+)"[^>]*>)(.*?)(</string>)',
         flags=re.DOTALL,
@@ -324,6 +331,8 @@ def replace_product_branding(xml: str) -> str:
     def update(match: re.Match[str]) -> str:
         name = match.group(2)
         value = match.group(3)
+        if name in acute_resource_values:
+            return f"{match.group(1)}{acute_resource_values[name]}{match.group(4)}"
         protected = any(part in name for part in UPSTREAM_DISCLOSURE_RESOURCE_PARTS)
         protected = protected or "client=firefox" in value.lower()
         if protected:
@@ -393,7 +402,7 @@ def validate_product_identity(fenix: Path) -> None:
     )
     violations: list[str] = []
     string = re.compile(
-        r'<string\\b[^>]*\\bname="([^"]+)"[^>]*>(.*?)</string>',
+        r'<string\b[^>]*\bname="([^"]+)"[^>]*>(.*?)</string>',
         flags=re.DOTALL,
     )
     string_files = sorted(resource_root.glob("values*/strings.xml"))
@@ -404,7 +413,7 @@ def validate_product_identity(fenix: Path) -> None:
             name, value = match.group(1), match.group(2)
             if any(part in name.lower() for part in allowed_name_parts):
                 continue
-            compact = re.sub(r"\\s+", " ", value)
+            compact = re.sub(r"\s+", " ", value)
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
                     violations.append(f"{path}: {name}: {phrase}")
@@ -416,7 +425,7 @@ def validate_product_identity(fenix: Path) -> None:
     # Source code legitimately contains upstream feature identifiers and comments
     # even when those surfaces are disabled. Only inspect quoted literals here;
     # Android resources below remain subject to the stricter full-text scan.
-    quoted_literal = re.compile(r'(?s)(?:"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')')
+    quoted_literal = re.compile(r'(?s)(?:"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\')')
     for root in code_roots:
         if not root.exists():
             continue
@@ -424,12 +433,12 @@ def validate_product_identity(fenix: Path) -> None:
             source = path.read_text(encoding="utf-8")
             # Ignore KDoc/block/line comments: quoted product names in documentation
             # are not runtime UI. Resource-backed UI remains covered by the XML scan.
-            source_without_comments = re.sub(r"/\\*.*?\\*/", "", source, flags=re.DOTALL)
-            source_without_comments = re.sub(r"//[^\\n]*", "", source_without_comments)
+            source_without_comments = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+            source_without_comments = re.sub(r"//[^\n]*", "", source_without_comments)
             literals = " ".join(
                 match.group(0) for match in quoted_literal.finditer(source_without_comments)
             )
-            compact = re.sub(r"\\s+", " ", literals)
+            compact = re.sub(r"\s+", " ", literals)
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
                     violations.append(f"{path}: {phrase}")
@@ -443,7 +452,7 @@ def validate_product_identity(fenix: Path) -> None:
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.xml")):
-            compact = re.sub(r"\\s+", " ", path.read_text(encoding="utf-8"))
+            compact = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
                     violations.append(f"{path}: {phrase}")
