@@ -380,6 +380,12 @@ def validate_product_identity(fenix: Path) -> None:
         "Firefox search widget",
         "Add Firefox widget",
         "make Firefox your own",
+        "Mozilla VPN",
+        "Mozilla Monitor",
+        "Mozilla Relay",
+        "Pocket recommendations",
+        "Sponsored shortcuts",
+        "Sponsored suggestions",
     )
     allowed_name_parts = UPSTREAM_DISCLOSURE_RESOURCE_PARTS + (
         "license",
