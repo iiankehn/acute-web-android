@@ -111,7 +111,14 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                 val name = asset.getString("name")
                 val candidate = asset.getString("browser_download_url")
                 val uri = Uri.parse(candidate)
-                val trustedDownload = uri.scheme == "https" && uri.host == "github.com"
+                val expectedPath =
+                    "/iiankehn/acute-web-android/releases/download/v$version/$expectedAsset"
+                val assetSize = asset.optLong("size", -1)
+                val trustedDownload =
+                    uri.scheme == "https" &&
+                        uri.host == "github.com" &&
+                        uri.path == expectedPath &&
+                        assetSize in 1..MAX_APK_BYTES
                 if (trustedDownload && name == expectedAsset) {
                     apkUrl = candidate
                     break
@@ -119,7 +126,9 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             }
             val pageUrl = json.getString("html_url")
             val pageUri = Uri.parse(pageUrl)
-            if (pageUri.scheme != "https" || pageUri.host != "github.com") {
+            val expectedPagePath = "/iiankehn/acute-web-android/releases/tag/v$version"
+            if (pageUri.scheme != "https" || pageUri.host != "github.com" ||
+                pageUri.path != expectedPagePath) {
                 throw IllegalStateException("Release page URL is not trusted")
             }
             val installed = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "0"
@@ -223,6 +232,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val RETRY_INTERVAL_MS = 60L * 60 * 1000
         private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
+        private const val MAX_APK_BYTES = 300L * 1024 * 1024
         private val IS_BETA = BuildConfig.BUILD_TYPE == "beta"
         private val STABLE_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
         private val BETA_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)-beta\\.([0-9]+)$")

@@ -17,6 +17,9 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("BETA_VERSION", updater)
         self.assertIn("requestUpdateCheck()", updater)
         self.assertIn('uri.host == "github.com"', updater)
+        self.assertIn('uri.path == expectedPath', updater)
+        self.assertIn('assetSize in 1..MAX_APK_BYTES', updater)
+        self.assertIn('pageUri.path != expectedPagePath', updater)
         self.assertIn("KEY_REMIND_AFTER", updater)
         self.assertIn("KEY_LAST_ATTEMPT", updater)
         self.assertIn("MAX_RESPONSE_BYTES", updater)
@@ -95,7 +98,8 @@ class ProjectTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("Sign with isolated release credentials", workflow)
         self.assertIn("Build without release secrets", workflow)
-        self.assertIn("github.ref == 'refs/heads/beta'", workflow)
+        self.assertIn("github.event_name == 'push'", workflow)
+        self.assertIn("needs.smoke-test.result == 'success'", workflow)
         self.assertIn("ACUTE_BUILD_NUMBER: ${{ github.run_number }}", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("refusing to replace published files", workflow)
@@ -117,8 +121,9 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("--target=aarch64-linux-android", workflow)
         self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
         self.assertIn("lib/arm64-v8a/libxul.so", workflow)
-        self.assertIn("Android 12 launch smoke test", workflow)
+        self.assertIn("Android 12 generic device smoke test", workflow)
         self.assertIn("needs: [build, smoke-test]", workflow)
+        self.assertIn("needs: build", workflow)
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -127,9 +132,9 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@96b4a1ef", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("0.5.0-rc.dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("version=0.5.0-beta.0", workflow)
         self.assertIn("0.5.0-dev.${GITHUB_RUN_NUMBER}", workflow)
-        self.assertIn('ACUTE_VERSION_NAME="0.5.0-smoke.${GITHUB_RUN_NUMBER}"', workflow)
+        self.assertIn('ACUTE_VERSION_NAME="${{ needs.build.outputs.version }}"', workflow)
         self.assertNotIn("0.3.0-dev.", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
@@ -172,11 +177,13 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("com.google.android.gms.permission.AD_ID", overlay)
         self.assertIn("android.permission.QUERY_ALL_PACKAGES", overlay)
         self.assertIn("android.permission.REQUEST_DELETE_PACKAGES", overlay)
+        self.assertIn("android.permission.REQUEST_INSTALL_PACKAGES", overlay)
 
     def test_tablet_profiles_cover_large_screens(self):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()
-        for profile in ("compact-tablet", "standard-tablet", "large-tablet"):
+        for profile in ("compact-phone", "compact-tablet", "standard-tablet", "large-tablet"):
             self.assertIn(profile, script)
+        self.assertIn("capture_diagnostics", script)
         self.assertIn("https://en.wikipedia.org/wiki/Web_browser", script)
         self.assertIn("android.intent.action.VIEW", script)
         self.assertNotIn("KEYCODE_TAB", script)

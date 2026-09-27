@@ -28,10 +28,10 @@ def main() -> int:
     if expected not in updater:
         print("Updater repository URL is incorrect", file=sys.stderr)
         return 1
-    if "REQUEST_INSTALL_PACKAGES" in (ROOT / "scripts/apply_overlay.py").read_text():
-        print("Overlay must not request silent package installation", file=sys.stderr)
-        return 1
     overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+    if 'replace_once(text, install_permission, "", "package installation permission")' not in overlay:
+        print("Overlay must remove inherited package installation permission", file=sys.stderr)
+        return 1
     for requirement in ("patch_tablet_defaults", "android.hardware.touchscreen", "validate_tablet_upstream"):
         if requirement not in overlay:
             print(f"Missing tablet requirement: {requirement}", file=sys.stderr)
@@ -40,7 +40,7 @@ def main() -> int:
     workflow_requirements = (
         "Build without release secrets",
         "Sign with isolated release credentials",
-        "Android 12 launch smoke test",
+        "Android 12 generic device smoke test",
         "attest-build-provenance@",
         "refusing to replace published files",
         "permissions:\n  contents: read",

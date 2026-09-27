@@ -34,6 +34,8 @@ jobs:
       package: ${{ steps.version.outputs.package }}
       channel: ${{ steps.version.outputs.channel }}
       firefox_ref: ${{ steps.version.outputs.firefox_ref }}
+      task: ${{ steps.version.outputs.task }}
+      gradle_flags: ${{ steps.version.outputs.gradle_flags }}
     steps:
       - name: Check out Acute overlay
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -82,7 +84,10 @@ jobs:
             if [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
               echo "task=fenix:assembleBeta" >> "$GITHUB_OUTPUT"
               echo "kind=beta" >> "$GITHUB_OUTPUT"
-              echo "version=0.5.0-rc.dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              # Keep branch builds parseable by the GitHub updater. The
+              # monotonically increasing ACUTE_BUILD_NUMBER still permits
+              # install-over updates between Beta artifacts.
+              echo "version=0.5.0-beta.0" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
@@ -143,7 +148,10 @@ jobs:
           manifest=firefox/mobile/android/fenix/app/src/main/AndroidManifest.xml
           ! grep -E "TELEMETRY['\", ]+true|CRASH_REPORTING['\", ]+true" "$gradle"
           ! grep -q 'com.adjust.preinstall.READ_PERMISSION' "$manifest"
+          ! grep -q 'com.google.android.gms.permission.AD_ID' "$manifest"
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' "$manifest"
           ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' "$manifest"
+          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$manifest"
 
       - name: Build APK without release credentials
         working-directory: firefox
@@ -183,7 +191,8 @@ jobs:
           retention-days: 7
 
   smoke-test:
-    name: Android 12 launch smoke test
+    name: Android 12 generic device smoke test
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -199,11 +208,13 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/CodeQL
 
       - name: Check out pinned Firefox source
+        env:
+          FIREFOX_REF: ${{ needs.build.outputs.firefox_ref }}
         run: |
           git init firefox
           git -C firefox remote add origin https://github.com/mozilla-firefox/firefox.git
-          git -C firefox fetch --depth=1 origin "$PINNED_FIREFOX_REF"
-          test "$(git -C firefox rev-parse FETCH_HEAD)" = "$PINNED_FIREFOX_REF"
+          git -C firefox fetch --depth=1 origin "$FIREFOX_REF"
+          test "$(git -C firefox rev-parse FETCH_HEAD)" = "$FIREFOX_REF"
           git -C firefox checkout --detach FETCH_HEAD
 
       - name: Set up Java
@@ -220,18 +231,20 @@ jobs:
           ./mach configure --enable-bootstrap=no-update
           ./mach build
           cd ..
-          python3 acute-overlay/scripts/apply_overlay.py firefox
+          python3 acute-overlay/scripts/apply_overlay.py firefox --channel "${{ needs.build.outputs.channel }}"
           cd firefox
           for attempt in 1 2 3; do
-            ACUTE_VERSION_NAME="0.5.0-smoke.${GITHUB_RUN_NUMBER}" ./mach gradle fenix:assembleDebug && break
+            ACUTE_VERSION_NAME="${{ needs.build.outputs.version }}" \
+              ACUTE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}" \
+              ./mach gradle "${{ needs.build.outputs.task }}" && break
             test "$attempt" -lt 3 || exit 1
             echo "Gradle dependency resolution failed; retrying in 30 seconds"
             sleep 30
           done
           cd ..
           mkdir -p smoke-dist
-          apk="$(find firefox -type f -path '*/fenix/app/outputs/apk/debug/*x86_64*.apk' -print -quit)"
-          test -n "$apk" || apk="$(find firefox -type f -path '*/fenix/app/outputs/apk/debug/*universal*.apk' -print -quit)"
+          apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/${{ needs.build.outputs.kind }}/*x86_64*.apk" -print -quit)"
+          test -n "$apk" || apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/${{ needs.build.outputs.kind }}/*universal*.apk" -print -quit)"
           test -n "$apk"
           cp "$apk" smoke-dist/acute-web-smoke-x86_64.apk
 
@@ -242,14 +255,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Launch on Android 12 phone and tablet profiles
+      - name: Launch on Android 12 generic phone and tablet profiles
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
-          ACUTE_PACKAGE_NAME: com.acuteweb.browser.debug
+          ACUTE_PACKAGE_NAME: ${{ needs.build.outputs.package }}
         with:
           api-level: 31
           arch: x86_64
-          profile: pixel_3a
           disable-animations: true
           script: bash acute-overlay/scripts/tablet_smoke.sh smoke-dist/acute-web-smoke-x86_64.apk smoke-results
 
@@ -266,9 +278,10 @@ jobs:
     name: Sign and verify installable APK
     if: >-
       always() &&
+      github.event_name == 'push' &&
       needs.build.result == 'success' &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.smoke-test.result == 'success') ||
-      github.ref == 'refs/heads/beta')
+      needs.smoke-test.result == 'success' &&
+      (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/beta')
     needs: [build, smoke-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -319,7 +332,10 @@ jobs:
           permissions_report="$("$build_tools/aapt2" dump permissions "dist/acute-web-${VERSION}-arm64-v8a.apk")"
           printf '%s\n' "$permissions_report" | tee dist/manifest-permissions.txt
           ! grep -q 'com.adjust.preinstall.READ_PERMISSION' dist/manifest-permissions.txt
+          ! grep -q 'com.google.android.gms.permission.AD_ID' dist/manifest-permissions.txt
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' dist/manifest-permissions.txt
           ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' dist/manifest-permissions.txt
+          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' dist/manifest-permissions.txt
           sha256sum "dist/acute-web-${VERSION}-arm64-v8a.apk" > "dist/acute-web-${VERSION}-arm64-v8a.apk.sha256"
           cp unsigned/build-inputs.txt dist/build-inputs.txt
           rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"

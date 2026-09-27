@@ -72,6 +72,8 @@ MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/androi
     'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
 
+    <uses-permission-sdk-23 android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:label="@string/app_name">
         <activity android:name=".HomeActivity" android:resizeableActivity="true" />
@@ -721,6 +723,7 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("com.google.android.gms.permission.AD_ID", manifest)
         self.assertNotIn("android.permission.QUERY_ALL_PACKAGES", manifest)
         self.assertNotIn("android.permission.REQUEST_DELETE_PACKAGES", manifest)
+        self.assertNotIn("android.permission.REQUEST_INSTALL_PACKAGES", manifest)
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
         self.assertIn("appContext.isLargeScreenSize()", tablet_settings)

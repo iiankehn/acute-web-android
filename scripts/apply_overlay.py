@@ -617,9 +617,10 @@ def patch_dark_theme_default(path: Path) -> None:
 
 def patch_manifest(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    # Acute does not use Mozilla partner attribution or the Firefox uninstall
-    # survey. Removing these inherited permissions reduces package visibility
-    # and uninstall capabilities without affecting normal browsing or updates.
+    # Acute does not use Mozilla partner attribution, advertising identifiers,
+    # package-wide discovery, Firefox's uninstall survey, or direct package
+    # installation. Updates are downloaded in the user's browser and handed to
+    # Android's normal installer, so REQUEST_INSTALL_PACKAGES is unnecessary.
     adjust_permission = '''    <!-- Needed to get distribution information from partners.
     This is NOT required for the adjust plugin. -->
     <uses-permission android:name="com.adjust.preinstall.READ_PERMISSION"/>
@@ -639,12 +640,26 @@ def patch_manifest(path: Path) -> None:
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
 
 '''
+    install_permission = '''    <uses-permission-sdk-23 android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+'''
     text = replace_once(text, adjust_permission, "", "partner attribution permission")
     text = text.replace(ad_id_permission, "")
     if "com.google.android.gms.permission.AD_ID" in text:
         raise OverlayError("Could not remove advertising ID permission")
     text = replace_once(text, query_all_packages_permission, "", "all-packages query permission")
     text = replace_once(text, delete_permission, "", "uninstall survey permission")
+    text = replace_once(text, install_permission, "", "package installation permission")
+    removed_permissions = (
+        "com.adjust.preinstall.READ_PERMISSION",
+        "com.google.android.gms.permission.AD_ID",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.REQUEST_DELETE_PACKAGES",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+    )
+    for permission in removed_permissions:
+        if permission in text:
+            raise OverlayError(f"Could not remove inherited permission: {permission}")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
     <uses-feature
         android:name="android.hardware.touchscreen"
