@@ -413,11 +413,17 @@ def validate_product_identity(fenix: Path) -> None:
         fenix / "app/src/main/kotlin",
     )
     code_extensions = {".kt", ".java"}
+    # Source code legitimately contains upstream feature identifiers and comments
+    # even when those surfaces are disabled. Only inspect quoted literals here;
+    # Android resources below remain subject to the stricter full-text scan.
+    quoted_literal = re.compile(r'(?s)(?:"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')')
     for root in code_roots:
         if not root.exists():
             continue
         for path in sorted(p for p in root.rglob("*") if p.suffix in code_extensions):
-            compact = re.sub(r"\\s+", " ", path.read_text(encoding="utf-8"))
+            source = path.read_text(encoding="utf-8")
+            literals = " ".join(match.group(0) for match in quoted_literal.finditer(source))
+            compact = re.sub(r"\\s+", " ", literals)
             for phrase in prohibited:
                 if phrase.lower() in compact.lower():
                     violations.append(f"{path}: {phrase}")
