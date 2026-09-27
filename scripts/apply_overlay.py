@@ -1188,8 +1188,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
         replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
     )
     patch_product_branding(fenix)
-    validate_product_identity(fenix)
     copy_overlay(fenix, channel)
+    validate_product_identity(fenix)
     (checkout / MARKER).write_text(
         f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"
     )
