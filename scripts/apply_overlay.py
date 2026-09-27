@@ -570,6 +570,11 @@ def patch_manifest(path: Path) -> None:
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
 
 '''
+    query_all_packages_permission = '''    <!-- Needed to interact with all apps installed on a device -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+'''
     delete_permission = '''    <!-- Needed to prompt the user directly for app uninstallation as part of an
     'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
@@ -577,6 +582,7 @@ def patch_manifest(path: Path) -> None:
 '''
     text = replace_once(text, adjust_permission, "", "partner attribution permission")
     text = replace_once(text, ad_id_permission, "", "advertising ID permission")
+    text = replace_once(text, query_all_packages_permission, "", "all-packages query permission")
     text = replace_once(text, delete_permission, "", "uninstall survey permission")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
     <uses-feature
