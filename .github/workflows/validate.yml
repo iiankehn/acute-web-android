@@ -2,7 +2,7 @@ name: Validate overlay
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
   pull_request:
 
 permissions:
