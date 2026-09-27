@@ -128,6 +128,10 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("attest-build-provenance@96b4a1ef", workflow)
         self.assertIn("sha256sum", workflow)
         self.assertIn("0.5.0-rc.dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("0.5.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn('ACUTE_VERSION_NAME="0.5.0-smoke.${GITHUB_RUN_NUMBER}"', workflow)
+        self.assertNotIn("0.3.0-dev.", workflow)
+        self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
         self.assertIn("--prerelease", workflow)
 
