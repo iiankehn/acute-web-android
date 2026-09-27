@@ -70,10 +70,15 @@ jobs:
             echo "channel=$channel" >> "$GITHUB_OUTPUT"
             echo "firefox_ref=$PINNED_FIREFOX_REF" >> "$GITHUB_OUTPUT"
           else
-            [[ "$MANUAL_FIREFOX_REF" =~ ^[0-9a-f]{40}$ ]] || {
-              echo "Manual builds require a full 40-character Firefox commit"
-              exit 1
-            }
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              [[ "$MANUAL_FIREFOX_REF" =~ ^[0-9a-f]{40}$ ]] || {
+                echo "Manual builds require a full 40-character Firefox commit"
+                exit 1
+              }
+              firefox_ref="$MANUAL_FIREFOX_REF"
+            else
+              firefox_ref="$PINNED_FIREFOX_REF"
+            fi
             if [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
               echo "task=fenix:assembleBeta" >> "$GITHUB_OUTPUT"
               echo "kind=beta" >> "$GITHUB_OUTPUT"
@@ -88,7 +93,7 @@ jobs:
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi
             echo "gradle_flags=" >> "$GITHUB_OUTPUT"
-            echo "firefox_ref=$MANUAL_FIREFOX_REF" >> "$GITHUB_OUTPUT"
+            echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Reclaim runner disk space
