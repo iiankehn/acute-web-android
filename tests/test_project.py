@@ -125,6 +125,14 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("needs: [build, smoke-test]", workflow)
         self.assertIn("needs: build", workflow)
 
+    def test_android_build_bounds_gradle_resources(self):
+        workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
+        self.assertEqual(workflow.count("Bound Gradle memory and configure swap"), 2)
+        self.assertEqual(workflow.count("--max-workers=2"), 2)
+        self.assertEqual(workflow.count("--no-parallel"), 2)
+        self.assertEqual(workflow.count("-Xmx4g -Xms1g"), 2)
+        self.assertEqual(workflow.count("MaxMetaspaceSize=2g"), 2)
+
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("4452e9a17a29f762c5af6326f45c000dcf3117bb", workflow)
