@@ -844,6 +844,18 @@ class OverlayTests(unittest.TestCase):
         )
         apply(root, channel="beta")
 
+    def test_product_identity_gate_ignores_quoted_names_in_comments(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        source = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
+        source.mkdir(parents=True, exist_ok=True)
+        (source / "DocumentedFeature.kt").write_text(
+            '/** "Firefox Suggest" header. */\\n'
+            '// "Sponsored suggestions" are disabled by Acute.\\n'
+            'val enabled = false'
+        )
+        apply(root, channel="beta")
+
     def test_product_identity_gate_rejects_hardcoded_upstream_promotions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
