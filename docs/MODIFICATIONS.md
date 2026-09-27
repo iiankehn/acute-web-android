@@ -8,7 +8,9 @@ the public overlay, resources, tests, and workflow in this repository.
 
 - Acute Web and Acute Beta use independent Android package identities.
 - Acute names, launcher assets, About content, support links, and release
-  information replace upstream product-facing branding.
+  information replace upstream product-facing branding. Acute Beta adds a
+  dedicated `BETA` launcher badge across adaptive, legacy, round, and themed
+  icon treatments so it remains visibly distinct from Stable.
 - Mozilla and Gecko references are retained where needed for accurate engine,
   copyright, license, and attribution disclosures.
 

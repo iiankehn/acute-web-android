@@ -39,6 +39,17 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('text = "by CORE"', overlay)
         self.assertIn("#0072BC", overlay)
 
+    def test_beta_launcher_badge_is_channel_specific(self):
+        beta = ROOT / "overlay/beta-res"
+        foreground = (beta / "drawable/acute_beta_launcher_foreground.xml").read_text()
+        self.assertIn("@drawable/acute_launcher_foreground", foreground)
+        self.assertIn("@drawable/acute_beta_badge", foreground)
+        themed = (beta / "mipmap-anydpi-v33/ic_launcher.xml").read_text()
+        self.assertIn("@drawable/acute_beta_launcher_foreground", themed)
+        self.assertIn("@drawable/acute_beta_launcher_monochrome", themed)
+        stable = (ROOT / "overlay/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
+        self.assertNotIn("acute_beta", stable)
+
     def test_midnight_pages_is_local_and_conservative(self):
         extension = ROOT / "overlay/assets/extensions/acute-midnight"
         manifest = (extension / "manifest.json").read_text()

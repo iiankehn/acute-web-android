@@ -808,6 +808,11 @@ class OverlayTests(unittest.TestCase):
             (root / ".acute-web-android-overlay").read_text(),
             "Acute Web Android overlay applied (beta)\n",
         )
+        beta_icon = (app / "src/beta/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
+        self.assertIn("@drawable/acute_beta_launcher_foreground", beta_icon)
+        self.assertIn("@drawable/acute_beta_launcher_monochrome", beta_icon)
+        stable_icon = (app / "src/release/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
+        self.assertNotIn("acute_beta", stable_icon)
 
     def test_rejects_unknown_channel(self):
         temp, root = self.make_checkout()

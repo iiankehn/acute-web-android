@@ -1021,7 +1021,7 @@ def patch_shared_uid_manifest(path: Path) -> None:
     path.write_text(updated, encoding="utf-8")
 
 
-def copy_overlay(fenix: Path) -> None:
+def copy_overlay(fenix: Path, channel: str) -> None:
     java_target = fenix / "app/src/main/java/org/mozilla/fenix/acute"
     java_target.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "overlay/kotlin/GitHubUpdateProvider.kt",
@@ -1029,8 +1029,8 @@ def copy_overlay(fenix: Path) -> None:
 
     source_res = ROOT / "overlay/res"
     resource_targets = [fenix / "app/src/main/res"]
-    for channel in ("debug", "nightly", "beta", "release"):
-        channel_res = fenix / f"app/src/{channel}/res"
+    for build_type in ("debug", "nightly", "beta", "release"):
+        channel_res = fenix / f"app/src/{build_type}/res"
         if channel_res.is_dir():
             resource_targets.append(channel_res)
     for target_res in resource_targets:
@@ -1038,6 +1038,17 @@ def copy_overlay(fenix: Path) -> None:
             if source.is_file():
                 relative = source.relative_to(source_res)
                 destination = target_res / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+
+    # Beta has an intentionally distinct launcher icon. Keep these overrides
+    # outside the common resource tree so they can never leak into Stable.
+    if channel == "beta":
+        beta_res = ROOT / "overlay/beta-res"
+        target_res = fenix / "app/src/beta/res"
+        for source in beta_res.rglob("*"):
+            if source.is_file():
+                destination = target_res / source.relative_to(beta_res)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
 
@@ -1132,7 +1143,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
         replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
     )
     patch_product_branding(fenix)
-    copy_overlay(fenix)
+    copy_overlay(fenix, channel)
     (checkout / MARKER).write_text(
         f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"
     )
