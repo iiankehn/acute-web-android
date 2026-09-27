@@ -40,7 +40,7 @@ class ProjectTests(unittest.TestCase):
         self.assertIn('text = "by CORE"', overlay)
         self.assertIn("#0072BC", overlay)
 
-    def test_clear_glass_branding_matches_ios_masters(self):
+    def test_clear_glass_branding_matches_canonical_android_assets(self):
         stable_hash = "832be7ecb30d8abc1bab6956ee572e80eb9ca5cfd59bf9dcfcd2536ae5b185af"
         beta_hash = "327505ed63137dd7f3eb015af6c31a9f1f71f51b1007a3e23d846db111032034"
         stable_assets = (
@@ -51,6 +51,18 @@ class ProjectTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(asset.read_bytes()).hexdigest(), stable_hash)
         beta_asset = ROOT / "overlay/beta-res/drawable-nodpi/acute_brand_mark_beta.png"
         self.assertEqual(hashlib.sha256(beta_asset.read_bytes()).hexdigest(), beta_hash)
+
+    def test_android_branding_has_no_ios_dependency(self):
+        tracked_text = (
+            (ROOT / "README.md").read_text()
+            + (ROOT / "scripts/apply_overlay.py").read_text()
+            + (ROOT / ".github/workflows/build-android.yml").read_text()
+            + (ROOT / "docs/index.html").read_text()
+        ).lower()
+        self.assertNotIn("acute-web-ios", tracked_text)
+        self.assertNotIn("acutewebicon-clear.png", tracked_text)
+        self.assertNotIn("acutewebbetaicon-clear.png", tracked_text)
+        self.assertFalse((ROOT / ".github/workflows/sync-branding.yml").exists())
 
     def test_beta_launcher_badge_is_channel_specific(self):
         beta = ROOT / "overlay/beta-res"
