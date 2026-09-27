@@ -8,6 +8,8 @@ on:
         required: true
         default: 4452e9a17a29f762c5af6326f45c000dcf3117bb
   push:
+    branches:
+      - beta
     tags:
       - "v*"
 
