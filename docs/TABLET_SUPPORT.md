@@ -1,8 +1,10 @@
 # Tablet and large-screen support
 
-Acute Web supports Android tablets, foldables, resizable windows, and
-keyboard/mouse-first ChromeOS devices. Devices with a physical smallest width
-of at least 600 dp use the tablet experience.
+Acute Web supports Android tablets, resizable windows, and keyboard/mouse-first
+ChromeOS devices. Devices with a physical smallest width of at least 600 dp use
+the tablet experience. Foldables can run Acute through Android's normal
+resizable layouts, but purpose-built posture and hinge-aware behavior remains a
+post-1.0 validation target.
 
 <p align="center">
   <img src="assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web 0.3 in landscape orientation on an Android tablet" width="900">
@@ -21,10 +23,6 @@ On qualifying devices, Acute enables:
 - rotation and Android split-screen resizing;
 - picture-in-picture where supported by Android and the website;
 - installation on ChromeOS hardware that does not report a touchscreen.
-
-Hinged foldables retain the upstream safety checks for layouts that cross a
-physical hinge. Acute does not force the tablet tab strip where the layout
-cannot be presented safely.
 
 ## Automated coverage
 
