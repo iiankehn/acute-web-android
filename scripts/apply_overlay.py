@@ -369,6 +369,8 @@ def validate_product_identity(fenix: Path) -> None:
         "Find out why millions love Firefox",
         "Notifications help you stay safer with Firefox",
         "make Firefox your own",
+        "Notifications for tabs received from other Firefox devices",
+        "firefox.com/pair",
         "Firefox Suggest",
         "Firefox privacy notice",
         "millions love Firefox",
