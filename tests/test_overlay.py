@@ -818,7 +818,7 @@ class OverlayTests(unittest.TestCase):
         text = strings.read_text()
         text = text.replace(
             "</resources>",
-            '<string name="promo">Mozilla VPN</string></resources>',
+            '<string name="promo">Try Mozilla VPN</string></resources>',
         )
         strings.write_text(text)
         with self.assertRaises(OverlayError):
