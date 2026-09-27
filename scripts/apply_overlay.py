@@ -370,6 +370,12 @@ def validate_product_identity(fenix: Path) -> None:
         "Notifications help you stay safer with Firefox",
         "make Firefox your own",
         "Firefox Suggest",
+        "Firefox privacy notice",
+        "millions love Firefox",
+        "stay safer with Firefox",
+        "Firefox search widget",
+        "Add Firefox widget",
+        "make Firefox your own",
     )
     allowed_name_parts = UPSTREAM_DISCLOSURE_RESOURCE_PARTS + (
         "license",
