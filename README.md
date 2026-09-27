@@ -48,10 +48,10 @@ branch.
 ## Acute on Android
 
 <p align="center">
-  <img src="docs/assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web 0.3 home screen on an Android tablet" width="900">
+  <img src="docs/assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web home screen on an Android tablet" width="900">
 </p>
 
-*Acute Web 0.3 running on the Android 12 tablet test profile.*
+*Acute Web running on the Android 12 tablet test profile.*
 
 ## Supported devices
 
