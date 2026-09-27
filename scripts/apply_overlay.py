@@ -619,7 +619,9 @@ def patch_manifest(path: Path) -> None:
 
 '''
     text = replace_once(text, adjust_permission, "", "partner attribution permission")
-    text = replace_once(text, ad_id_permission, "", "advertising ID permission")
+    text = text.replace(ad_id_permission, "")
+    if "com.google.android.gms.permission.AD_ID" in text:
+        raise OverlayError("Could not remove advertising ID permission")
     text = replace_once(text, query_all_packages_permission, "", "all-packages query permission")
     text = replace_once(text, delete_permission, "", "uninstall survey permission")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
