@@ -566,12 +566,17 @@ def patch_manifest(path: Path) -> None:
     <uses-permission android:name="com.adjust.preinstall.READ_PERMISSION"/>
 
 '''
+    ad_id_permission = '''    <!-- Needed for Google Play policy https://support.google.com/googleplay/android-developer/answer/6048248 -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+'''
     delete_permission = '''    <!-- Needed to prompt the user directly for app uninstallation as part of an
     'uninstall survey' experiment. This is ONLY used to uninstall the Firefox application -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="replace" />
 
 '''
     text = replace_once(text, adjust_permission, "", "partner attribution permission")
+    text = replace_once(text, ad_id_permission, "", "advertising ID permission")
     text = replace_once(text, delete_permission, "", "uninstall survey permission")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
     <uses-feature
