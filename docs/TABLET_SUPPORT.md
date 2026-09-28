@@ -6,12 +6,6 @@ the tablet experience. Foldables can run Acute through Android's normal
 resizable layouts, but purpose-built posture and hinge-aware behavior remains a
 post-1.0 validation target.
 
-<p align="center">
-  <img src="assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web in landscape orientation on an Android tablet" width="900">
-</p>
-
-*Landscape capture from the Android 12 standard-tablet smoke-test profile.*
-
 ## Tablet behavior
 
 On qualifying devices, Acute enables:
