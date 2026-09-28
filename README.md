@@ -77,8 +77,10 @@ installation controls.
 
 This repository contains the Acute source overlay, product resources, tests,
 and release automation. Release builds use a reviewed, pinned Mozilla source
-commit, apply Acute's changes, run validation and Android smoke tests, and sign
-the resulting APK in an isolated GitHub Actions job.
+commit, apply Acute's changes, run the Acute audit and regression suite, verify
+the ARM64 package and permissions, and sign the resulting APK in an isolated
+GitHub Actions job. Physical-device acceptance testing remains a required
+release step.
 
 Mozilla source is not vendored into this repository. Keeping the Acute changes
 separate makes the product-specific work reviewable while allowing deliberate
@@ -106,6 +108,7 @@ For release operations, see:
 - [Repository and release setup](docs/GITHUB_SETUP.md)
 - [APK signing](docs/SIGNING.md)
 - [Maintaining the Gecko/Firefox source base](docs/UPSTREAM.md)
+- [Release audit and acceptance gates](docs/RELEASE_AUDIT.md)
 - [Stable and Beta release channels](docs/RELEASE_CHANNELS.md)
 - [Source availability and license compliance](docs/SOURCE_AND_LICENSE.md)
 - [Acute modifications to the upstream project](docs/MODIFICATIONS.md)

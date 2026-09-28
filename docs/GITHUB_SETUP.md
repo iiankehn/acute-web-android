@@ -9,8 +9,9 @@ Web releases. The public repository is
 Open **Actions → Build Android APK → Run workflow**. Use the pinned 40-character
 Mozilla commit unless a different upstream revision is being evaluated.
 
-Manual runs produce a debug-signed APK and tablet smoke-test evidence. They do
-not receive the production signing secrets and do not publish a release.
+Manual runs produce an unsigned/debug-signed ARM64 artifact for engineering
+inspection. They do not receive the production signing secrets and do not
+publish a release.
 
 ## Signed releases
 
@@ -21,16 +22,17 @@ complete.
 Create and push an annotated semantic-version tag:
 
 ```bash
-git tag -a v0.3.1 -m "Acute Web 0.3.1"
-git push origin v0.3.1
+VERSION=MAJOR.MINOR.PATCH
+git tag -a "v${VERSION}" -m "Acute Web ${VERSION}"
+git push origin "v${VERSION}"
 ```
 
 The release workflow:
 
-1. checks out the pinned Mozilla source revision;
-2. applies and validates the Acute overlay;
-3. builds the ARM64 APK without access to production signing secrets;
-4. runs the Android smoke-test matrix;
+1. runs the complete Acute source and release-control audit;
+2. checks out the pinned Mozilla source revision;
+3. applies and validates the Acute overlay;
+4. builds and verifies the ARM64 APK without production signing secrets;
 5. signs the APK in an isolated job;
 6. verifies the signing certificate against the established release identity;
 7. publishes the APK, checksum, signing report, permissions report, build

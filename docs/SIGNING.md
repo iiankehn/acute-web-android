@@ -52,13 +52,13 @@ workflow runs create debug-signed artifacts and never publish a release.
 Download the APK and inspect its signing certificate:
 
 ```bash
-apksigner verify --verbose --print-certs acute-web-0.3.0-arm64-v8a.apk
+apksigner verify --verbose --print-certs acute-web-0.7.0-arm64-v8a.apk
 ```
 
 Verify the accompanying SHA-256 checksum:
 
 ```bash
-sha256sum -c acute-web-0.3.0-arm64-v8a.apk.sha256
+sha256sum -c acute-web-0.7.0-arm64-v8a.apk.sha256
 ```
 
 Each stable release includes the APK checksum, signing-certificate report,

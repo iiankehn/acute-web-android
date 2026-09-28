@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        Acute 0.5 CORE Glass design tokens.
+        Acute CORE Glass design tokens.
 
         Keep product colors centralized here so browser surfaces can move as
         one system. The opaque canvas protects readability; the translucent

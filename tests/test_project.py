@@ -96,6 +96,10 @@ class ProjectTests(unittest.TestCase):
 
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
+        validate = (ROOT / ".github/workflows/validate.yml").read_text()
+        self.assertIn("Audit Acute source and release controls", workflow)
+        self.assertIn("run: make audit", workflow)
+        self.assertIn("needs: audit", workflow)
         self.assertIn("Sign with isolated release credentials", workflow)
         self.assertIn("Build without release secrets", workflow)
         self.assertIn("github.event_name == 'push'", workflow)
@@ -107,6 +111,7 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Publish release links to GitHub Pages", workflow)
         self.assertIn("scripts/update_site_release.py", workflow)
         self.assertIn("git push origin HEAD:main", workflow)
+        self.assertNotIn("branches: [main, beta]", validate)
 
     def test_release_verification_uses_available_android_tools(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -121,29 +126,28 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("--target=aarch64-linux-android", workflow)
         self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
         self.assertIn("lib/arm64-v8a/libxul.so", workflow)
-        self.assertIn("Deferred x86_64 device smoke test", workflow)
-        self.assertIn("if: ${{ false }}", workflow)
-        self.assertNotIn("needs: [build, smoke-test]", workflow)
+        self.assertNotIn("x86_64-linux-android", workflow)
+        self.assertNotIn("smoke-x86_64", workflow)
         self.assertIn("needs: build", workflow)
 
     def test_android_build_bounds_gradle_resources(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertEqual(workflow.count("Bound Gradle memory and configure swap"), 2)
-        self.assertEqual(workflow.count("--max-workers=2"), 2)
-        self.assertEqual(workflow.count("--no-parallel"), 2)
-        self.assertEqual(workflow.count("-Xmx4g -Xms1g"), 2)
-        self.assertEqual(workflow.count("MaxMetaspaceSize=2g"), 2)
+        self.assertEqual(workflow.count("Bound Gradle memory and configure swap"), 1)
+        self.assertEqual(workflow.count("--max-workers=2"), 1)
+        self.assertEqual(workflow.count("--no-parallel"), 1)
+        self.assertEqual(workflow.count("-Xmx4g -Xms1g"), 1)
+        self.assertEqual(workflow.count("MaxMetaspaceSize=2g"), 1)
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn("4452e9a17a29f762c5af6326f45c000dcf3117bb", workflow)
         self.assertNotIn("uses: actions/checkout@v", workflow)
         self.assertNotIn("uses: actions/setup-java@v", workflow)
-        self.assertIn("attest-build-provenance@96b4a1ef", workflow)
+        self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
         self.assertIn("version=0.7.0-beta.0", workflow)
         self.assertIn("0.7.0-dev.${GITHUB_RUN_NUMBER}", workflow)
-        self.assertIn('ACUTE_VERSION_NAME="${{ needs.build.outputs.version }}"', workflow)
+        self.assertIn("ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}", workflow)
         self.assertNotIn("0.3.0-dev.", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
@@ -187,6 +191,20 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("android.permission.QUERY_ALL_PACKAGES", overlay)
         self.assertIn("android.permission.REQUEST_DELETE_PACKAGES", overlay)
         self.assertIn("android.permission.REQUEST_INSTALL_PACKAGES", overlay)
+
+    def test_updater_and_manifest_are_release_safe(self):
+        updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertNotIn("android.util.Log", updater)
+        self.assertNotIn("Log.", updater)
+        self.assertIn('android:authorities="${applicationId}.acute-updates"', overlay)
+        self.assertIn('android:exported="false"', overlay)
+        for unsafe in (
+            'android:debuggable="true"',
+            'android:testOnly="true"',
+            'android:usesCleartextTraffic="true"',
+        ):
+            self.assertNotIn(unsafe, overlay)
 
     def test_tablet_profiles_cover_large_screens(self):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()

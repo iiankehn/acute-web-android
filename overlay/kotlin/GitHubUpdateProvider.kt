@@ -12,7 +12,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
@@ -141,8 +140,9 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                     showIfReady()
                 }
             }
-        } catch (error: Exception) {
-            Log.i(TAG, "Update check unavailable", error)
+        } catch (_: Exception) {
+            // Network and malformed-response failures are non-fatal. Try again later
+            // without emitting browsing-adjacent details to the release log.
         } finally {
             connection?.disconnect()
         }
@@ -195,8 +195,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     private fun openSafely(activity: Activity, url: String) {
         try {
             activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        } catch (error: ActivityNotFoundException) {
-            Log.i(TAG, "No activity can open the update link", error)
+        } catch (_: ActivityNotFoundException) {
             Toast.makeText(activity, "Unable to open this link.", Toast.LENGTH_LONG).show()
         }
     }
@@ -223,7 +222,6 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     private data class ParsedVersion(val core: List<Int>, val beta: Int)
 
     companion object {
-        private const val TAG = "AcuteUpdates"
         private const val PREFS = "acute_updates"
         private const val KEY_LAST_SUCCESS = "last_success_ms"
         private const val KEY_LAST_ATTEMPT = "last_attempt_ms"

@@ -13,6 +13,7 @@ REQUIRED = [
     "overlay/kotlin/GitHubUpdateProvider.kt",
     "scripts/apply_overlay.py",
     "docs/SIGNING.md",
+    "docs/RELEASE_AUDIT.md",
     "docs/TABLET_SUPPORT.md",
     "scripts/tablet_smoke.sh",
 ]
