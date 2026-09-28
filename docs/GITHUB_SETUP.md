@@ -21,8 +21,9 @@ complete.
 Create and push an annotated semantic-version tag:
 
 ```bash
-git tag -a v0.3.1 -m "Acute Web 0.3.1"
-git push origin v0.3.1
+VERSION=X.Y.Z
+git tag -a "v${VERSION}" -m "Acute Web ${VERSION}"
+git push origin "v${VERSION}"
 ```
 
 The release workflow:
