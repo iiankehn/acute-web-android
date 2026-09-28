@@ -3,6 +3,9 @@ name = "Acute Web"
 application_id = "com.acuteweb.browser"
 repository = "iiankehn/acute-web-android"
 
+[release]
+candidate = "1.0.0-beta.1"
+
 [channels.stable]
 branch = "main"
 application_id = "com.acuteweb.browser"

@@ -47,7 +47,7 @@ branch.
 ## Acute on Android
 
 <p align="center">
-  <img src="docs/assets/screenshots/acute-web-0.3-tablet-landscape.png" alt="Acute Web home screen on an Android tablet" width="900">
+  <img src="docs/assets/screenshots/acute-web-tablet-landscape.png" alt="Acute Web home screen on an Android tablet" width="900">
 </p>
 
 *Acute Web running on the Android 12 tablet test profile.*
@@ -126,9 +126,9 @@ the separate Midnight Pages control still lets users choose how websites are
 rendered. The design is implemented as shared tokens so phones, tablets,
 large-screen Android and ChromeOS devices use one consistent interface.
 
-Version 0.3 established the Acute Web by CORE identity, privacy defaults,
-update path, and Android phone/tablet experience. Bug reports and reproducible
-device feedback are welcome through
+The 1.0 release candidate consolidates the Acute Web by CORE identity, privacy
+defaults, signed update path, and Android phone/tablet experience. Bug reports
+and reproducible device feedback are welcome through
 [GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
 
 ## Licensing and attribution

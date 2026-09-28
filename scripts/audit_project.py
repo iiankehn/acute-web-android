@@ -49,6 +49,8 @@ def validate_configuration() -> None:
         fail("Stable and Beta application IDs must remain distinct")
 
     workflow = (WORKFLOWS / "build-android.yml").read_text(encoding="utf-8")
+    website = (ROOT / "docs/index.html").read_text(encoding="utf-8")
+    candidate = config["release"]["candidate"]
     upstream_ref = config["upstream"]["ref"]
     if workflow.count(upstream_ref) < 2:
         fail("workflow and project configuration disagree on the Firefox pin")
@@ -56,6 +58,10 @@ def validate_configuration() -> None:
         fail("pre-1.0 workflow must remain ARM64-only")
     if "needs: audit" not in workflow:
         fail("APK build is not gated by the repository audit")
+    if f"version={candidate}" not in workflow:
+        fail("workflow and project configuration disagree on the release candidate")
+    if f'data-release-version="beta">{candidate}' not in website:
+        fail("website and project configuration disagree on the release candidate")
 
 
 def validate_action_pinning() -> None:
