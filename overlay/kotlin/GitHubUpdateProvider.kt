@@ -130,11 +130,15 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                 pageUri.path != expectedPagePath) {
                 throw IllegalStateException("Release page URL is not trusted")
             }
+            // A release can become visible before its workflow finishes uploading assets.
+            // Treat that as an incomplete check so the updater retries shortly instead of
+            // suppressing checks for the full success interval.
+            val completeApkUrl = apkUrl ?: return
             val installed = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "0"
             prefs.edit().putLong(KEY_LAST_SUCCESS, now).apply()
-            if (apkUrl != null && isNewer(version, installed) &&
+            if (isNewer(version, installed) &&
                 now >= prefs.getLong(KEY_REMIND_AFTER, 0)) {
-                val release = Release(version, apkUrl, pageUrl)
+                val release = Release(version, completeApkUrl, pageUrl)
                 main.post {
                     pendingRelease = release
                     showIfReady()
@@ -227,7 +231,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val KEY_LAST_ATTEMPT = "last_attempt_ms"
         private const val KEY_REMIND_AFTER = "remind_after_ms"
         private const val CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
-        private const val RETRY_INTERVAL_MS = 60L * 60 * 1000
+        private const val RETRY_INTERVAL_MS = 15L * 60 * 1000
         private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
         private const val MAX_APK_BYTES = 300L * 1024 * 1024

@@ -24,6 +24,10 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("KEY_LAST_ATTEMPT", updater)
         self.assertIn("MAX_RESPONSE_BYTES", updater)
         self.assertIn("ActivityNotFoundException", updater)
+        incomplete_index = updater.index("val completeApkUrl = apkUrl ?: return")
+        success_index = updater.index("prefs.edit().putLong(KEY_LAST_SUCCESS, now).apply()")
+        self.assertLess(incomplete_index, success_index)
+        self.assertIn("private const val RETRY_INTERVAL_MS = 15L * 60 * 1000", updater)
 
     def test_core_branding_assets_are_packaged(self):
         self.assertTrue((ROOT / "overlay/res/drawable-nodpi/acute_brand_mark.png").is_file())
@@ -145,8 +149,8 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.0.0-beta.1", workflow)
-        self.assertIn("1.0.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("version=1.0.1-beta.1", workflow)
+        self.assertIn("1.0.1-dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
