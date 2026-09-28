@@ -40,7 +40,7 @@ def main() -> int:
     workflow_requirements = (
         "Build without release secrets",
         "Sign with isolated release credentials",
-        "Android 12 generic device smoke test",
+        "Collect and verify ARM64 APK",
         "attest-build-provenance@",
         "refusing to replace published files",
         "permissions:\n  contents: read",

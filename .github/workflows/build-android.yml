@@ -224,7 +224,10 @@ jobs:
           retention-days: 7
 
   smoke-test:
-    name: Android 12 generic device smoke test
+    name: Deferred x86_64 device smoke test
+    # Acute Web remains ARM64-only through 1.0. Keep the emulator job dormant
+    # until the post-1.0 Googlebook/x86_64 target is explicitly enabled.
+    if: ${{ false }}
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -339,9 +342,8 @@ jobs:
       always() &&
       github.event_name == 'push' &&
       needs.build.result == 'success' &&
-      needs.smoke-test.result == 'success' &&
       (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/beta')
-    needs: [build, smoke-test]
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: release-signing

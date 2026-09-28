@@ -4,7 +4,7 @@
   <img src="docs/acute-mark.png" alt="Acute Web clear-glass cat-fox mark" width="160">
 </p>
 
-The clear-glass icon in this Android repository is Acute Web's canonical product artwork.
+The clear-glass icon is Acute Web's canonical cross-platform product artwork.
 Beta uses the coordinated badged variant rather than a separate product mark.
 
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
@@ -16,10 +16,9 @@ for ARM64 phones, tablets, and ChromeOS devices.
 [Beta releases](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) ·
 [Report an issue](https://github.com/iiankehn/acute-web-android/issues/new/choose)
 
-> **You are viewing the Beta source branch.** Beta contains active development
-> for the next Acute release and may be unstable. View the
-> [Stable source (`main`)](https://github.com/iiankehn/acute-web-android/tree/main)
-> or compare it with the
+> **You are viewing the Stable source branch.** GitHub opens this branch by
+> default because it represents published Acute releases. Active development is
+> publicly available from the
 > [Beta source (`beta`)](https://github.com/iiankehn/acute-web-android/tree/beta).
 
 ## Release channels
@@ -115,8 +114,8 @@ For release operations, see:
 
 ## Project status
 
-Acute Web is under active development. Stable releases remain on `main`; new
-work is validated on `beta` before it can become a public release candidate.
+Acute Web is under active development. Stable source and releases remain on
+`main`; upcoming work is published and tested on `beta` before promotion.
 Version 0.7 brings the CORE Glass visual system: a dark
 black/grey canvas, layered translucent surfaces, restrained soft-blue accents,
 and accessible high-contrast text. The application interface is Midnight-only;

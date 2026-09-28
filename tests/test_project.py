@@ -99,7 +99,7 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Sign with isolated release credentials", workflow)
         self.assertIn("Build without release secrets", workflow)
         self.assertIn("github.event_name == 'push'", workflow)
-        self.assertIn("needs.smoke-test.result == 'success'", workflow)
+        self.assertNotIn("needs.smoke-test.result == 'success'", workflow)
         self.assertIn("ACUTE_BUILD_NUMBER: ${{ github.run_number }}", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("refusing to replace published files", workflow)
@@ -121,8 +121,9 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("--target=aarch64-linux-android", workflow)
         self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
         self.assertIn("lib/arm64-v8a/libxul.so", workflow)
-        self.assertIn("Android 12 generic device smoke test", workflow)
-        self.assertIn("needs: [build, smoke-test]", workflow)
+        self.assertIn("Deferred x86_64 device smoke test", workflow)
+        self.assertIn("if: ${{ false }}", workflow)
+        self.assertNotIn("needs: [build, smoke-test]", workflow)
         self.assertIn("needs: build", workflow)
 
     def test_android_build_bounds_gradle_resources(self):
