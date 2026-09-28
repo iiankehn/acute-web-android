@@ -173,12 +173,12 @@ def patch_core_glass_compositor(
 '''
     replacement = '''        // CORE Glass requires live page pixels below the top toolbar. Keeping the
         // Gecko viewport at y=0 also lets the translucent Compose layers blend with
-        // the page instead of an opaque parent surface. Gecko still receives the
-        // real toolbar height so nested scrolling can collapse and restore it.
+        // the page instead of an opaque parent surface. Because the top toolbar is
+        // overlaid, only a bottom toolbar may reduce the web content viewport.
         val acuteGlassTopOverlayHeight = 0
 
         if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
-            getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
+            getEngineView().setDynamicToolbarMaxHeight(bottomToolbarHeight)
 
             (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
                 EngineViewClippingBehavior(
@@ -207,6 +207,21 @@ def patch_core_glass_compositor(
         "                // The toolbar still receives the real height for nested-scroll behavior.\n"
         "                engineViewParent.translationY = 0f\n",
         "glass engine overlay translation",
+    )
+    clipping = replace_once(
+        clipping,
+        "    private val dynamicToolbarMaxHeight = topToolbarHeight + bottomToolbarHeight\n",
+        "    // The translucent top toolbar overlays Gecko and must not shrink CSS viewport units.\n"
+        "    private val dynamicToolbarMaxHeight = bottomToolbarHeight\n",
+        "glass dynamic viewport height",
+    )
+    clipping = replace_once(
+        clipping,
+        "            val contentBottomClipping = (recentTopToolbarTranslation - recentBottomToolbarTranslation).roundToInt()\n",
+        "            // Top-toolbar movement is visual-only for CORE Glass. Only the bottom\n"
+        "            // toolbar changes the web content viewport and vertical clipping.\n"
+        "            val contentBottomClipping = (-recentBottomToolbarTranslation).roundToInt()\n",
+        "glass viewport clipping",
     )
     clipping_behavior_path.write_text(clipping, encoding="utf-8")
 

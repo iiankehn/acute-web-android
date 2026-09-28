@@ -382,11 +382,17 @@ BASE_BROWSER_FRAGMENT = '''class BaseBrowserFragment {
 ENGINE_VIEW_CLIPPING_BEHAVIOR = '''class EngineViewClippingBehavior(
     private val engineViewParent: View,
     private val topToolbarHeight: Int,
+    private val bottomToolbarHeight: Int,
 ) {
+    private var recentBottomToolbarTranslation: Float = 0f
+    private var recentTopToolbarTranslation: Float = 0f
+    private val dynamicToolbarMaxHeight = topToolbarHeight + bottomToolbarHeight
+
     fun update(recentTopToolbarTranslation: Float) {
         if (topToolbarHeight > 0) {
                 engineViewParent.translationY = recentTopToolbarTranslation + topToolbarHeight
         }
+            val contentBottomClipping = (recentTopToolbarTranslation - recentBottomToolbarTranslation).roundToInt()
     }
 }
 '''
@@ -712,12 +718,25 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
         self.assertIn(
+            "setDynamicToolbarMaxHeight(bottomToolbarHeight)",
+            browser_fragment,
+        )
+        self.assertNotIn(
             "setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)",
             browser_fragment,
         )
         self.assertIn("topToolbarHeight = topToolbarHeight", browser_fragment)
         self.assertIn("swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight", browser_fragment)
         self.assertIn("engineViewParent.translationY = 0f", clipping_behavior)
+        self.assertIn("dynamicToolbarMaxHeight = bottomToolbarHeight", clipping_behavior)
+        self.assertIn(
+            "contentBottomClipping = (-recentBottomToolbarTranslation).roundToInt()",
+            clipping_behavior,
+        )
+        self.assertNotIn(
+            "recentTopToolbarTranslation - recentBottomToolbarTranslation",
+            clipping_behavior,
+        )
         self.assertIn("toolbar.collapse()", toolbar_behavior)
 
     def test_midnight_pages_is_beta_only(self):

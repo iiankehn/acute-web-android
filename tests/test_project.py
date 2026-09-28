@@ -149,7 +149,7 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.0.1-beta.1", workflow)
+        self.assertIn("version=1.0.1-beta.2", workflow)
         self.assertIn("1.0.1-dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)

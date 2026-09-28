@@ -4,7 +4,7 @@ application_id = "com.acuteweb.browser"
 repository = "iiankehn/acute-web-android"
 
 [release]
-candidate = "1.0.1-beta.1"
+candidate = "1.0.1-beta.2"
 
 [channels.stable]
 branch = "main"
