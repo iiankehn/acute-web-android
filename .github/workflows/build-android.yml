@@ -284,6 +284,14 @@ jobs:
             --max-workers=2
             '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
           )
+          # Match the ARM64 packaging path: vital lint can stall this build
+          # until the smoke-test job reaches its three-hour timeout.
+          task="${{ needs.build.outputs.task }}"
+          if [[ "$task" == *assembleBeta ]]; then
+            gradle_resource_args+=(-x :fenix:lintVitalBeta)
+          elif [[ "$task" == *assembleRelease ]]; then
+            gradle_resource_args+=(-x :fenix:lintVitalRelease)
+          fi
           for attempt in 1 2 3; do
             ACUTE_VERSION_NAME="${{ needs.build.outputs.version }}" \
               ACUTE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}" \
