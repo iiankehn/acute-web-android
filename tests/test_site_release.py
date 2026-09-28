@@ -47,10 +47,17 @@ class SiteReleaseTests(unittest.TestCase):
         self.assertIn('data-release-version="stable-short">0.5', updated)
 
     def test_beta_release_updates_beta_only(self):
+        original = (ROOT / "docs/index.html").read_text(encoding="utf-8")
+        stable_links = [
+            line.strip()
+            for line in original.splitlines()
+            if 'data-release-link="stable"' in line
+        ]
         updated = self.update_copy(release_event("v0.5.0-beta.1", prerelease=True))
         self.assertIn("acute-web-0.5.0-beta.1-arm64-v8a.apk", updated)
         self.assertIn('data-release-version="beta">0.5.0-beta.1', updated)
-        self.assertIn("acute-web-0.3.0-arm64-v8a.apk", updated)
+        for stable_link in stable_links:
+            self.assertIn(stable_link, updated)
 
     def test_rejects_empty_or_unexpected_assets(self):
         with TemporaryDirectory() as temp:
