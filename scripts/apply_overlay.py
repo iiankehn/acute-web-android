@@ -102,23 +102,41 @@ def patch_core_glass_toolbar(path: Path) -> None:
         "import androidx.compose.ui.graphics.Color\n",
         "toolbar glass graphics imports",
     )
+    text = replace_once(
+        text,
+        "import androidx.compose.ui.Modifier\n",
+        "import androidx.compose.ui.Modifier\n"
+        "import androidx.compose.ui.platform.LocalConfiguration\n",
+        "toolbar large-screen configuration import",
+    )
     theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
     glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
                         // CORE Glass uses a translucent charcoal stack over a subtle
                         // signature-blue glow. The child surfaces retain their own alpha,
                         // so the address field and selected tabs read as separate layers.
+                        val acuteLargeScreen =
+                            LocalConfiguration.current.smallestScreenWidthDp >= 600
+                        val acuteGlassColors =
+                            if (acuteLargeScreen) {
+                                listOf(
+                                    Color(0xD0193144),
+                                    Color(0xC0102434),
+                                    Color(0xB8071926),
+                                )
+                            } else {
+                                listOf(
+                                    Color(0xA6121820),
+                                    Color(0x990B1117),
+                                    Color(0x8C07121A),
+                                )
+                            }
                         val acuteCoreGlassModifier =
                             Modifier
                                 .fillMaxWidth()
                                 .wrapContentHeight()
                                 .background(
                                     Brush.verticalGradient(
-                                        colors =
-                                            listOf(
-                                                Color(0xA6121820),
-                                                Color(0x990B1117),
-                                                Color(0x8C07121A),
-                                            )
+                                        colors = acuteGlassColors
                                     )
                                 )
                                 .drawWithContent {
@@ -733,6 +751,165 @@ def patch_tablet_defaults(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_desktop_shortcuts(path: Path) -> None:
+    """Add laptop-class shortcuts through Fenix's existing browser use cases."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import org.mozilla.fenix.ext.setNavigationIcon\n",
+        "import org.mozilla.fenix.ext.setNavigationIcon\n"
+        "import org.mozilla.fenix.utils.isLargeScreenSize\n",
+        "desktop shortcut screen-size import",
+    )
+
+    touch_anchor = '''    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+'''
+    shortcut_handler = '''    /** Handle conventional browser shortcuts on tablet and laptop-class layouts. */
+    private fun handleAcuteDesktopShortcut(event: KeyEvent): Boolean {
+        val primaryModifier = event.isCtrlPressed || event.isMetaPressed
+        val state = components.core.store.state
+        val selectedTab = state.selectedTab
+
+        if (primaryModifier && !event.isAltPressed) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_L -> {
+                    selectedTab ?: return false
+                    navHost.navController.navigate(
+                        BrowserFragmentDirections.actionGlobalHome(
+                            focusOnAddressBar = true,
+                            sessionToStartSearchFor = selectedTab.id,
+                        )
+                    )
+                    return true
+                }
+
+                KeyEvent.KEYCODE_T -> {
+                    if (event.isShiftPressed) {
+                        components.useCases.tabsUseCases.undo()
+                    } else {
+                        components.useCases.fenixBrowserUseCases.addNewHomepageTab(
+                            private = browsingModeManager.mode.isPrivate,
+                        )
+                    }
+                    openToBrowser(BrowserDirection.FromGlobal)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_W -> {
+                    selectedTab ?: return false
+                    components.useCases.tabsUseCases.removeTab(selectedTab.id)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_TAB,
+                KeyEvent.KEYCODE_PAGE_UP,
+                KeyEvent.KEYCODE_PAGE_DOWN,
+                -> {
+                    selectedTab ?: return false
+                    val tabs = state.getNormalOrPrivateTabs(private = selectedTab.content.private)
+                    if (tabs.size < 2) return true
+                    val currentIndex = tabs.indexOfFirst { it.id == selectedTab.id }
+                    if (currentIndex < 0) return false
+                    val moveBackward =
+                        event.isShiftPressed || event.keyCode == KeyEvent.KEYCODE_PAGE_UP
+                    val offset = if (moveBackward) tabs.size - 1 else 1
+                    val nextTab = tabs[(currentIndex + offset) % tabs.size]
+                    components.useCases.tabsUseCases.selectTab(nextTab.id)
+                    openToBrowser(BrowserDirection.FromGlobal)
+                    return true
+                }
+
+                KeyEvent.KEYCODE_R -> {
+                    selectedTab ?: return false
+                    components.useCases.sessionUseCases.reload()
+                    return true
+                }
+            }
+        }
+
+        if (!primaryModifier && event.isAltPressed) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    components.useCases.sessionUseCases.goBack()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    components.useCases.sessionUseCases.goForward()
+                    return true
+                }
+            }
+        }
+
+        if (!primaryModifier && !event.isAltPressed && event.keyCode == KeyEvent.KEYCODE_F5) {
+            selectedTab ?: return false
+            components.useCases.sessionUseCases.reload()
+            return true
+        }
+
+        if (!primaryModifier && !event.isAltPressed && event.keyCode == KeyEvent.KEYCODE_F6) {
+            selectedTab ?: return false
+            navHost.navController.navigate(
+                BrowserFragmentDirections.actionGlobalHome(
+                    focusOnAddressBar = true,
+                    sessionToStartSearchFor = selectedTab.id,
+                )
+            )
+            return true
+        }
+
+        return false
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (isLargeScreenSize() && event.action == MotionEvent.ACTION_BUTTON_PRESS) {
+            when (event.actionButton) {
+                MotionEvent.BUTTON_BACK -> {
+                    components.useCases.sessionUseCases.goBack()
+                    return true
+                }
+
+                MotionEvent.BUTTON_FORWARD -> {
+                    components.useCases.sessionUseCases.goForward()
+                    return true
+                }
+            }
+        }
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+'''
+    text = replace_once(
+        text,
+        touch_anchor,
+        shortcut_handler + touch_anchor,
+        "desktop shortcut handler",
+    )
+    key_return = '''        return super.dispatchKeyEvent(event)
+    }
+
+    final override fun onKeyDown'''
+    key_return_with_shortcuts = '''        if (
+            event.action == KeyEvent.ACTION_DOWN &&
+                event.repeatCount == 0 &&
+                isLargeScreenSize() &&
+                handleAcuteDesktopShortcut(event)
+        ) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    final override fun onKeyDown'''
+    text = replace_once(
+        text,
+        key_return,
+        key_return_with_shortcuts,
+        "desktop shortcut dispatch",
+    )
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_marketing_policy(settings: Path, onboarding: Path) -> None:
     """Disable Mozilla marketing collection and remove its onboarding page."""
     settings_text = settings.read_text(encoding="utf-8")
@@ -1277,6 +1454,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     release_manifest = fenix / "app/src/release/AndroidManifest.xml"
     beta_manifest = fenix / "app/src/beta/AndroidManifest.xml"
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
+    home_activity = fenix / "app/src/main/java/org/mozilla/fenix/HomeActivity.kt"
     browser_toolbar = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
@@ -1307,7 +1485,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1322,6 +1500,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     validate_tablet_upstream(manifest, desktop_mode)
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
+    patch_desktop_shortcuts(home_activity)
     patch_dark_theme_default(settings)
     patch_midnight_palette(night_colors)
     patch_core_glass_toolbar(browser_toolbar)

@@ -218,12 +218,32 @@ class ProjectTests(unittest.TestCase):
 
     def test_tablet_profiles_cover_large_screens(self):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()
-        for profile in ("compact-phone", "compact-tablet", "standard-tablet", "large-tablet"):
+        for profile in (
+            "compact-phone",
+            "compact-tablet",
+            "standard-tablet",
+            "large-tablet",
+            "laptop-landscape",
+        ):
             self.assertIn(profile, script)
         self.assertIn("capture_diagnostics", script)
         self.assertIn("https://en.wikipedia.org/wiki/Web_browser", script)
         self.assertIn("android.intent.action.VIEW", script)
         self.assertNotIn("KEYCODE_TAB", script)
+
+    def test_desktop_shortcuts_use_existing_browser_controls(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_desktop_shortcuts", overlay)
+        self.assertIn("handleAcuteDesktopShortcut", overlay)
+        self.assertIn("isLargeScreenSize()", overlay)
+        for key in ("KEYCODE_L", "KEYCODE_T", "KEYCODE_W", "KEYCODE_TAB", "KEYCODE_R", "KEYCODE_F5"):
+            self.assertIn(key, overlay)
+        self.assertIn("tabsUseCases.undo()", overlay)
+        self.assertIn("tabsUseCases.selectTab", overlay)
+        self.assertIn("sessionUseCases.goBack()", overlay)
+        self.assertIn("sessionUseCases.goForward()", overlay)
+        self.assertIn("MotionEvent.BUTTON_BACK", overlay)
+        self.assertIn("MotionEvent.BUTTON_FORWARD", overlay)
 
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()
