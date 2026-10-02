@@ -181,6 +181,11 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("patch_core_glass_toolbar", theme)
         self.assertIn("patch_core_glass_address_bar", theme)
         self.assertIn("patch_core_glass_compositor", theme)
+        self.assertIn("!context.isLargeScreenSize()", theme)
+        self.assertIn(
+            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
+            theme,
+        )
         self.assertIn("Brush.verticalGradient", theme)
         self.assertIn("Color(0xC2383D46)", theme)
         self.assertIn("Color(0x997AC6EA)", theme)

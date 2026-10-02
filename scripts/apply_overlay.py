@@ -146,7 +146,7 @@ def patch_core_glass_compositor(
     clipping_behavior_path: Path,
     toolbar_behavior_path: Path,
 ) -> None:
-    """Render Gecko below a glass toolbar while preserving dynamic scrolling."""
+    """Render Gecko below phone glass while keeping large-screen chrome fixed."""
     toolbar = toolbar_path.read_text(encoding="utf-8")
     toolbar = replace_once(
         toolbar,
@@ -158,6 +158,13 @@ def patch_core_glass_compositor(
     toolbar_path.write_text(toolbar, encoding="utf-8")
 
     fragment = browser_fragment_path.read_text(encoding="utf-8")
+    fragment = replace_once(
+        fragment,
+        "import org.mozilla.fenix.utils.allowUndo\n",
+        "import org.mozilla.fenix.utils.allowUndo\n"
+        "import org.mozilla.fenix.utils.isLargeScreenSize\n",
+        "large-screen toolbar import",
+    )
     original = '''        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
             getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
 
@@ -177,7 +184,7 @@ def patch_core_glass_compositor(
         // overlaid, only a bottom toolbar may reduce the web content viewport.
         val acuteGlassTopOverlayHeight = 0
 
-        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
+        if (isToolbarDynamic(context) && !context.isLargeScreenSize() && webAppToolbarShouldBeVisible) {
             getEngineView().setDynamicToolbarMaxHeight(bottomToolbarHeight)
 
             (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
@@ -194,8 +201,11 @@ def patch_core_glass_compositor(
     fragment = replace_once(
         fragment,
         "            swipeRefreshParams.topMargin = topToolbarHeight\n",
-        "            swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight\n",
-        "fixed Gecko toolbar overlay margin",
+        "            // Laptop/tablet chrome remains visible and reserves layout space.\n"
+        "            // Phones retain the page-backed CORE Glass overlay.\n"
+        "            swipeRefreshParams.topMargin =\n"
+        "                if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight\n",
+        "adaptive Gecko toolbar margin",
     )
     browser_fragment_path.write_text(fragment, encoding="utf-8")
 

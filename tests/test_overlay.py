@@ -354,7 +354,9 @@ fun BrowserToolbar() {
 }
 '''
 
-BASE_BROWSER_FRAGMENT = '''class BaseBrowserFragment {
+BASE_BROWSER_FRAGMENT = '''import org.mozilla.fenix.utils.allowUndo
+
+class BaseBrowserFragment {
     fun initializeEngineView(topToolbarHeight: Int, bottomToolbarHeight: Int) {
         val context = requireContext()
 
@@ -717,6 +719,8 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
+        self.assertIn("import org.mozilla.fenix.utils.isLargeScreenSize", browser_fragment)
+        self.assertIn("!context.isLargeScreenSize()", browser_fragment)
         self.assertIn(
             "setDynamicToolbarMaxHeight(bottomToolbarHeight)",
             browser_fragment,
@@ -726,7 +730,10 @@ class OverlayTests(unittest.TestCase):
             browser_fragment,
         )
         self.assertIn("topToolbarHeight = topToolbarHeight", browser_fragment)
-        self.assertIn("swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight", browser_fragment)
+        self.assertIn(
+            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
+            browser_fragment,
+        )
         self.assertIn("engineViewParent.translationY = 0f", clipping_behavior)
         self.assertIn("dynamicToolbarMaxHeight = bottomToolbarHeight", clipping_behavior)
         self.assertIn(

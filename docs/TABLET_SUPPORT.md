@@ -12,6 +12,8 @@ On qualifying devices, Acute enables:
 
 - a persistent tab strip, configurable in customization settings;
 - an expanded toolbar that uses the available width for direct actions;
+- fixed browser chrome that remains visible instead of collapsing like the
+  phone toolbar;
 - desktop browsing mode for newly opened tabs, with per-site and default
   overrides;
 - rotation and Android split-screen resizing;
