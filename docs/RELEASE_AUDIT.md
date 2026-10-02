@@ -1,13 +1,13 @@
 # Release audit and acceptance gates
 
-Acute Web uses one sequential, fail-closed pipeline for pre-1.0 Android builds.
+Acute Web uses a fail-closed pipeline for Android builds.
 No Stable or Beta APK is published merely because it compiles.
 Pull requests also run the same audit without launching an APK build.
 
 ## Automated audit
 
-Every Beta push and release tag must pass these checks before the ARM64 build
-starts:
+Every Beta push and release tag must pass these checks before the native builds
+start:
 
 - all Acute Python regression tests and overlay fixtures;
 - compilation of Acute Python build and release tooling;
@@ -20,13 +20,13 @@ starts:
 - immutable 40-character GitHub Action references;
 - agreement between project metadata, the workflow, and the pinned Firefox
   source commit;
-- ARM64-only workflow enforcement through 1.0.
+- explicit ARM64 and x86_64 native build targets and package verification.
 
-The APK pipeline then verifies the expected ARM64 Gecko libraries, minimized
-permissions, release signature, signer continuity with earlier releases,
-checksum, immutable build inputs, and GitHub provenance attestation. Signing
-secrets are available only to the isolated signing job after the unprivileged
-build succeeds.
+The APK pipeline then verifies the expected Gecko libraries for each ABI,
+minimized permissions, release signature, signer continuity with earlier
+releases, checksums, immutable build inputs, and GitHub provenance attestation.
+Signing secrets are available only to the isolated signing jobs after both
+unprivileged builds succeed.
 
 ## Dependency policy
 
@@ -39,15 +39,14 @@ each release's `build-inputs.txt`.
 Mozilla security advisories and upstream source changes must be reviewed before
 moving that pin. Acute prefers an ESR-style maintenance cadence, but a different
 Firefox/Gecko line is not adopted by name alone: Android source compatibility,
-GeckoView behavior, the overlay, and the complete ARM64 build must all pass on
-Beta first.
+GeckoView behavior, the overlay, and both native builds must all pass on Beta
+first.
 
 ## Physical-device acceptance
 
-GitHub's hosted Android emulator path is x86_64, which is intentionally outside
-Acute's ARM64-only target through 1.0. It is not used as a substitute for the
-supported architecture. Before promotion to Stable, the signed ARM64 candidate
-is tested on supported physical devices for:
+Version 1.1 adds x86_64 as a supported native architecture alongside ARM64.
+Before promotion to Stable, the signed candidates are checked for correct ABI
+packaging and the ARM64 candidate is tested on supported physical devices for:
 
 - install-over update and profile preservation;
 - launch, navigation, address-bar interaction, and toolbar collapse/restore;

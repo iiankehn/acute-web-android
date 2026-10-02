@@ -20,7 +20,7 @@ the public overlay, resources, tests, and workflow in this repository.
   reporting are disabled in Acute builds.
 - Unneeded Adjust preinstallation and package-deletion permissions are removed.
 - Sponsored home content and marketing onboarding screens are disabled.
-- Signed ARM64 APKs are distributed through GitHub rather than an application
+- Signed ARM64 and x86_64 APKs are distributed through GitHub rather than an application
   store.
 - The in-app updater checks the matching Stable or Beta GitHub release channel
   and hands installation to Android's protected package installer.
@@ -48,7 +48,7 @@ the public overlay, resources, tests, and workflow in this repository.
 
 - Mozilla source is pinned to a reviewed full commit instead of a moving branch.
 - Overlay application fails closed when audited upstream patterns no longer match.
-- Builds verify ARM64 Gecko libraries, minimized permissions, signing
+- Builds verify ARM64 and x86_64 Gecko libraries, minimized permissions, signing
   continuity, checksums, build inputs, and provenance.
 - Stable and Beta use separate branches and application IDs. Signed builds use
   increasing Android version codes so updates preserve user data.

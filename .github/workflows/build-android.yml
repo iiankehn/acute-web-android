@@ -40,11 +40,10 @@ jobs:
       - name: Run complete Acute audit suite
         run: make audit
 
-  build:
-    name: Build without release secrets
+  metadata:
+    name: Select immutable build inputs
     needs: audit
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
     outputs:
       version: ${{ steps.version.outputs.version }}
       kind: ${{ steps.version.outputs.kind }}
@@ -54,12 +53,6 @@ jobs:
       task: ${{ steps.version.outputs.task }}
       gradle_flags: ${{ steps.version.outputs.gradle_flags }}
     steps:
-      - name: Check out Acute overlay
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: acute-overlay
-          persist-credentials: false
-
       - name: Select immutable build inputs
         id: version
         env:
@@ -104,19 +97,39 @@ jobs:
               # Keep branch builds parseable by the GitHub updater. The
               # monotonically increasing ACUTE_BUILD_NUMBER still permits
               # install-over updates between Beta artifacts.
-              echo "version=1.0.1-beta.2" >> "$GITHUB_OUTPUT"
+              echo "version=1.1.0-beta.1" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
               echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
               echo "kind=debug" >> "$GITHUB_OUTPUT"
-              echo "version=1.0.1-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "version=1.1.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi
             echo "gradle_flags=" >> "$GITHUB_OUTPUT"
             echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
           fi
+
+  build:
+    name: Build without release secrets (${{ matrix.abi }})
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            target: aarch64-linux-android
+          - abi: x86_64
+            target: x86_64-linux-android
+    steps:
+      - name: Check out Acute overlay
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: acute-overlay
+          persist-credentials: false
 
       - name: Reclaim runner disk space
         run: |
@@ -138,7 +151,7 @@ jobs:
 
       - name: Check out pinned Firefox source
         env:
-          FIREFOX_REF: ${{ steps.version.outputs.firefox_ref }}
+          FIREFOX_REF: ${{ needs.metadata.outputs.firefox_ref }}
         run: |
           git init firefox
           git -C firefox remote add origin https://github.com/mozilla-firefox/firefox.git
@@ -156,10 +169,12 @@ jobs:
         working-directory: firefox
         run: python3 ./mach bootstrap --application-choice mobile_android_artifact_mode
 
-      - name: Target ARM64 Android devices
+      - name: Target ${{ matrix.abi }} Android devices
         working-directory: firefox
+        env:
+          MOZ_TARGET: ${{ matrix.target }}
         run: |
-          printf '\n# Acute Web release target\nac_add_options --target=aarch64-linux-android\n' >> mozconfig
+          printf '\n# Acute Web release target\nac_add_options --target=%s\n' "$MOZ_TARGET" >> mozconfig
 
       - name: Configure Firefox Android build
         working-directory: firefox
@@ -170,7 +185,7 @@ jobs:
         run: ./mach build
 
       - name: Apply Acute Web overlay
-        run: python3 acute-overlay/scripts/apply_overlay.py firefox --channel "${{ steps.version.outputs.channel }}"
+        run: python3 acute-overlay/scripts/apply_overlay.py firefox --channel "${{ needs.metadata.outputs.channel }}"
 
       - name: Verify privacy flags and minimized permissions
         run: |
@@ -186,10 +201,10 @@ jobs:
       - name: Build APK without release credentials
         working-directory: firefox
         env:
-          ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}
+          ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}
           ACUTE_BUILD_NUMBER: ${{ github.run_number }}
-          GRADLE_FLAGS: ${{ steps.version.outputs.gradle_flags }}
-          GRADLE_TASK: ${{ steps.version.outputs.task }}
+          GRADLE_FLAGS: ${{ needs.metadata.outputs.gradle_flags }}
+          GRADLE_TASK: ${{ needs.metadata.outputs.task }}
         run: |
           gradle_resource_args=(
             --no-parallel
@@ -218,44 +233,50 @@ jobs:
             sleep 30
           done
 
-      - name: Collect and verify ARM64 APK
+      - name: Collect and verify ${{ matrix.abi }} APK
         env:
-          BUILD_KIND: ${{ steps.version.outputs.kind }}
-          VERSION: ${{ steps.version.outputs.version }}
+          ABI: ${{ matrix.abi }}
+          BUILD_KIND: ${{ needs.metadata.outputs.kind }}
+          FIREFOX_REF: ${{ needs.metadata.outputs.firefox_ref }}
+          VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           mkdir -p dist
           apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/$BUILD_KIND/*universal*.apk" -print -quit)"
           test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
-          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libmozglue.so'
-          unzip -Z1 "$apk" | grep -qx 'lib/arm64-v8a/libxul.so'
-          cp "$apk" "dist/acute-web-${VERSION}-arm64-v8a-unsigned.apk"
-          printf 'Acute version: %s\nFirefox commit: %s\nAcute commit: %s\n' \
-            "$VERSION" "${{ steps.version.outputs.firefox_ref }}" "$GITHUB_SHA" > dist/build-inputs.txt
+          unzip -Z1 "$apk" | grep -qx "lib/$ABI/libmozglue.so"
+          unzip -Z1 "$apk" | grep -qx "lib/$ABI/libxul.so"
+          cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
+          printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \
+            "$VERSION" "$ABI" "$FIREFOX_REF" "$GITHUB_SHA" > "dist/build-inputs-${ABI}.txt"
 
       - name: Upload unsigned build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: acute-web-${{ steps.version.outputs.version }}-unsigned
+          name: acute-web-${{ needs.metadata.outputs.version }}-${{ matrix.abi }}-unsigned
           path: dist/
           if-no-files-found: error
           retention-days: 7
 
   sign:
-    name: Sign and verify installable APK
+    name: Sign and verify ${{ matrix.abi }} APK
     if: >-
       always() &&
       github.event_name == 'push' &&
       needs.build.result == 'success' &&
       (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/beta')
-    needs: build
+    needs: [metadata, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: release-signing
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
     steps:
       - name: Download unsigned APK
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: acute-web-${{ needs.build.outputs.version }}-unsigned
+          name: acute-web-${{ needs.metadata.outputs.version }}-${{ matrix.abi }}-unsigned
           path: unsigned
 
       - name: Set up Java
@@ -270,7 +291,8 @@ jobs:
           ACUTE_KEYSTORE_PASSWORD: ${{ secrets.ACUTE_KEYSTORE_PASSWORD }}
           ACUTE_KEY_ALIAS: ${{ secrets.ACUTE_KEY_ALIAS }}
           ACUTE_KEY_PASSWORD: ${{ secrets.ACUTE_KEY_PASSWORD }}
-          VERSION: ${{ needs.build.outputs.version }}
+          ABI: ${{ matrix.abi }}
+          VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           test -n "$ACUTE_KEYSTORE_B64"
           test -n "$ACUTE_KEYSTORE_PASSWORD"
@@ -290,19 +312,19 @@ jobs:
             --ks-key-alias "$ACUTE_KEY_ALIAS" \
             --ks-pass "env:ACUTE_KEYSTORE_PASSWORD" \
             --key-pass "env:ACUTE_KEY_PASSWORD" \
-            --out "dist/acute-web-${VERSION}-arm64-v8a.apk" \
+            --out "dist/acute-web-${VERSION}-${ABI}.apk" \
             "$RUNNER_TEMP/aligned.apk"
-          signing_report="$("$build_tools/apksigner" verify --verbose --print-certs "dist/acute-web-${VERSION}-arm64-v8a.apk")"
-          printf '%s\n' "$signing_report" | tee dist/signing-certificate.txt
-          permissions_report="$("$build_tools/aapt2" dump permissions "dist/acute-web-${VERSION}-arm64-v8a.apk")"
-          printf '%s\n' "$permissions_report" | tee dist/manifest-permissions.txt
-          ! grep -q 'com.adjust.preinstall.READ_PERMISSION' dist/manifest-permissions.txt
-          ! grep -q 'com.google.android.gms.permission.AD_ID' dist/manifest-permissions.txt
-          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' dist/manifest-permissions.txt
-          ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' dist/manifest-permissions.txt
-          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' dist/manifest-permissions.txt
-          sha256sum "dist/acute-web-${VERSION}-arm64-v8a.apk" > "dist/acute-web-${VERSION}-arm64-v8a.apk.sha256"
-          cp unsigned/build-inputs.txt dist/build-inputs.txt
+          signing_report="$("$build_tools/apksigner" verify --verbose --print-certs "dist/acute-web-${VERSION}-${ABI}.apk")"
+          printf '%s\n' "$signing_report" | tee "dist/signing-certificate-${ABI}.txt"
+          permissions_report="$("$build_tools/aapt2" dump permissions "dist/acute-web-${VERSION}-${ABI}.apk")"
+          printf '%s\n' "$permissions_report" | tee "dist/manifest-permissions-${ABI}.txt"
+          ! grep -q 'com.adjust.preinstall.READ_PERMISSION' "dist/manifest-permissions-${ABI}.txt"
+          ! grep -q 'com.google.android.gms.permission.AD_ID' "dist/manifest-permissions-${ABI}.txt"
+          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
+          ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
+          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
+          sha256sum "dist/acute-web-${VERSION}-${ABI}.apk" > "dist/acute-web-${VERSION}-${ABI}.apk.sha256"
+          cp "unsigned/build-inputs-${ABI}.txt" "dist/build-inputs-${ABI}.txt"
           rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"
 
       - name: Verify signing continuity with v0.2.0
@@ -330,7 +352,7 @@ jobs:
       - name: Upload signed release
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: acute-web-${{ needs.build.outputs.version }}-signed
+          name: acute-web-${{ needs.metadata.outputs.version }}-${{ matrix.abi }}-signed
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -338,18 +360,19 @@ jobs:
   publish:
     name: Publish immutable GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, sign]
+    needs: [metadata, build, sign]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
-      - name: Download signed APK
+      - name: Download signed APKs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: acute-web-${{ needs.build.outputs.version }}-signed
+          pattern: acute-web-${{ needs.metadata.outputs.version }}-*-signed
           path: dist
+          merge-multiple: true
 
       - name: Attest APK build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -381,7 +404,7 @@ jobs:
   update-website:
     name: Publish release links to GitHub Pages
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, publish]
+    needs: [metadata, publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

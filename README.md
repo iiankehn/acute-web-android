@@ -8,8 +8,8 @@ The clear-glass icon is Acute Web's canonical cross-platform product artwork.
 Beta uses the coordinated badged variant rather than a separate product mark.
 
 **Acute Web by CORE** is a privacy-focused Android browser built on Mozilla's
-open-source Gecko engine. It is distributed directly as a signed, sideloadable APK
-for ARM64 phones, tablets, and ChromeOS devices.
+open-source Gecko engine. It is distributed directly as signed, sideloadable APKs
+for ARM64 and x86_64 phones, tablets, ChromeOS devices, and Android computers.
 
 [Website](https://acute.iiankehn.com/) ·
 [Stable releases](https://github.com/iiankehn/acute-web-android/releases/latest) ·
@@ -54,8 +54,9 @@ branch.
 
 ## Supported devices
 
-Current releases target **ARM64 (arm64-v8a)** devices running **Android 8.0 or
-newer**. Android 12 is included in the automated launch and rotation test
+Version 1.1 adds native **ARM64 (arm64-v8a)** and **x86_64** packages for devices
+running **Android 8.0 or newer**. The updater selects the package matching the
+device architecture. Android 12 is included in the launch and rotation test
 matrix. Large-screen behavior is documented in
 [Tablet support](docs/TABLET_SUPPORT.md).
 
@@ -77,10 +78,10 @@ installation controls.
 
 This repository contains the Acute source overlay, product resources, tests,
 and release automation. Release builds use a reviewed, pinned Mozilla source
-commit, apply Acute's changes, run the Acute audit and regression suite, verify
-the ARM64 package and permissions, and sign the resulting APK in an isolated
-GitHub Actions job. Physical-device acceptance testing remains a required
-release step.
+commit, apply Acute's changes, run the Acute audit and regression suite, build
+and verify separate ARM64 and x86_64 Gecko packages, and sign each APK in an
+isolated GitHub Actions job. Physical-device acceptance testing remains a
+required release step.
 
 Mozilla source is not vendored into this repository. Keeping the Acute changes
 separate makes the product-specific work reviewable while allowing deliberate
@@ -126,8 +127,8 @@ the separate Midnight Pages control still lets users choose how websites are
 rendered. The design is implemented as shared tokens so phones, tablets,
 large-screen Android and ChromeOS devices use one consistent interface.
 
-The 1.0 release candidate consolidates the Acute Web by CORE identity, privacy
-defaults, signed update path, and Android phone/tablet experience. Bug reports
+The 1.1 release adds native x86_64 support alongside ARM64 while preserving the
+Acute Web by CORE identity, privacy defaults, and signed update path. Bug reports
 and reproducible device feedback are welcome through
 [GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
 

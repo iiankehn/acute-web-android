@@ -11,7 +11,9 @@ class ProjectTests(unittest.TestCase):
     def test_updater_uses_selected_public_repository(self):
         updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
         self.assertIn("iiankehn/acute-web-android/releases?per_page=20", updater)
-        self.assertIn("arm64-v8a.apk", updater)
+        self.assertIn('setOf("arm64-v8a", "x86_64")', updater)
+        self.assertIn('Build.SUPPORTED_ABIS.firstOrNull', updater)
+        self.assertIn('"acute-web-$version-$deviceAbi.apk"', updater)
         self.assertIn('BuildConfig.BUILD_TYPE == "beta"', updater)
         self.assertIn("candidate.optBoolean(\"prerelease\") == IS_BETA", updater)
         self.assertIn("BETA_VERSION", updater)
@@ -125,14 +127,14 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("certificate SHA-256 digest:", workflow)
         self.assertIn('test -n "$current_digest"', workflow)
 
-    def test_release_contains_arm64_firefox_engine(self):
+    def test_release_contains_native_firefox_engines(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("--target=aarch64-linux-android", workflow)
-        self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
-        self.assertIn("lib/arm64-v8a/libxul.so", workflow)
-        self.assertNotIn("x86_64-linux-android", workflow)
-        self.assertNotIn("smoke-x86_64", workflow)
-        self.assertIn("needs: build", workflow)
+        self.assertIn("target: aarch64-linux-android", workflow)
+        self.assertIn("target: x86_64-linux-android", workflow)
+        self.assertIn('grep -qx "lib/$ABI/libmozglue.so"', workflow)
+        self.assertIn('grep -qx "lib/$ABI/libxul.so"', workflow)
+        self.assertIn("abi: [arm64-v8a, x86_64]", workflow)
+        self.assertIn("needs: [metadata, build]", workflow)
 
     def test_android_build_bounds_gradle_resources(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -149,9 +151,9 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.0.1-beta.2", workflow)
-        self.assertIn("1.0.1-dev.${GITHUB_RUN_NUMBER}", workflow)
-        self.assertIn("ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}", workflow)
+        self.assertIn("version=1.1.0-beta.1", workflow)
+        self.assertIn("1.1.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
         self.assertIn("--prerelease", workflow)
