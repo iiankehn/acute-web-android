@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acute_reduce_transparency_title">Reduce toolbar transparency</string>
+    <string name="acute_reduce_transparency_summary">Use opaque charcoal toolbar surfaces for easier reading. Restart Acute after changing this setting.</string>
+</resources>

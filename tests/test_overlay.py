@@ -169,6 +169,18 @@ class Settings(private val appContext: Context) {
             appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
             default = false,
         )
+
+    var tabGroupsEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_tab_groups),
+            default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },
+        )
+
+    var showTabGroupsInMenu by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_show_tab_groups_in_menu),
+            default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },
+        )
 }
 '''
 
@@ -381,6 +393,65 @@ class BaseBrowserFragment {
 }
 '''
 
+BROWSER_FRAGMENT = '''import android.content.Context
+import android.view.View
+import kotlinx.coroutines.Dispatchers
+
+class BrowserFragment {
+    fun getContextMenuCandidates(context: Context, view: View): List<ContextMenuCandidate> {
+        return if (nativeShareSheetEnabled) {
+            NativeShareSheetContextMenuCandidate.defaultCandidates()
+        } else {
+            ContextMenuCandidate.defaultCandidates()
+        } +
+            createOpenInExternalAppCandidate(
+                requireContext(),
+                contextMenuCandidateAppLinksUseCases,
+            ) +
+            createOpenWithGoogleLensCandidate(context)
+    }
+
+    private fun navigateToShareFragment(
+        currentTab: SessionState,
+        hitTabUrl: String,
+    ) {}
+
+    private fun String.isHttpUrl(): Boolean =
+        startsWith("https://", ignoreCase = true) || startsWith("http://", ignoreCase = true)
+}
+'''
+
+NATIVE_CONTEXT_MENU_CANDIDATES = '''object NativeShareSheetContextMenuCandidate {
+    fun defaultCandidates() =
+        listOf(
+            createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate),
+            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+            createShareImageCandidate(context, contextMenuUseCases),
+        )
+}
+'''
+
+COMPONENT_CONTEXT_MENU_CANDIDATES = '''data class ContextMenuCandidate(val id: String) {
+    companion object {
+        fun defaultCandidates() =
+            listOf(
+                createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate),
+                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+                createShareLinkCandidate(context),
+                createShareImageCandidate(context, contextMenuUseCases),
+            )
+    }
+}
+'''
+
 ENGINE_VIEW_CLIPPING_BEHAVIOR = '''class EngineViewClippingBehavior(
     private val engineViewParent: View,
     private val topToolbarHeight: Int,
@@ -433,6 +504,356 @@ class HomeActivity {
         return super.onKeyDown(keyCode, event)
     }
 }
+'''
+
+MAIN_MENU = '''fun MainMenu(
+    accessPoint: MenuAccessPoint,
+    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
+        if (accessPoint == MenuAccessPoint.Home && showBanner) {
+            MenuBanner(
+                onDismiss = {
+                    onBannerDismiss()
+                },
+                onClick = {
+                    onBannerClick()
+                },
+            )
+        }
+
+        if (showIPProtection) {
+            MenuGroup {
+                IPProtectionMenuItem(
+                    state = ipProtectionMenuState,
+                    onToggle = onIPProtectionClick,
+                    onNavigate = onIPProtectionNavigate,
+                )
+            }
+        }
+
+        if (accessPoint == MenuAccessPoint.Home) {
+            MenuGroup {
+                ExtensionsMenuItem(
+                    inCustomTab = false,
+                )
+            }
+        }
+
+        if (accessPoint == MenuAccessPoint.Browser) {
+            ToolsAndActionsMenuGroup(
+                onFindInPageMenuClick = onFindInPageMenuClick,
+                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+            )
+        }
+
+        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
+
+        MenuGroup {
+            MozillaAccountMenuItem(
+                account = account,
+                accountState = accountState,
+                onClick = onMozillaAccountButtonClick,
+            )
+
+            if (accessPoint == MenuAccessPoint.Home) {
+                MenuItem(label = "Customize")
+            }
+
+            MenuItem(label = "Settings")
+        }
+}
+
+private fun ToolsAndActionsMenuGroup(
+    onFindInPageMenuClick: () -> Unit,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
+    MenuGroup {
+        MenuItem(
+            label = stringResource(id = R.string.browser_menu_find_in_page),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_search_24),
+            onClick = onFindInPageMenuClick,
+        )
+    }
+}
+'''
+
+MENU_DIALOG = '''import org.mozilla.fenix.utils.exitSubmenu
+
+fun MenuDialog() {
+    MenuDialogBottomSheet(
+                menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    MaterialTheme.shapes.extraLarge.copy(
+                        bottomStart = CornerSize(0.dp),
+                        bottomEnd = CornerSize(0.dp),
+                    ),
+    ) {}
+
+    MainMenu(
+                                moreSettingsSubmenu = {
+                                    MoreSettingsSubmenu(
+                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        summarizationMenuState = summarizationMenuState,
+                                    )
+                                },
+    )
+}
+'''
+
+MORE_SETTINGS = '''fun MoreSettingsSubmenu(
+    isAndroidAutomotiveAvailable: Boolean,
+    summarizationMenuState: SummarizationMenuState,
+    onSaveAsPDFMenuClick: () -> Unit,
+    onPrintMenuClick: () -> Unit,
+) {
+    Column {
+        SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+        PrintMenuItem(
+            isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            onPrintMenuClick = onPrintMenuClick,
+        )
+    }
+}
+'''
+
+TAB_STORAGE_MIDDLEWARE = '''class TabStorageMiddleware(
+    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+) : Middleware<TabsTrayState, TabsTrayAction> {
+    fun processAction(action: TabsStorageAction) {
+        when (action) {
+            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+        }
+    }
+}
+'''
+
+TAB_MANAGEMENT_FRAGMENT = '''import mozilla.components.browser.state.selector.privateTabs
+
+class TabManagementFragment {
+    fun createStore() {
+        TabStorageMiddleware(
+                            inactiveTabsEnabled = requireComponents.settings.inactiveTabsAreEnabled,
+                            tabGroupsEnabled = requireComponents.settings.tabGroupsEnabled,
+                            tabDataFlow = requireComponents.core.store.stateFlow.map { TabData(it) },
+                            tabGroupRepository = requireComponents.core.tabGroupRepository,
+                            removeTabsUseCase = requireComponents.useCases.tabsUseCases.removeTabs,
+                            moveTabsUseCase = requireComponents.useCases.tabsUseCases.moveTabs,
+                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                            mainScope = lifecycleScope,
+        )
+    }
+}
+'''
+
+HOMEPAGE = '''import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+
+fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
+            if (state is HomepageState.Normal) {
+                BannerCardSection(
+                    shouldShowPrivacyNoticeBanner = state.shouldShowPrivacyNoticeBanner,
+                    nimbusMessage = state.nimbusMessage,
+                    privacyNoticeBannerInteractor = interactor,
+                    messageCardInteractor = interactor,
+                )
+            }
+
+            when (val headerState = state.headerState) {
+                is HeaderState.Experimental.Normal -> {
+                    ExperimentalHomepageHeader(
+                        showStoriesButton = headerState.showStoriesButton,
+                    )
+                }
+                is HeaderState.Experimental.Private -> {
+                    ExperimentalPrivateHomepageHeader()
+                }
+                is HeaderState.Normal -> {
+                    HomepageHeader(
+                        browsingMode = state.browsingMode,
+                        browsingModeChanged = browsingModeChanged,
+                    )
+                }
+            }
+
+            if (state.firstFrameDrawn) {
+                with(state) {
+                    when (this) {
+                        is HomepageState.Private -> {
+                            PrivateBrowsingDescription()
+                        }
+                        is HomepageState.Normal -> {
+                            val context = LocalContext.current
+
+                            LaunchedEffect(showLongfoxAnimation) {
+                                showAnimation()
+                            }
+
+                            val longfoxEntryPointShown = longfoxEnabled && showPrivacyReport
+
+                            if (topSiteState != null) {
+                                TopSitesSection(state = topSiteState)
+                            }
+
+                            if (showPrivacyReport) {
+                                TrackersBlockedCard(
+                                    trackersBlockedCount = trackersBlockedCount,
+                                )
+                            }
+
+                            MaybeAddSetupChecklist(setupChecklistState, interactor)
+
+                            if (recentTabs != null) {
+                                RecentTabsSection(
+                                    interactor = interactor,
+                                    recentTabs = recentTabs,
+                                    reducedTopSpacing = showPrivacyReport && showLongfoxAnimation,
+                                )
+
+                                when (val syncedTabState = recentSyncedTabSectionState) {
+                                    RecentSyncedTabSectionState.Gone -> Unit
+                                }
+                            }
+
+                            if (bookmarks != null) {
+                                BookmarksSection(
+                                    bookmarks = bookmarks,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            if (recentlyVisited != null) {
+                                RecentlyVisitedSection(
+                                    recentVisits = recentlyVisited,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            CollectionsSection(
+                                collectionsState = collectionsState,
+                                interactor = interactor,
+                                onCollectionsMigrationCardAction = onCollectionsMigrationCardAction,
+                            )
+
+                            if (pocketState != null) {
+                                Spacer(Modifier.weight(1f))
+                                PocketSection(
+                                    state = pocketState,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            Spacer(Modifier.height(bottomPadding.dp))
+
+                            val popularSites = observePopularSites(topSites = topSiteState?.topSites)
+
+                            when (shortcutsDialogState) {
+                                DialogState.Closed -> Unit
+                            }
+                        }
+                    }
+                }
+            }
+}
+
+@Composable
+private fun CollectionsSection(
+    collectionsState: CollectionsState,
+    interactor: CollectionInteractor,
+    onCollectionsMigrationCardAction: (CollectionsMigrationCardAction) -> Unit,
+) {
+    when (collectionsState) {
+        is CollectionsState.Content -> {
+            CollectionsSectionContent {
+                Collections(
+                    collections = collectionsState.collections,
+                    expandedCollections = collectionsState.expandedCollections,
+                    showAddTabToCollection = collectionsState.showSaveTabsToCollection,
+                    interactor = interactor,
+                )
+            }
+        }
+
+        CollectionsState.MigrationCard -> {
+            CollectionsSectionContent {
+                CollectionsMigrationPromoCard(onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) })
+            }
+        }
+
+        CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
+    }
+}
+'''
+
+WORKSPACE_STRINGS = '''
+<string name="browser_menu_add_to_tab_group">Add to group</string>
+<string name="preferences_tab_groups_feature">Enable Tab Groups</string>
+<string name="create_tab_group_content_description">Create tab group</string>
+<string name="tab_manager_multiselect_menu_item_add_to_tab_group">Add to group</string>
+<string name="tab_group_onboarding_item_title">Create a tab group</string>
+<string name="tab_group_onboarding_grid_item_description">Drag one tab onto another to group them.</string>
+<string name="tab_group_onboarding_list_item_description">Select multiple tabs to create a group.</string>
+<string name="tab_group_onboarding_item_dismiss_content_description">Dismiss tab group onboarding</string>
+<string name="tab_manager_empty_tab_groups_page_header">Try tab groups</string>
+<string name="tab_manager_empty_tab_groups_page_description">Select tabs to create a group.</string>
+<string name="create_tab_group_title">Create tab group</string>
+<string name="edit_tab_group_title">Edit group</string>
+<string name="edit_tab_group_bottom_sheet_grabber_content_description">New group, collapse drag handle</string>
+<string name="create_tab_group_form_default_name">Group %d</string>
+<string name="add_to_tab_group_title">Add to</string>
+<string name="add_to_tab_group_bottom_sheet_grabber_content_description">Add to a tab group, collapse drag handle</string>
+<string name="add_to_new_tab_group_content_description">Add to new tab group</string>
+<string name="add_to_new_tab_group_title">New tab group</string>
+<string name="tab_group_sheet_dismiss_description">View tab group, collapse drag handle</string>
+<string name="delete_tab_group_confirmation_dialog_title">Delete tab group?</string>
+<string name="delete_tab_group_confirmation_dialog_body">This deletes the group permanently.</string>
+<string name="delete_tab_group_confirmation_dialog_confirm">Delete group</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_title">Close tab and delete group?</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_body">This deletes the group permanently.</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_confirm">Delete group</string>
+<string name="tab_group_three_dot_menu_close">Close</string>
+<string name="tab_group_three_dot_menu_ungroup">Ungroup</string>
+<string name="ungroup_tab_group_confirmation_dialog_title">Ungroup tab group?</string>
+<string name="ungroup_tab_group_confirmation_dialog_body">The tabs remain open.</string>
+<string name="ungroup_tab_group_confirmation_dialog_confirm">Ungroup</string>
+<string name="collections_migration_homepage_banner_title">Collections are now groups</string>
+<string name="collections_migration_homepage_card_message">Keep tabs organized</string>
+<string name="collections_migration_homepage_card_link">View my tab groups</string>
+<plurals name="tabs_header_tab_group_counter_title">
+<item quantity="one">%1$d tab group open.</item>
+<item quantity="other">%1$d tab groups open.</item>
+</plurals>
+<plurals name="add_to_exiting_tab_group_content_description">
+<item quantity="one">Add to %1$s tab group, %2$d tab, color %3$s</item>
+<item quantity="other">Add to %1$s tab group, %2$d tabs, color %3$s</item>
+</plurals>
+<plurals name="expanded_tab_group_header_description">
+<item quantity="one">%1$s tab group with %2$d tab, color %3$s</item>
+<item quantity="other">%1$s tab group with %2$d tabs, color %3$s</item>
+</plurals>
 '''
 
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
@@ -628,6 +1049,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/settings/about").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/settings").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/tabstray/ui").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
         (app / "src/beta").mkdir(parents=True)
@@ -644,11 +1068,38 @@ class OverlayTests(unittest.TestCase):
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
+        (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").write_text(MAIN_MENU)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt").write_text(MENU_DIALOG)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt").write_text(
+            MORE_SETTINGS
+        )
+        (app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt").write_text(
+            TAB_STORAGE_MIDDLEWARE
+        )
+        (app / "src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt").write_text(
+            TAB_MANAGEMENT_FRAGMENT
+        )
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
+        (app / "src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt").write_text(
+            BROWSER_FRAGMENT
+        )
+        (
+            app
+            / "src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+        ).write_text(NATIVE_CONTEXT_MENU_CANDIDATES)
+        context_menu = (
+            root
+            / "mobile/android/android-components/components/feature/contextmenu/src/main/java/mozilla/components/feature/contextmenu"
+        )
+        context_menu.mkdir(parents=True, exist_ok=True)
+        (context_menu / "ContextMenuCandidate.kt").write_text(
+            COMPONENT_CONTEXT_MENU_CANDIDATES
+        )
         clipping_behavior = (
             root
             / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior"
@@ -697,6 +1148,7 @@ class OverlayTests(unittest.TestCase):
             '<string name="marketing">Tell a partner that you’re a Firefox user.</string>'
             '<string name="onboarding_term_of_service_line_one_link_text_2">Firefox Terms of Use</string>'
             '<string name="sync_connect_device_dialog">Sign in to Firefox on another device.</string>'
+            + WORKSPACE_STRINGS +
             '</resources>')
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
@@ -716,9 +1168,27 @@ class OverlayTests(unittest.TestCase):
         ):
             text = source.read_text()
             self.assertIn("Brush.horizontalGradient", text)
-            self.assertIn("Color(0xC2383D46)", text)
-            self.assertIn("Color(0x997AC6EA)", text)
+            self.assertIn("Color(0xD034373C)", text)
+            self.assertIn("Color(0x99F1F2F4)", text)
             self.assertIn("import androidx.compose.foundation.border", text)
+
+    def test_opaque_toolbar_preference_is_persisted_and_rendered(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
+        preferences = (app / "src/main/res/xml/customization_preferences.xml").read_text()
+        toolbar = (
+            app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
+        ).read_text()
+        self.assertIn('"acute_reduce_transparency"', settings)
+        self.assertIn('android:key="acute_reduce_transparency"', preferences)
+        self.assertIn("LocalContext.current.settings().acuteReduceTransparency", toolbar)
+        self.assertIn("Color(0xFF25282D)", toolbar)
+        self.assertIn("Color(0xFF1B1D21)", toolbar)
+        self.assertIn("Color(0xFF121417)", toolbar)
+        self.assertEqual(toolbar.count("import androidx.compose.ui.platform.LocalContext"), 1)
 
     def test_composites_toolbar_over_live_gecko_content(self):
         temp, root = self.make_checkout()
@@ -769,13 +1239,15 @@ class OverlayTests(unittest.TestCase):
         )
         self.assertIn("toolbar.collapse()", toolbar_behavior)
 
-    def test_midnight_pages_is_beta_only(self):
+    def test_site_display_is_available_in_both_channels(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
         apply(root, channel="beta")
         app = root / "mobile/android/fenix/app"
         core = (app / "src/main/java/org/mozilla/fenix/components/Core.kt").read_text()
         self.assertIn("midnight-pages@acuteweb.core", core)
+        self.assertIn("saved-sessions@acuteweb.core", core)
+        self.assertIn("page-notes@acuteweb.core", core)
         self.assertTrue(
             (app / "src/main/assets/extensions/acute-midnight/manifest.json").is_file()
         )
@@ -792,7 +1264,56 @@ class OverlayTests(unittest.TestCase):
         stable_core = (
             stable_root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt"
         ).read_text()
-        self.assertNotIn("midnight-pages@acuteweb.core", stable_core)
+        self.assertIn("midnight-pages@acuteweb.core", stable_core)
+        self.assertIn("saved-sessions@acuteweb.core", stable_core)
+        self.assertIn("page-notes@acuteweb.core", stable_core)
+        self.assertTrue(
+            (
+                stable_root
+                / "mobile/android/fenix/app/src/main/assets/extensions/acute-sessions/manifest.json"
+            ).is_file()
+        )
+        self.assertTrue(
+            (
+                stable_root
+                / "mobile/android/fenix/app/src/main/assets/extensions/acute-notes/manifest.json"
+            ).is_file()
+        )
+
+    def test_adds_clean_link_action_and_prioritizes_sharing(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        browser = (
+            app / "src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt"
+        ).read_text()
+        native = (
+            app
+            / "src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+        ).read_text()
+        component = (
+            root
+            / "mobile/android/android-components/components/feature/contextmenu/src/main/java/mozilla/components/feature/contextmenu/ContextMenuCandidate.kt"
+        ).read_text()
+        context_strings = (
+            app / "src/main/res/values/acute_context_menu_strings.xml"
+        ).read_text()
+
+        self.assertIn('id = "acute.contextmenu.copy_clean_link"', browser)
+        self.assertIn("cleanTrackingUrl(hitResult.getUrl())", browser)
+        self.assertIn('name.startsWith("utm_")', browser)
+        self.assertIn('"fbclid"', browser)
+        self.assertIn("append(fragment)", browser)
+        self.assertIn("Copy clean link", context_strings)
+        self.assertLess(
+            native.index("createShareLinkCandidate("),
+            native.index("createDownloadLinkCandidate("),
+        )
+        self.assertLess(
+            component.index("createShareLinkCandidate(context)"),
+            component.index("createDownloadLinkCandidate("),
+        )
 
     def test_applies_branding_privacy_updater_and_signing(self):
         temp, root = self.make_checkout()
@@ -831,7 +1352,7 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("shouldFollowDeviceTheme: Boolean", tablet_settings)
         night_colors = (app / "src/main/res/values-night/colors.xml").read_text()
         self.assertIn(
-            '<color name="fx_mobile_primary">@color/acute_glass_blue_soft</color>',
+            '<color name="fx_mobile_primary">@color/acute_glass_light</color>',
             night_colors,
         )
         self.assertIn(
@@ -844,8 +1365,8 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("acuteCoreGlassModifier", toolbar)
         self.assertIn("Brush.verticalGradient", toolbar)
         self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", toolbar)
-        self.assertIn("Color(0xD0193144)", toolbar)
-        self.assertIn("Color(0x667AC6EA)", toolbar)
+        self.assertIn("Color(0xE025282D)", toolbar)
+        self.assertIn("Color(0x66F1F2F4)", toolbar)
         self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)
@@ -855,6 +1376,9 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("permanently rendered with the Midnight theme", fragment)
         self.assertIn("showPocketRecommendationsFeature: Boolean", tablet_settings)
         self.assertIn("showContileFeature: Boolean", tablet_settings)
+        self.assertIn("Acute Workspaces is a first-class, local dashboard feature", tablet_settings)
+        self.assertIn("Keep the contextual Add to workspace command discoverable", tablet_settings)
+        self.assertEqual(tablet_settings.count("default = { true }"), 2)
         home_activity = (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").read_text()
         self.assertIn("handleAcuteDesktopShortcut", home_activity)
         self.assertIn("isLargeScreenSize()", home_activity)
@@ -871,6 +1395,52 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("dispatchGenericMotionEvent", home_activity)
         self.assertIn("MotionEvent.BUTTON_BACK", home_activity)
         self.assertIn("MotionEvent.BUTTON_FORWARD", home_activity)
+        homepage = (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").read_text()
+        self.assertIn("Acute owns the homepage hierarchy", homepage)
+        self.assertIn("Acute's dashboard begins with user-owned shortcuts", homepage)
+        self.assertIn("reducedTopSpacing = false", homepage)
+        self.assertIn("emptyList<PopularSite>()", homepage)
+        self.assertNotIn("ExperimentalHomepageHeader(", homepage)
+        self.assertNotIn("PocketSection(", homepage)
+        self.assertNotIn("observePopularSites(topSites =", homepage)
+        self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
+        self.assertIn("val acuteExpandedDashboard = maxWidth >= 840.dp", homepage)
+        self.assertIn(
+            "acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)",
+            homepage,
+        )
+        self.assertIn("Row(modifier = Modifier.fillMaxWidth())", homepage)
+        self.assertEqual(homepage.count("Column(modifier = Modifier.weight(1f))"), 1)
+        self.assertEqual(homepage.count("Box(modifier = Modifier.weight(1f))"), 1)
+        self.assertIn("import androidx.compose.foundation.layout.Row", homepage)
+        self.assertIn("import androidx.compose.foundation.layout.fillMaxWidth", homepage)
+        self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", homepage)
+        self.assertIn("CollectionsMigrationPromoCard(", homepage)
+        self.assertNotIn("is CollectionsState.Content ->", homepage)
+        main_menu = (
+            app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
+        ).read_text()
+        menu_dialog = (
+            app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
+        ).read_text()
+        more_settings = (
+            app
+            / "src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt"
+        ).read_text()
+        self.assertIn("fixed library actions never move", main_menu)
+        self.assertLess(main_menu.index("LibraryMenuGroup("), main_menu.index("ToolsAndActionsMenuGroup("))
+        self.assertNotIn("MenuBanner(", main_menu)
+        self.assertNotIn("IPProtectionMenuItem(", main_menu)
+        self.assertNotIn("MozillaAccountMenuItem(", main_menu)
+        self.assertIn("visible = !context.isLargeScreenSize()", menu_dialog)
+        self.assertIn("MaterialTheme.shapes.extraLarge", menu_dialog)
+        self.assertIn("dependable document capture one tap away", main_menu)
+        self.assertIn("R.string.browser_menu_save_as_pdf_2", main_menu)
+        self.assertIn("R.string.browser_menu_print_2", main_menu)
+        self.assertIn("saveToPdfUseCase()", menu_dialog)
+        self.assertIn("printContentUseCase()", menu_dialog)
+        self.assertIn("showCaptureActions = false", menu_dialog)
+        self.assertIn("if (showCaptureActions)", more_settings)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
         self.assertNotIn("showContileFeature by", tablet_settings)
         styles = (app / "src/main/res/values/styles.xml").read_text()
@@ -898,6 +1468,24 @@ class OverlayTests(unittest.TestCase):
         reporting_strings = (app / "src/main/res/values/acute_reporting_strings.xml").read_text()
         self.assertIn("issues/new/choose", reporting_strings)
         self.assertIn("Welcome to Acute Web", strings)
+        self.assertIn('name="create_tab_group_title">Create workspace<', strings)
+        self.assertIn('name="collections_migration_homepage_banner_title">Workspaces<', strings)
+        self.assertIn("%1$d workspaces open. Tap to switch tabs.", strings)
+        self.assertIn("Dissolve workspace?", strings)
+        self.assertIn('name="tab_group_three_dot_menu_close">Suspend<', strings)
+        tab_storage_middleware = (
+            app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt"
+        ).read_text()
+        tab_management_fragment = (
+            app / "src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt"
+        ).read_text()
+        self.assertIn("private val suspendTab: (String) -> Unit = {}", tab_storage_middleware)
+        self.assertIn("action.group.tabs.forEach { tab -> suspendTab(tab.id) }", tab_storage_middleware)
+        self.assertLess(
+            tab_storage_middleware.index("suspendTab(tab.id)"),
+            tab_storage_middleware.index("tabGroupRepository.closeTabGroup"),
+        )
+        self.assertIn("EngineAction.SuspendEngineSessionAction(tabId)", tab_management_fragment)
         self.assertIn("you’re an Acute Web user", strings)
         self.assertIn("developed by CORE using Mozilla’s open-source Gecko engine", strings)
         self.assertIn("Firefox Terms of Use", strings)
@@ -941,6 +1529,7 @@ class OverlayTests(unittest.TestCase):
             '<string name="pair_instructions_2">Visit firefox.com/pair</string>'
             '<string name="sign_in_instructions">Visit firefox.com/pair</string>'
             '<string name="about_content">Firefox</string>'
+            + WORKSPACE_STRINGS +
             "</resources>"
         )
         apply(root, channel="beta")

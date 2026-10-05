@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Acute Saved Sessions",
+  "version": "0.1.0",
+  "description": "Save and restore local browsing sessions in Acute.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "saved-sessions@acuteweb.core"
+    }
+  },
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "browser_action": {
+    "default_title": "Saved Sessions",
+    "default_popup": "popup.html"
+  }
+}

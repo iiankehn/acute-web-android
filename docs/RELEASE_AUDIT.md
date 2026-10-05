@@ -20,7 +20,11 @@ start:
 - immutable 40-character GitHub Action references;
 - agreement between project metadata, the workflow, and the pinned Firefox
   source commit;
-- explicit ARM64 and x86_64 native build targets and package verification.
+- explicit ARM64 and x86_64 native build targets and package verification;
+- behavioral tests for the shipped local feature panels, including failed writes,
+  private/internal-page exclusions, and duplicate-tap protection;
+- complete Stable and Beta overlay compatibility against the pinned upstream
+  source files before expensive native builds.
 
 The APK pipeline then verifies the expected Gecko libraries for each ABI,
 minimized permissions, release signature, signer continuity with earlier
@@ -31,7 +35,8 @@ unprivileged builds succeed.
 ## Dependency policy
 
 The Acute overlay has no third-party Python package dependency. Its local
-Midnight Pages extension makes no external service request. GitHub Actions are
+Site Display, Saved Sessions, and Page Notes extensions make no external service
+request. GitHub Actions are
 pinned to reviewed commit hashes, and the complete Mozilla source input is
 pinned to one full commit recorded in `acute-android.toml`, the workflow, and
 each release's `build-inputs.txt`.
@@ -55,6 +60,8 @@ packaging and the ARM64 candidate is tested on supported physical devices for:
 - rotation, split screen, phone and large-screen layouts;
 - update notification and handoff to Android's package installer;
 - CORE Glass contrast, touch targets, and page-content accessibility.
+- link context-action ordering and clean-link output with functional query
+  parameters, original encoding, and fragments preserved.
 
 Failures block promotion. Versions 0.8 and 0.9 are cut only when a verified
 issue requires a corrective candidate; otherwise the audited Beta proceeds

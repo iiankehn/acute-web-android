@@ -24,6 +24,25 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def replace_span_once(
+    text: str,
+    start: str,
+    end: str,
+    replacement: str,
+    label: str,
+) -> str:
+    """Replace one fail-closed span while retaining its end anchor."""
+    start_count = text.count(start)
+    end_count = text.count(end)
+    if start_count != 1 or end_count != 1:
+        raise OverlayError(
+            f"Expected one {label} span; found start={start_count}, end={end_count}"
+        )
+    prefix, remainder = text.split(start, 1)
+    _, suffix = remainder.split(end, 1)
+    return prefix + replacement + end + suffix
+
+
 UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
     "account",
     "fxa_",
@@ -36,17 +55,17 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
 
 
 MIDNIGHT_COLOR_OVERRIDES = {
-    "fx_mobile_primary": "@color/acute_glass_blue_soft",
+    "fx_mobile_primary": "@color/acute_glass_light",
     "fx_mobile_on_primary": "@color/acute_glass_canvas",
-    "fx_mobile_primary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_primary_container": "@color/acute_glass_surface_selected",
     "fx_mobile_on_primary_container": "@color/acute_glass_text",
     "fx_mobile_secondary": "@color/acute_glass_text_muted",
     "fx_mobile_on_secondary": "@color/acute_glass_canvas",
     "fx_mobile_secondary_container": "@color/acute_glass_surface_high",
     "fx_mobile_on_secondary_container": "@color/acute_glass_text",
-    "fx_mobile_tertiary": "@color/acute_glass_blue_soft",
+    "fx_mobile_tertiary": "@color/acute_glass_light",
     "fx_mobile_on_tertiary": "@color/acute_glass_canvas",
-    "fx_mobile_tertiary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_tertiary_container": "@color/acute_glass_surface_selected",
     "fx_mobile_on_tertiary_container": "@color/acute_glass_text",
     "fx_mobile_background": "@color/acute_glass_canvas",
     "fx_mobile_on_background": "@color/acute_glass_text",
@@ -63,6 +82,73 @@ MIDNIGHT_COLOR_OVERRIDES = {
     "fx_mobile_surface_container_lowest": "@color/acute_glass_canvas",
     "fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected",
     "fx_mobile_outline": "@color/acute_glass_outline",
+}
+
+
+# Acute Workspaces deliberately uses Firefox's maintained, local tab-group
+# store. Resource identifiers stay upstream-compatible while the user-facing
+# model is consistently named and described as a workspace.
+WORKSPACE_STRING_OVERRIDES = {
+    "browser_menu_add_to_tab_group": "Add to workspace",
+    "preferences_tab_groups_feature": "Enable Workspaces",
+    "create_tab_group_content_description": "Create workspace",
+    "tab_manager_multiselect_menu_item_add_to_tab_group": "Add to workspace",
+    "tab_group_onboarding_item_title": "Create a workspace",
+    "tab_group_onboarding_grid_item_description":
+        "Drag one tab onto another to create a workspace.",
+    "tab_group_onboarding_list_item_description":
+        "Select multiple tabs to create a workspace.",
+    "tab_group_onboarding_item_dismiss_content_description":
+        "Dismiss workspace introduction",
+    "tab_manager_empty_tab_groups_page_header": "Build your first workspace",
+    "tab_manager_empty_tab_groups_page_description":
+        "Select related tabs to keep them together and ready when you return.",
+    "create_tab_group_title": "Create workspace",
+    "edit_tab_group_title": "Edit workspace",
+    "edit_tab_group_bottom_sheet_grabber_content_description":
+        "New workspace, collapse drag handle",
+    "create_tab_group_form_default_name": "Workspace %d",
+    "add_to_tab_group_title": "Add to workspace",
+    "add_to_tab_group_bottom_sheet_grabber_content_description":
+        "Add to a workspace, collapse drag handle",
+    "add_to_new_tab_group_content_description": "Add to new workspace",
+    "add_to_new_tab_group_title": "New workspace",
+    "tab_group_sheet_dismiss_description": "View workspace, collapse drag handle",
+    "delete_tab_group_confirmation_dialog_title": "Delete workspace?",
+    "delete_tab_group_confirmation_dialog_body":
+        "This permanently deletes the workspace.",
+    "delete_tab_group_confirmation_dialog_confirm": "Delete workspace",
+    "close_tab_and_delete_group_confirmation_dialog_title":
+        "Close tab and delete workspace?",
+    "close_tab_and_delete_group_confirmation_dialog_body":
+        "This permanently deletes the workspace.",
+    "close_tab_and_delete_group_confirmation_dialog_confirm": "Delete workspace",
+    "tab_group_three_dot_menu_close": "Suspend",
+    "tab_group_three_dot_menu_ungroup": "Dissolve",
+    "ungroup_tab_group_confirmation_dialog_title": "Dissolve workspace?",
+    "ungroup_tab_group_confirmation_dialog_body":
+        "The tabs will remain open on this device, but the workspace will be deleted.",
+    "ungroup_tab_group_confirmation_dialog_confirm": "Dissolve",
+    "collections_migration_homepage_banner_title": "Workspaces",
+    "collections_migration_homepage_card_message":
+        "Keep related tabs together and return to them later.",
+    "collections_migration_homepage_card_link": "Open workspaces",
+}
+
+
+WORKSPACE_PLURAL_OVERRIDES = {
+    "tabs_header_tab_group_counter_title": (
+        "%1$d workspace open. Tap to switch tabs.",
+        "%1$d workspaces open. Tap to switch tabs.",
+    ),
+    "add_to_exiting_tab_group_content_description": (
+        "Add to %1$s workspace, %2$d tab, color %3$s",
+        "Add to %1$s workspace, %2$d tabs, color %3$s",
+    ),
+    "expanded_tab_group_header_description": (
+        "%1$s workspace with %2$d tab, color %3$s",
+        "%1$s workspace with %2$d tabs, color %3$s",
+    ),
 }
 
 
@@ -87,6 +173,17 @@ def patch_midnight_palette(path: Path) -> None:
 def patch_core_glass_toolbar(path: Path) -> None:
     """Give the browser toolbar a visibly layered CORE Glass treatment."""
     text = path.read_text(encoding="utf-8")
+    for acute_import in (
+        "import androidx.compose.ui.platform.LocalContext\n",
+        "import org.mozilla.fenix.ext.settings\n",
+    ):
+        if acute_import not in text:
+            text = replace_once(
+                text,
+                "import androidx.compose.ui.Modifier\n",
+                "import androidx.compose.ui.Modifier\n" + acute_import,
+                "opaque glass preference import " + acute_import.strip(),
+            )
     text = replace_once(
         text,
         "import androidx.compose.foundation.background\n",
@@ -112,22 +209,28 @@ def patch_core_glass_toolbar(path: Path) -> None:
     theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
     glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
                         // CORE Glass uses a translucent charcoal stack over a subtle
-                        // signature-blue glow. The child surfaces retain their own alpha,
+                        // ambient-light reflection. The child surfaces retain their own alpha,
                         // so the address field and selected tabs read as separate layers.
                         val acuteLargeScreen =
                             LocalConfiguration.current.smallestScreenWidthDp >= 600
                         val acuteGlassColors =
-                            if (acuteLargeScreen) {
+                            if (LocalContext.current.settings().acuteReduceTransparency) {
                                 listOf(
-                                    Color(0xD0193144),
-                                    Color(0xC0102434),
-                                    Color(0xB8071926),
+                                    Color(0xFF25282D),
+                                    Color(0xFF1B1D21),
+                                    Color(0xFF121417),
+                                )
+                            } else if (acuteLargeScreen) {
+                                listOf(
+                                    Color(0xE025282D),
+                                    Color(0xD01B1D21),
+                                    Color(0xC0121417),
                                 )
                             } else {
                                 listOf(
-                                    Color(0xA6121820),
-                                    Color(0x990B1117),
-                                    Color(0x8C07121A),
+                                    Color(0xB316181C),
+                                    Color(0xA60F1114),
+                                    Color(0x99090B0D),
                                 )
                             }
                         val acuteCoreGlassModifier =
@@ -142,7 +245,7 @@ def patch_core_glass_toolbar(path: Path) -> None:
                                 .drawWithContent {
                                     drawContent()
                                     drawLine(
-                                        color = Color(0x667AC6EA),
+                                        color = Color(0x66F1F2F4),
                                         start = Offset(0f, size.height - 1f),
                                         end = Offset(size.width, size.height - 1f),
                                         strokeWidth = 1f,
@@ -297,9 +400,9 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                     Brush.horizontalGradient(
                                         colors =
                                             listOf(
-                                                Color(0xC2383D46),
-                                                Color(0xA8263A4A),
-                                                Color(0xB82A3038),
+                                                Color(0xD034373C),
+                                                Color(0xBC24272B),
+                                                Color(0xC02B2E33),
                                             )
                                     ),
                                 shape = CircleShape,
@@ -308,7 +411,7 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                 width = 1.dp,
                                 brush =
                                     Brush.horizontalGradient(
-                                        colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                        colors = listOf(Color(0x99F1F2F4), Color(0x33F1F2F4))
                                     ),
                                 shape = CircleShape,
                             )
@@ -338,9 +441,9 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                 Brush.horizontalGradient(
                                     colors =
                                         listOf(
-                                            Color(0xC2383D46),
-                                            Color(0xA8263A4A),
-                                            Color(0xB82A3038),
+                                            Color(0xD034373C),
+                                            Color(0xBC24272B),
+                                            Color(0xC02B2E33),
                                         )
                                 )
                         )
@@ -348,7 +451,7 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                             width = 1.dp,
                             brush =
                                 Brush.horizontalGradient(
-                                    colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                    colors = listOf(Color(0x99F1F2F4), Color(0x33F1F2F4))
                                 ),
                             shape = CircleShape,
                         ),
@@ -601,7 +704,14 @@ def patch_dark_theme_default(path: Path) -> None:
             default = false,
         )
 '''
-    light_locked = '''    // Acute has one application theme: Midnight.
+    light_locked = '''    // Persisted by Android's standard preference UI; no new settings backend.
+    var acuteReduceTransparency by
+        booleanPreference(
+            "acute_reduce_transparency",
+            default = false,
+        )
+
+    // Acute has one application theme: Midnight.
     var shouldUseLightTheme: Boolean
         get() = false
         set(value) = Unit
@@ -1155,7 +1265,17 @@ def patch_branding_ui(fenix: Path) -> None:
     </androidx.preference.PreferenceCategory>
 
 '''
-    pref_text = replace_once(pref_text, theme_category, "", "application theme settings")
+    opaque_preference = '''    <androidx.preference.SwitchPreferenceCompat
+        android:key="acute_reduce_transparency"
+        android:title="@string/acute_reduce_transparency_title"
+        android:summary="@string/acute_reduce_transparency_summary"
+        android:defaultValue="false"
+        app:iconSpaceReserved="false" />
+
+'''
+    pref_text = replace_once(
+        pref_text, theme_category, opaque_preference, "application theme settings"
+    )
     icon_picker = '''    <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
         android:title="@string/preferences_app_icon"
@@ -1231,6 +1351,590 @@ def patch_home_content_policy(settings: Path) -> None:
 '''
     text = replace_once(text, wallpaper_old, wallpaper_new, "home wallpaper default")
     settings.write_text(text, encoding="utf-8")
+
+
+def patch_adaptive_menu(main_menu_path: Path, menu_dialog_path: Path) -> None:
+    """Make common actions stable and use a context-style panel on large screens."""
+    main = main_menu_path.read_text(encoding="utf-8")
+
+    banner = '''        if (accessPoint == MenuAccessPoint.Home && showBanner) {
+            MenuBanner(
+                onDismiss = {
+                    onBannerDismiss()
+                },
+                onClick = {
+                    onBannerClick()
+                },
+            )
+        }
+
+'''
+    main = replace_once(main, banner, "", "menu promotion banner")
+
+    ip_offer = '''        if (showIPProtection) {
+            MenuGroup {
+                IPProtectionMenuItem(
+                    state = ipProtectionMenuState,
+                    onToggle = onIPProtectionClick,
+                    onNavigate = onIPProtectionNavigate,
+                )
+            }
+        }
+
+'''
+    main = replace_once(main, ip_offer, "", "menu IP protection offer")
+
+    account = '''            MozillaAccountMenuItem(
+                account = account,
+                accountState = accountState,
+                onClick = onMozillaAccountButtonClick,
+            )
+
+'''
+    main = replace_once(main, account, "", "menu account promotion")
+
+    library = '''        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
+
+'''
+    main = replace_once(main, library, "", "existing library menu position")
+    home_extensions = '''        if (accessPoint == MenuAccessPoint.Home) {
+            MenuGroup {
+                ExtensionsMenuItem(
+'''
+    main = replace_once(
+        main,
+        home_extensions,
+        '''        // Acute's fixed library actions never move when page context changes.
+''' + library + home_extensions,
+        "fixed menu action insertion",
+    )
+    main_menu_path.write_text(main, encoding="utf-8")
+
+    dialog = menu_dialog_path.read_text(encoding="utf-8")
+    dialog = replace_once(
+        dialog,
+        "import org.mozilla.fenix.utils.exitSubmenu\n",
+        "import org.mozilla.fenix.utils.exitSubmenu\n"
+        "import org.mozilla.fenix.utils.isLargeScreenSize\n",
+        "large-screen menu import",
+    )
+    sheet = '''menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    MaterialTheme.shapes.extraLarge.copy(
+                        bottomStart = CornerSize(0.dp),
+                        bottomEnd = CornerSize(0.dp),
+                    ),
+'''
+    adaptive_sheet = '''menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                        // Large screens present a floating context panel, not a draggable sheet.
+                        visible = !context.isLargeScreenSize(),
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    if (context.isLargeScreenSize()) {
+                        MaterialTheme.shapes.extraLarge
+                    } else {
+                        MaterialTheme.shapes.extraLarge.copy(
+                            bottomStart = CornerSize(0.dp),
+                            bottomEnd = CornerSize(0.dp),
+                        )
+                    },
+'''
+    dialog = replace_once(dialog, sheet, adaptive_sheet, "adaptive menu surface")
+    menu_dialog_path.write_text(dialog, encoding="utf-8")
+
+
+def patch_capture_export_actions(
+    main_menu_path: Path,
+    menu_dialog_path: Path,
+    more_settings_path: Path,
+) -> None:
+    """Promote Gecko's maintained document export actions into the page menu."""
+    main = main_menu_path.read_text(encoding="utf-8")
+
+    main = replace_once(
+        main,
+        '''    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {''',
+        '''    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+    onSaveAsPDFMenuClick: () -> Unit = {},
+    onPrintMenuClick: () -> Unit = {},
+    isAndroidAutomotiveAvailable: Boolean = false,
+) {''',
+        "capture callbacks on main menu",
+    )
+    main = replace_once(
+        main,
+        '''                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+            )''',
+        '''                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+                onSaveAsPDFMenuClick = onSaveAsPDFMenuClick,
+                onPrintMenuClick = onPrintMenuClick,
+                isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            )''',
+        "capture callbacks into tools menu",
+    )
+    main = replace_once(
+        main,
+        '''    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
+    MenuGroup {''',
+        '''    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+    onSaveAsPDFMenuClick: () -> Unit,
+    onPrintMenuClick: () -> Unit,
+    isAndroidAutomotiveAvailable: Boolean,
+) {
+    MenuGroup {''',
+        "capture callbacks on tools menu",
+    )
+    find_in_page = '''        MenuItem(
+            label = stringResource(id = R.string.browser_menu_find_in_page),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_search_24),
+            onClick = onFindInPageMenuClick,
+        )
+'''
+    capture_actions = find_in_page + '''
+        // Acute keeps dependable document capture one tap away. Both actions use
+        // Gecko's maintained page pipeline rather than an Acute-specific renderer.
+        MenuItem(
+            label = stringResource(id = R.string.browser_menu_save_as_pdf_2),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_save_file_24),
+            onClick = onSaveAsPDFMenuClick,
+        )
+
+        if (!isAndroidAutomotiveAvailable) {
+            MenuItem(
+                label = stringResource(id = R.string.browser_menu_print_2),
+                beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_print_24),
+                onClick = onPrintMenuClick,
+            )
+        }
+'''
+    main = replace_once(main, find_in_page, capture_actions, "primary capture actions")
+    main_menu_path.write_text(main, encoding="utf-8")
+
+    dialog = menu_dialog_path.read_text(encoding="utf-8")
+    dialog = replace_once(
+        dialog,
+        '''                                moreSettingsSubmenu = {''',
+        '''                                // Document capture is promoted into Acute's first-level page actions.
+                                onSaveAsPDFMenuClick = {
+                                    saveToPdfUseCase()
+                                    dismiss()
+                                },
+                                onPrintMenuClick = {
+                                    printContentUseCase()
+                                    dismiss()
+                                },
+                                isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                moreSettingsSubmenu = {''',
+        "capture handlers on main menu",
+    )
+    dialog = replace_once(
+        dialog,
+        '''                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        summarizationMenuState = summarizationMenuState,''',
+        '''                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        showCaptureActions = false,
+                                        summarizationMenuState = summarizationMenuState,''',
+        "hide duplicate capture submenu actions",
+    )
+    menu_dialog_path.write_text(dialog, encoding="utf-8")
+
+    more = more_settings_path.read_text(encoding="utf-8")
+    more = replace_once(
+        more,
+        '''    isAndroidAutomotiveAvailable: Boolean,
+    summarizationMenuState: SummarizationMenuState,''',
+        '''    isAndroidAutomotiveAvailable: Boolean,
+    showCaptureActions: Boolean = true,
+    summarizationMenuState: SummarizationMenuState,''',
+        "capture submenu visibility parameter",
+    )
+    more = replace_once(
+        more,
+        '''        SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+        PrintMenuItem(
+            isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            onPrintMenuClick = onPrintMenuClick,
+        )''',
+        '''        if (showCaptureActions) {
+            SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+            PrintMenuItem(
+                isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+                onPrintMenuClick = onPrintMenuClick,
+            )
+        }''',
+        "conditional capture submenu actions",
+    )
+    more_settings_path.write_text(more, encoding="utf-8")
+
+
+def patch_home_dashboard(path: Path) -> None:
+    """Turn the inherited Firefox feed into Acute's local-first dashboard."""
+    text = path.read_text(encoding="utf-8")
+
+    header_start = '''            if (state is HomepageState.Normal) {
+'''
+    content_start = '''            if (state.firstFrameDrawn) {
+'''
+    acute_header = '''            // Acute owns the homepage hierarchy. Experimental news controls,
+            // promotional banners and remote messaging are never rendered.
+            HomepageHeader(
+                browsingMode = state.browsingMode,
+                browsingModeChanged = browsingModeChanged,
+            )
+
+'''
+    text = replace_span_once(
+        text,
+        header_start,
+        content_start,
+        acute_header,
+        "Acute homepage header",
+    )
+
+    animated_feed_start = '''                            LaunchedEffect(showLongfoxAnimation) {
+'''
+    shortcuts_start = '''                            if (topSiteState != null) {
+'''
+    text = replace_span_once(
+        text,
+        animated_feed_start,
+        shortcuts_start,
+        '''                            // Acute's dashboard begins with user-owned shortcuts.
+''',
+        "inherited homepage animation and feed entry point",
+    )
+
+    inherited_cards_start = '''                            if (showPrivacyReport) {
+'''
+    bookmarks_start = '''                            if (bookmarks != null) {
+'''
+    local_activity = '''                            // Resume is local-only. Synced-tab, setup,
+                            // promotional and telemetry-backed cards are intentionally omitted.
+                            if (recentTabs != null) {
+                                RecentTabsSection(
+                                    interactor = interactor,
+                                    recentTabs = recentTabs,
+                                    reducedTopSpacing = false,
+                                )
+                            }
+
+'''
+    text = replace_span_once(
+        text,
+        inherited_cards_start,
+        bookmarks_start,
+        local_activity,
+        "inherited homepage cards",
+    )
+
+    remote_feed_start = '''                            if (pocketState != null) {
+'''
+    dialogs_start = '''                            when (shortcutsDialogState) {
+'''
+    local_shortcuts = '''                            Spacer(Modifier.height(bottomPadding.dp))
+
+                            // Adding a shortcut never fetches a remote popular-sites list.
+                            val popularSites = emptyList<PopularSite>()
+
+'''
+    text = replace_span_once(
+        text,
+        remote_feed_start,
+        dialogs_start,
+        local_shortcuts,
+        "remote homepage feed",
+    )
+
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_large_screen_dashboard(path: Path) -> None:
+    """Use an expanded two-column local dashboard when the window is wide enough."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import androidx.compose.foundation.layout.Column\n",
+        "import androidx.compose.foundation.layout.Column\n"
+        "import androidx.compose.foundation.layout.Row\n",
+        "dashboard row import",
+    )
+    text = replace_once(
+        text,
+        "import androidx.compose.foundation.layout.fillMaxSize\n",
+        "import androidx.compose.foundation.layout.fillMaxSize\n"
+        "import androidx.compose.foundation.layout.fillMaxWidth\n",
+        "dashboard width import",
+    )
+    stacked_sections = '''                            if (bookmarks != null) {
+                                BookmarksSection(
+                                    bookmarks = bookmarks,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            if (recentlyVisited != null) {
+                                RecentlyVisitedSection(
+                                    recentVisits = recentlyVisited,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            CollectionsSection(
+                                collectionsState = collectionsState,
+                                interactor = interactor,
+                                onCollectionsMigrationCardAction = onCollectionsMigrationCardAction,
+                            )
+'''
+    adaptive_sections = '''                            // Expanded Android windows use their width for a real
+                            // dashboard. Compact tablets and split windows retain phone flow.
+                            val acuteExpandedDashboard = maxWidth >= 840.dp
+                            if (acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)) {
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        if (bookmarks != null) {
+                                            BookmarksSection(
+                                                bookmarks = bookmarks,
+                                                interactor = interactor,
+                                            )
+                                        }
+
+                                        if (recentlyVisited != null) {
+                                            RecentlyVisitedSection(
+                                                recentVisits = recentlyVisited,
+                                                interactor = interactor,
+                                            )
+                                        }
+                                    }
+
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CollectionsSection(
+                                            collectionsState = collectionsState,
+                                            interactor = interactor,
+                                            onCollectionsMigrationCardAction =
+                                                onCollectionsMigrationCardAction,
+                                        )
+                                    }
+                                }
+                            } else {
+                                if (bookmarks != null) {
+                                    BookmarksSection(
+                                        bookmarks = bookmarks,
+                                        interactor = interactor,
+                                    )
+                                }
+
+                                if (recentlyVisited != null) {
+                                    RecentlyVisitedSection(
+                                        recentVisits = recentlyVisited,
+                                        interactor = interactor,
+                                    )
+                                }
+
+                                CollectionsSection(
+                                    collectionsState = collectionsState,
+                                    interactor = interactor,
+                                    onCollectionsMigrationCardAction =
+                                        onCollectionsMigrationCardAction,
+                                )
+                            }
+'''
+    text = replace_once(
+        text,
+        stacked_sections,
+        adaptive_sections,
+        "adaptive dashboard sections",
+    )
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Path) -> None:
+    """Expose the maintained local tab-group model as Acute Workspaces."""
+    homepage = homepage_path.read_text(encoding="utf-8")
+    old_section = '''    when (collectionsState) {
+        is CollectionsState.Content -> {
+            CollectionsSectionContent {
+                Collections(
+                    collections = collectionsState.collections,
+                    expandedCollections = collectionsState.expandedCollections,
+                    showAddTabToCollection = collectionsState.showSaveTabsToCollection,
+                    interactor = interactor,
+                )
+            }
+        }
+
+        CollectionsState.MigrationCard -> {
+            CollectionsSectionContent {
+                CollectionsMigrationPromoCard(onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) })
+            }
+        }
+
+        CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
+    }
+'''
+    workspace_section = '''    // Acute Workspaces is backed by the maintained local tab-group store. The
+    // dashboard entry remains available even before the first workspace exists.
+    CollectionsSectionContent {
+        CollectionsMigrationPromoCard(
+            onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) },
+        )
+    }
+'''
+    homepage = replace_once(
+        homepage,
+        old_section,
+        workspace_section,
+        "workspace dashboard section",
+    )
+    homepage_path.write_text(homepage, encoding="utf-8")
+
+    strings = strings_path.read_text(encoding="utf-8")
+    for name, value in WORKSPACE_STRING_OVERRIDES.items():
+        pattern = re.compile(
+            rf'(<string\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</string>)',
+            flags=re.DOTALL,
+        )
+        strings, count = pattern.subn(
+            lambda match, replacement=value: (
+                f"{match.group(1)}{replacement}{match.group(2)}"
+            ),
+            strings,
+            count=1,
+        )
+        if count != 1:
+            raise OverlayError(f"Could not locate workspace string {name} in {strings_path}")
+
+    for name, (one, other) in WORKSPACE_PLURAL_OVERRIDES.items():
+        pattern = re.compile(
+            rf'(<plurals\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</plurals>)',
+            flags=re.DOTALL,
+        )
+        replacement = (
+            "\n      "
+            f'<item quantity="one">{one}</item>\n'
+            "      "
+            f'<item quantity="other">{other}</item>\n    '
+        )
+        strings, count = pattern.subn(
+            lambda match, body=replacement: f"{match.group(1)}{body}{match.group(2)}",
+            strings,
+            count=1,
+        )
+        if count != 1:
+            raise OverlayError(f"Could not locate workspace plurals {name} in {strings_path}")
+
+    strings_path.write_text(strings, encoding="utf-8")
+
+    settings = settings_path.read_text(encoding="utf-8")
+    settings = replace_once(
+        settings,
+        "            default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },\n",
+        "            // Acute Workspaces is a first-class, local dashboard feature.\n"
+        "            default = { true },\n",
+        "workspace default",
+    )
+    settings = replace_once(
+        settings,
+        "            default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },\n",
+        "            // Keep the contextual Add to workspace command discoverable.\n"
+        "            default = { true },\n",
+        "workspace menu default",
+    )
+    settings_path.write_text(settings, encoding="utf-8")
+
+
+def patch_workspace_suspension(middleware_path: Path, fragment_path: Path) -> None:
+    """Release Gecko sessions when a workspace is closed, preserving restorable state."""
+    middleware = middleware_path.read_text(encoding="utf-8")
+    middleware = replace_once(
+        middleware,
+        "    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),\n"
+        ") : Middleware<TabsTrayState, TabsTrayAction> {\n",
+        "    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),\n"
+        "    // Acute Workspaces releases Gecko resources without deleting tab state.\n"
+        "    private val suspendTab: (String) -> Unit = {},\n"
+        ") : Middleware<TabsTrayState, TabsTrayAction> {\n",
+        "workspace suspension callback",
+    )
+    old_close = '''            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+'''
+    suspended_close = '''            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    // Persisted tab/group records remain intact. Suspending only unlinks and
+                    // closes each live Gecko engine; selecting a tab recreates and restores it.
+                    action.group.tabs.forEach { tab -> suspendTab(tab.id) }
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+'''
+    middleware = replace_once(
+        middleware,
+        old_close,
+        suspended_close,
+        "workspace close behavior",
+    )
+    middleware_path.write_text(middleware, encoding="utf-8")
+
+    fragment = fragment_path.read_text(encoding="utf-8")
+    fragment = replace_once(
+        fragment,
+        "import mozilla.components.browser.state.selector.privateTabs\n",
+        "import mozilla.components.browser.state.action.EngineAction\n"
+        "import mozilla.components.browser.state.selector.privateTabs\n",
+        "workspace suspension engine action import",
+    )
+    fragment = replace_once(
+        fragment,
+        "                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,\n"
+        "                            mainScope = lifecycleScope,\n",
+        "                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,\n"
+        "                            mainScope = lifecycleScope,\n"
+        "                            suspendTab = { tabId ->\n"
+        "                                requireComponents.core.store.dispatch(\n"
+        "                                    EngineAction.SuspendEngineSessionAction(tabId),\n"
+        "                                )\n"
+        "                            },\n",
+        "workspace suspension dispatch",
+    )
+    fragment_path.write_text(fragment, encoding="utf-8")
 
 
 def patch_about_page(path: Path) -> None:
@@ -1360,24 +2064,221 @@ def patch_about_page(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def patch_midnight_pages(core: Path, channel: str) -> None:
-    """Install Acute's local page-darkening engine in Beta builds only."""
-    if channel != "beta":
-        return
+def patch_site_display(core: Path) -> None:
+    """Install Acute's local per-site appearance and accessibility controls."""
     text = core.read_text(encoding="utf-8")
     anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
                 icons.install(engine, this)
 '''
-    install = '''                // Acute Beta: install the local-only Midnight Pages renderer. It does not
-                // contact a service or expose browsing data outside GeckoView.
+    install = '''                // Acute Site Display keeps per-domain appearance, text-size and motion
+                // preferences locally. It does not contact a service or expose browsing data.
                 engine.installBuiltInWebExtension(
                     id = "midnight-pages@acuteweb.core",
                     url = "resource://android/assets/extensions/acute-midnight/",
                 )
 
 '''
-    text = replace_once(text, anchor, anchor + install, "Midnight Pages extension hook")
+    text = replace_once(text, anchor, anchor + install, "Site Display extension hook")
     core.write_text(text, encoding="utf-8")
+
+
+def patch_saved_sessions(core: Path) -> None:
+    """Install Acute's local window-snapshot and restore feature."""
+    text = core.read_text(encoding="utf-8")
+    anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
+                icons.install(engine, this)
+'''
+    install = '''                // Saved Sessions stores named URL snapshots locally and restores them through
+                // Gecko's maintained WebExtension tabs API. Private and internal tabs are excluded.
+                engine.installBuiltInWebExtension(
+                    id = "saved-sessions@acuteweb.core",
+                    url = "resource://android/assets/extensions/acute-sessions/",
+                )
+
+'''
+    text = replace_once(text, anchor, anchor + install, "Saved Sessions extension hook")
+    core.write_text(text, encoding="utf-8")
+
+
+def patch_page_notes(core: Path) -> None:
+    """Install Acute's local page-addressed notes feature."""
+    text = core.read_text(encoding="utf-8")
+    anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
+                icons.install(engine, this)
+'''
+    install = '''                // Page Notes keeps bounded notes associated with normal web addresses in
+                // extension-local storage. Private and internal pages are excluded.
+                engine.installBuiltInWebExtension(
+                    id = "page-notes@acuteweb.core",
+                    url = "resource://android/assets/extensions/acute-notes/",
+                )
+
+'''
+    text = replace_once(text, anchor, anchor + install, "Page Notes extension hook")
+    core.write_text(text, encoding="utf-8")
+
+
+def patch_link_context_actions(
+    browser_fragment: Path,
+    native_candidates: Path,
+    component_candidates: Path,
+) -> None:
+    """Add a conservative clean-link action and improve the link-action order."""
+    text = browser_fragment.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import android.content.Context\n",
+        "import android.content.ClipData\n"
+        "import android.content.ClipboardManager\n"
+        "import android.content.Context\n",
+        "clean-link clipboard imports",
+    )
+    text = replace_once(
+        text,
+        "import kotlinx.coroutines.Dispatchers\n",
+        "import java.net.URLDecoder\n"
+        "import kotlinx.coroutines.Dispatchers\n",
+        "clean-link URL decoder import",
+    )
+    text = replace_once(
+        text,
+        '''        } +
+            createOpenInExternalAppCandidate(
+''',
+        '''        } +
+            createCopyCleanLinkCandidate(context, view) +
+            createOpenInExternalAppCandidate(
+''',
+        "clean-link context menu insertion",
+    )
+    navigate_anchor = '''    private fun navigateToShareFragment(
+'''
+    clean_link_helpers = '''    private fun createCopyCleanLinkCandidate(
+        context: Context,
+        snackBarParentView: View,
+    ) =
+        ContextMenuCandidate(
+            id = "acute.contextmenu.copy_clean_link",
+            label = context.getString(R.string.context_menu_copy_clean_link),
+            showFor = { _, hitResult -> cleanTrackingUrl(hitResult.getUrl()) != null },
+            action = { _, hitResult ->
+                val cleanUrl = cleanTrackingUrl(hitResult.getUrl())
+                    ?: return@ContextMenuCandidate
+                val clipboard =
+                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(cleanUrl, cleanUrl))
+                ContextMenuSnackbarDelegate().show(
+                    snackBarParentView = snackBarParentView,
+                    text = contextMenuR.string.mozac_feature_contextmenu_snackbar_link_copied,
+                    duration = com.google.android.material.snackbar.Snackbar.LENGTH_SHORT,
+                )
+            },
+        )
+
+    /**
+     * Remove only well-known advertising and campaign parameters. Unknown parameters,
+     * their original encoding and order, and the fragment are preserved byte-for-byte.
+     */
+    private fun cleanTrackingUrl(rawUrl: String): String? {
+        if (!rawUrl.isHttpUrl()) return null
+        val fragmentStart = rawUrl.indexOf('#')
+        val address = if (fragmentStart >= 0) rawUrl.substring(0, fragmentStart) else rawUrl
+        val fragment = if (fragmentStart >= 0) rawUrl.substring(fragmentStart) else ""
+        val queryStart = address.indexOf('?')
+        if (queryStart < 0) return null
+
+        val queryParts = address.substring(queryStart + 1).split('&')
+        val retained =
+            queryParts.filterNot { part ->
+                val encodedName = part.substringBefore('=')
+                val name =
+                    runCatching { URLDecoder.decode(encodedName, "UTF-8") }
+                        .getOrDefault(encodedName)
+                        .lowercase()
+                name.startsWith("utm_") || name in acuteTrackingQueryParameters
+            }
+        if (retained.size == queryParts.size) return null
+
+        return buildString {
+            append(address.substring(0, queryStart))
+            if (retained.isNotEmpty()) {
+                append('?')
+                append(retained.joinToString("&"))
+            }
+            append(fragment)
+        }
+    }
+
+    private val acuteTrackingQueryParameters =
+        setOf(
+            "dclid",
+            "fbclid",
+            "gbraid",
+            "gclid",
+            "igshid",
+            "mc_cid",
+            "mc_eid",
+            "mkt_tok",
+            "msclkid",
+            "oly_anon_id",
+            "oly_enc_id",
+            "srsltid",
+            "ttclid",
+            "twclid",
+            "vero_id",
+            "wbraid",
+            "_hsenc",
+            "_hsmi",
+        )
+
+'''
+    text = replace_once(
+        text,
+        navigate_anchor,
+        clean_link_helpers + navigate_anchor,
+        "clean-link helper methods",
+    )
+    browser_fragment.write_text(text, encoding="utf-8")
+
+    native = native_candidates.read_text(encoding="utf-8")
+    native = replace_once(
+        native,
+        '''            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+''',
+        '''            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+''',
+        "native share-before-download ordering",
+    )
+    native_candidates.write_text(native, encoding="utf-8")
+
+    component = component_candidates.read_text(encoding="utf-8")
+    component = replace_once(
+        component,
+        '''                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+                createShareLinkCandidate(context),
+''',
+        '''                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createShareLinkCandidate(context),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+''',
+        "component share-before-download ordering",
+    )
+    component_candidates.write_text(component, encoding="utf-8")
 
 
 def validate_tablet_upstream(manifest: Path, desktop_mode: Path) -> None:
@@ -1455,6 +2356,21 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     beta_manifest = fenix / "app/src/beta/AndroidManifest.xml"
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
     home_activity = fenix / "app/src/main/java/org/mozilla/fenix/HomeActivity.kt"
+    homepage = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Homepage.kt"
+    main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
+    menu_dialog = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
+    more_settings = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt"
+    )
+    tab_storage_middleware = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt"
+    )
+    tab_management_fragment = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt"
+    )
     browser_toolbar = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
@@ -1468,6 +2384,16 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
+    browser_actions = fenix / "app/src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt"
+    native_context_candidates = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+    )
+    component_context_candidates = (
+        checkout
+        / "mobile/android/android-components/components/feature/contextmenu/src/main/java"
+        / "mozilla/components/feature/contextmenu/ContextMenuCandidate.kt"
+    )
     clipping_behavior = (
         checkout
         / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt"
@@ -1485,8 +2411,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog, more_settings,
+                tab_storage_middleware, tab_management_fragment, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
+                browser_actions, native_context_candidates, component_context_candidates,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
@@ -1515,8 +2443,21 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
+    patch_home_dashboard(homepage)
+    patch_large_screen_dashboard(homepage)
+    patch_workspaces(homepage, values / "strings.xml", settings)
+    patch_workspace_suspension(tab_storage_middleware, tab_management_fragment)
+    patch_adaptive_menu(main_menu, menu_dialog)
+    patch_capture_export_actions(main_menu, menu_dialog, more_settings)
     patch_about_page(about)
-    patch_midnight_pages(core, channel)
+    patch_site_display(core)
+    patch_saved_sessions(core)
+    patch_page_notes(core)
+    patch_link_context_actions(
+        browser_actions,
+        native_context_candidates,
+        component_context_candidates,
+    )
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     patch_app_labels(fenix, channel)

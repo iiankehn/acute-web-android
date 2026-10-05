@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "Acute Midnight Pages",
-  "version": "0.1.0",
-  "description": "Local page-darkening support for Acute Beta.",
+  "name": "Acute Site Display",
+  "version": "0.2.0",
+  "description": "Local per-site appearance, text size, and motion controls for Acute.",
   "browser_specific_settings": {
     "gecko": {
       "id": "midnight-pages@acuteweb.core"
@@ -14,7 +14,7 @@
     "<all_urls>"
   ],
   "browser_action": {
-    "default_title": "Midnight Pages",
+    "default_title": "Site Display",
     "default_popup": "popup.html"
   },
   "content_scripts": [

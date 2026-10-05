@@ -67,8 +67,10 @@ def validate_configuration() -> None:
         fail("APK build is not gated by the repository audit")
     if f"version={candidate}" not in workflow:
         fail("workflow and project configuration disagree on the release candidate")
-    if f'data-release-version="beta">{candidate}' not in website:
-        fail("website and project configuration disagree on the release candidate")
+    # The website describes published releases, not an unbuilt development
+    # candidate. Requiring equality advertised future APKs before publication.
+    if not re.search(r'data-release-version="beta">\d+\.\d+\.\d+-beta\.\d+', website):
+        fail("website Beta version metadata is malformed")
 
 
 def validate_action_pinning() -> None:

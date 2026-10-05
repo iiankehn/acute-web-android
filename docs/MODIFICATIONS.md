@@ -27,11 +27,14 @@ the public overlay, resources, tests, and workflow in this repository.
 
 ## Interface and accessibility
 
-- Application chrome uses Acute's Midnight interface and CORE blue accents.
-- Beta contains the CORE Glass work, including layered translucent surfaces and
+- Application chrome uses Acute's neutral Midnight interface and white light accents.
+- Acute contains the CORE Glass work, including layered translucent surfaces and
   page-aware toolbar composition.
 - The top toolbar collapses after a page finishes loading and returns through
   the standard upward-scroll gesture, leaving page controls accessible.
+- Link context menus keep Firefox's native interaction model, prioritize
+  sharing over downloading, and offer a conservative local clean-link copy
+  action when recognized campaign parameters are present.
 - Launcher assets support circular, rounded-rectangle, square, and monochrome
   adaptive-icon treatments.
 - Upstream accessibility semantics and Android text scaling remain release
@@ -41,8 +44,9 @@ the public overlay, resources, tests, and workflow in this repository.
 
 - Large screens receive tablet-oriented layout defaults, desktop-site behavior,
   split-screen support, and keyboard/mouse-compatible controls.
-- Beta development includes a large-screen tab strip, tab organization, Read
-  Aloud, and Midnight Pages controls for sites without a suitable dark theme.
+- Large-screen development includes a tab strip, tab organization, and Read
+  Aloud. Site Display remembers appearance, text size, and reduced-motion
+  preferences independently for each website.
 
 ## Build and release engineering
 

@@ -83,7 +83,7 @@ class ProjectTests(unittest.TestCase):
         stable = (ROOT / "overlay/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
         self.assertNotIn("acute_beta", stable)
 
-    def test_midnight_pages_is_local_and_conservative(self):
+    def test_site_display_is_local_per_site_and_conservative(self):
         extension = ROOT / "overlay/assets/extensions/acute-midnight"
         manifest = (extension / "manifest.json").read_text()
         script = (extension / "midnight.js").read_text()
@@ -99,6 +99,18 @@ class ProjectTests(unittest.TestCase):
             self.assertIn(mode, popup)
         self.assertIn("disabledHosts", popup)
         self.assertIn("textContent = host", popup)
+        self.assertIn('"siteModes"', popup)
+        self.assertIn('"siteTextScales"', popup)
+        self.assertIn('"reducedMotionHosts"', popup)
+        self.assertIn('siteMode === "dark"', script)
+        self.assertIn("zoom:", script)
+        self.assertIn("animation-duration", script)
+        self.assertIn('"name": "Acute Site Display"', manifest)
+        self.assertNotIn("#69bff2", (extension / "popup.css").read_text().lower())
+
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_site_display", overlay)
+        self.assertNotIn("def patch_midnight_pages", overlay)
 
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -118,6 +130,41 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("scripts/update_site_release.py", workflow)
         self.assertIn("git push origin HEAD:main", workflow)
         self.assertNotIn("branches: [main, beta]", validate)
+
+    def test_saved_sessions_are_local_bounded_snapshots(self):
+        extension = ROOT / "overlay/assets/extensions/acute-sessions"
+        manifest = (extension / "manifest.json").read_text()
+        popup = (extension / "popup.js").read_text()
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn('"id": "saved-sessions@acuteweb.core"', manifest)
+        self.assertNotIn("http://", popup)
+        self.assertNotIn("https://", popup)
+        self.assertIn("MAX_SESSIONS = 50", popup)
+        self.assertIn("MAX_TABS_PER_SESSION = 100", popup)
+        self.assertIn(".slice(0, MAX_TABS_PER_SESSION)", popup)
+        self.assertIn("!tab.incognito", popup)
+        self.assertIn('["http:", "https:"]', popup)
+        self.assertIn("browser.tabs.create", popup)
+        self.assertIn("patch_saved_sessions", overlay)
+        self.assertIn("deprecated Collections backend", spec)
+
+    def test_page_notes_are_local_bounded_and_private_safe(self):
+        extension = ROOT / "overlay/assets/extensions/acute-notes"
+        manifest = (extension / "manifest.json").read_text()
+        popup = (extension / "popup.js").read_text()
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn('"id": "page-notes@acuteweb.core"', manifest)
+        self.assertNotIn("http://", popup)
+        self.assertNotIn("https://", popup)
+        self.assertIn("MAX_NOTES = 500", popup)
+        self.assertIn("MAX_NOTE_LENGTH = 5000", popup)
+        self.assertIn("tab.incognito", popup)
+        self.assertIn("url.hash = \"\"", popup)
+        self.assertIn("textContent = saved.title", popup)
+        self.assertIn("patch_page_notes", overlay)
+        self.assertIn("Reading Shelf, offline-page storage", spec)
 
     def test_release_verification_uses_available_android_tools(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -151,8 +198,9 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.1.0-beta.1", workflow)
-        self.assertIn("1.1.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("version=2.0.0-beta.1", workflow)
+        self.assertIn('candidate = "2.0.0-beta.1"', (ROOT / "acute-android.toml").read_text())
+        self.assertIn("2.0.0-dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
@@ -166,18 +214,19 @@ class ProjectTests(unittest.TestCase):
             "acute_glass_surface",
             "acute_glass_surface_selected",
             "acute_glass_outline",
-            "acute_glass_blue",
+            "acute_glass_light",
         ):
             self.assertIn(f'name="{color}"', tokens)
-        self.assertIn("#FF0072BC", tokens)
-        self.assertIn("#B81B1E23", tokens)
-        self.assertIn("#739FCBE8", tokens)
+        self.assertIn("#FFF1F2F4", tokens)
+        self.assertIn("#C0191B1F", tokens)
+        self.assertIn("#668E9299", tokens)
+        self.assertNotIn("acute_glass_blue", tokens)
         self.assertIn('"fx_mobile_surface": "@color/acute_glass_surface"', theme)
         self.assertIn(
             '"fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected"',
             theme,
         )
-        self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
+        self.assertIn('"fx_mobile_primary": "@color/acute_glass_light"', theme)
         self.assertIn("patch_core_glass_toolbar", theme)
         self.assertIn("patch_core_glass_address_bar", theme)
         self.assertIn("patch_core_glass_compositor", theme)
@@ -187,8 +236,8 @@ class ProjectTests(unittest.TestCase):
             theme,
         )
         self.assertIn("Brush.verticalGradient", theme)
-        self.assertIn("Color(0xC2383D46)", theme)
-        self.assertIn("Color(0x997AC6EA)", theme)
+        self.assertIn("Color(0xD034373C)", theme)
+        self.assertIn("Color(0x99F1F2F4)", theme)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)
         self.assertIn("engineViewParent.translationY = 0f", theme)
         self.assertIn("toolbar.collapse()", theme)
@@ -244,6 +293,61 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("sessionUseCases.goForward()", overlay)
         self.assertIn("MotionEvent.BUTTON_BACK", overlay)
         self.assertIn("MotionEvent.BUTTON_FORWARD", overlay)
+
+    def test_menu_has_fixed_actions_and_adaptive_presentation(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_adaptive_menu", overlay)
+        self.assertIn("fixed library actions never move", overlay)
+        self.assertIn("visible = !context.isLargeScreenSize()", overlay)
+        self.assertIn("MaterialTheme.shapes.extraLarge", overlay)
+        self.assertNotIn(
+            "if (accessPoint == MenuAccessPoint.Home && showBanner)",
+            overlay.split("def patch_adaptive_menu", 1)[1].split("def patch_home_dashboard", 1)[0]
+                .split('banner =', 1)[0],
+        )
+
+    def test_home_dashboard_is_local_and_feed_free(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_home_dashboard", overlay)
+        self.assertIn("Acute owns the homepage hierarchy", overlay)
+        self.assertIn("emptyList<PopularSite>()", overlay)
+        self.assertIn("reducedTopSpacing = false", overlay)
+        self.assertIn("patch_large_screen_dashboard", overlay)
+        self.assertIn("maxWidth >= 840.dp", overlay)
+        self.assertIn("bookmarks != null || recentlyVisited != null", overlay)
+        self.assertIn("Row(modifier = Modifier.fillMaxWidth())", overlay)
+        self.assertNotIn(
+            "val popularSites = observePopularSites(topSites = topSiteState?.topSites)",
+            overlay,
+        )
+
+    def test_document_capture_uses_upstream_gecko_actions(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn("patch_capture_export_actions", overlay)
+        self.assertIn("saveToPdfUseCase()", overlay)
+        self.assertIn("printContentUseCase()", overlay)
+        self.assertIn("showCaptureActions = false", overlay)
+        self.assertIn("isAndroidAutomotiveAvailable", overlay)
+        self.assertIn("Gecko's maintained", spec)
+        self.assertIn("document-generation path", spec)
+        self.assertIn("Full-page PNG capture remains deferred", spec)
+
+    def test_workspaces_use_the_local_tab_group_backend(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn("patch_workspaces", overlay)
+        self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", overlay)
+        self.assertIn('"create_tab_group_title": "Create workspace"', overlay)
+        self.assertIn('"ungroup_tab_group_confirmation_dialog_confirm": "Dissolve"', overlay)
+        self.assertIn('"tab_group_three_dot_menu_close": "Suspend"', overlay)
+        self.assertIn("patch_workspace_suspension", overlay)
+        self.assertIn("EngineAction.SuspendEngineSessionAction(tabId)", overlay)
+        self.assertIn("action.group.tabs.forEach { tab -> suspendTab(tab.id) }", overlay)
+        self.assertIn("default = { true }", overlay)
+        self.assertIn("maintained local tab-group", spec)
+        self.assertIn("live Gecko engine session", spec)
+        self.assertIn("requires localization before the 2.0", spec)
 
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()

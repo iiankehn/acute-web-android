@@ -5,8 +5,9 @@ diagnostics, crash reports, browsing history, page contents, or advertising
 identifiers.
 
 Browsing data such as history, bookmarks, passwords, downloads, open tabs, and
-Midnight Pages preferences stays on the device unless the user explicitly uses
-an external service. Websites, search providers, installed extensions, and any
+Site Display preferences, Saved Sessions snapshots, and Page Notes stay on the
+device unless the user explicitly uses an external service. Websites, search
+providers, installed extensions, and any
 optional account or synchronization services have their own privacy practices.
 
 Acute Web uses Mozilla's open-source Gecko engine. Required open-source license
