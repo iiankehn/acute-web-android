@@ -246,6 +246,18 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("MotionEvent.BUTTON_BACK", overlay)
         self.assertIn("MotionEvent.BUTTON_FORWARD", overlay)
 
+    def test_menu_has_fixed_actions_and_adaptive_presentation(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_adaptive_menu", overlay)
+        self.assertIn("fixed library actions never move", overlay)
+        self.assertIn("visible = !context.isLargeScreenSize()", overlay)
+        self.assertIn("MaterialTheme.shapes.extraLarge", overlay)
+        self.assertNotIn(
+            "if (accessPoint == MenuAccessPoint.Home && showBanner)",
+            overlay.split("def patch_adaptive_menu", 1)[1].split("def patch_home_dashboard", 1)[0]
+                .split('banner =', 1)[0],
+        )
+
     def test_home_dashboard_is_local_and_feed_free(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
         self.assertIn("patch_home_dashboard", overlay)

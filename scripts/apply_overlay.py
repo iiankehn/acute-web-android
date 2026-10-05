@@ -1252,6 +1252,119 @@ def patch_home_content_policy(settings: Path) -> None:
     settings.write_text(text, encoding="utf-8")
 
 
+def patch_adaptive_menu(main_menu_path: Path, menu_dialog_path: Path) -> None:
+    """Make common actions stable and use a context-style panel on large screens."""
+    main = main_menu_path.read_text(encoding="utf-8")
+
+    banner = '''        if (accessPoint == MenuAccessPoint.Home && showBanner) {
+            MenuBanner(
+                onDismiss = {
+                    onBannerDismiss()
+                },
+                onClick = {
+                    onBannerClick()
+                },
+            )
+        }
+
+'''
+    main = replace_once(main, banner, "", "menu promotion banner")
+
+    ip_offer = '''        if (showIPProtection) {
+            MenuGroup {
+                IPProtectionMenuItem(
+                    state = ipProtectionMenuState,
+                    onToggle = onIPProtectionClick,
+                    onNavigate = onIPProtectionNavigate,
+                )
+            }
+        }
+
+'''
+    main = replace_once(main, ip_offer, "", "menu IP protection offer")
+
+    account = '''            MozillaAccountMenuItem(
+                account = account,
+                accountState = accountState,
+                onClick = onMozillaAccountButtonClick,
+            )
+
+'''
+    main = replace_once(main, account, "", "menu account promotion")
+
+    library = '''        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
+
+'''
+    main = replace_once(main, library, "", "existing library menu position")
+    home_extensions = '''        if (accessPoint == MenuAccessPoint.Home) {
+            MenuGroup {
+                ExtensionsMenuItem(
+'''
+    main = replace_once(
+        main,
+        home_extensions,
+        '''        // Acute's fixed library actions never move when page context changes.
+''' + library + home_extensions,
+        "fixed menu action insertion",
+    )
+    main_menu_path.write_text(main, encoding="utf-8")
+
+    dialog = menu_dialog_path.read_text(encoding="utf-8")
+    dialog = replace_once(
+        dialog,
+        "import org.mozilla.fenix.utils.exitSubmenu\n",
+        "import org.mozilla.fenix.utils.exitSubmenu\n"
+        "import org.mozilla.fenix.utils.isLargeScreenSize\n",
+        "large-screen menu import",
+    )
+    sheet = '''menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    MaterialTheme.shapes.extraLarge.copy(
+                        bottomStart = CornerSize(0.dp),
+                        bottomEnd = CornerSize(0.dp),
+                    ),
+'''
+    adaptive_sheet = '''menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                        // Large screens present a floating context panel, not a draggable sheet.
+                        visible = !context.isLargeScreenSize(),
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    if (context.isLargeScreenSize()) {
+                        MaterialTheme.shapes.extraLarge
+                    } else {
+                        MaterialTheme.shapes.extraLarge.copy(
+                            bottomStart = CornerSize(0.dp),
+                            bottomEnd = CornerSize(0.dp),
+                        )
+                    },
+'''
+    dialog = replace_once(dialog, sheet, adaptive_sheet, "adaptive menu surface")
+    menu_dialog_path.write_text(dialog, encoding="utf-8")
+
+
 def patch_home_dashboard(path: Path) -> None:
     """Turn the inherited Firefox feed into Acute's local-first dashboard."""
     text = path.read_text(encoding="utf-8")
@@ -1556,6 +1669,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
     home_activity = fenix / "app/src/main/java/org/mozilla/fenix/HomeActivity.kt"
     homepage = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Homepage.kt"
+    main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
+    menu_dialog = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
     browser_toolbar = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
@@ -1586,7 +1701,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1617,6 +1732,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
     patch_home_dashboard(homepage)
+    patch_adaptive_menu(main_menu, menu_dialog)
     patch_about_page(about)
     patch_midnight_pages(core, channel)
     patch_shared_uid_manifest(release_manifest)

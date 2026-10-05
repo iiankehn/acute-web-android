@@ -435,6 +435,87 @@ class HomeActivity {
 }
 '''
 
+MAIN_MENU = '''fun MainMenu(accessPoint: MenuAccessPoint) {
+        if (accessPoint == MenuAccessPoint.Home && showBanner) {
+            MenuBanner(
+                onDismiss = {
+                    onBannerDismiss()
+                },
+                onClick = {
+                    onBannerClick()
+                },
+            )
+        }
+
+        if (showIPProtection) {
+            MenuGroup {
+                IPProtectionMenuItem(
+                    state = ipProtectionMenuState,
+                    onToggle = onIPProtectionClick,
+                    onNavigate = onIPProtectionNavigate,
+                )
+            }
+        }
+
+        if (accessPoint == MenuAccessPoint.Home) {
+            MenuGroup {
+                ExtensionsMenuItem(
+                    inCustomTab = false,
+                )
+            }
+        }
+
+        if (accessPoint == MenuAccessPoint.Browser) {
+            ToolsAndActionsMenuGroup()
+        }
+
+        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
+
+        MenuGroup {
+            MozillaAccountMenuItem(
+                account = account,
+                accountState = accountState,
+                onClick = onMozillaAccountButtonClick,
+            )
+
+            if (accessPoint == MenuAccessPoint.Home) {
+                MenuItem(label = "Customize")
+            }
+
+            MenuItem(label = "Settings")
+        }
+}
+'''
+
+MENU_DIALOG = '''import org.mozilla.fenix.utils.exitSubmenu
+
+fun MenuDialog() {
+    MenuDialogBottomSheet(
+                menuHandleState =
+                    MenuHandleState(
+                        contentDescription = handlebarContentDescription,
+                        useDarkBackground =
+                            !settings.shouldUseBottomToolbar &&
+                                !settings.shouldUseExpandedToolbar &&
+                                (isExtensionsExpanded || isMoreMenuExpanded) &&
+                                args.accesspoint == MenuAccessPoint.Browser,
+                    ),
+                snackbarHostState = snackbarHostState,
+                cornerShape =
+                    MaterialTheme.shapes.extraLarge.copy(
+                        bottomStart = CornerSize(0.dp),
+                        bottomEnd = CornerSize(0.dp),
+                    ),
+    ) {}
+}
+'''
+
 HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
             if (state is HomepageState.Normal) {
                 BannerCardSection(
@@ -726,6 +807,7 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/settings/about").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/settings").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
         (app / "src/beta").mkdir(parents=True)
@@ -743,6 +825,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").write_text(MAIN_MENU)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt").write_text(MENU_DIALOG)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
@@ -979,6 +1063,19 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("PocketSection(", homepage)
         self.assertNotIn("observePopularSites(topSites =", homepage)
         self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
+        main_menu = (
+            app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
+        ).read_text()
+        menu_dialog = (
+            app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
+        ).read_text()
+        self.assertIn("fixed library actions never move", main_menu)
+        self.assertLess(main_menu.index("LibraryMenuGroup("), main_menu.index("ToolsAndActionsMenuGroup("))
+        self.assertNotIn("MenuBanner(", main_menu)
+        self.assertNotIn("IPProtectionMenuItem(", main_menu)
+        self.assertNotIn("MozillaAccountMenuItem(", main_menu)
+        self.assertIn("visible = !context.isLargeScreenSize()", menu_dialog)
+        self.assertIn("MaterialTheme.shapes.extraLarge", menu_dialog)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
         self.assertNotIn("showContileFeature by", tablet_settings)
         styles = (app / "src/main/res/values/styles.xml").read_text()
