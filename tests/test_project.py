@@ -131,6 +131,24 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("git push origin HEAD:main", workflow)
         self.assertNotIn("branches: [main, beta]", validate)
 
+    def test_saved_sessions_are_local_bounded_snapshots(self):
+        extension = ROOT / "overlay/assets/extensions/acute-sessions"
+        manifest = (extension / "manifest.json").read_text()
+        popup = (extension / "popup.js").read_text()
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn('"id": "saved-sessions@acuteweb.core"', manifest)
+        self.assertNotIn("http://", popup)
+        self.assertNotIn("https://", popup)
+        self.assertIn("MAX_SESSIONS = 50", popup)
+        self.assertIn("MAX_TABS_PER_SESSION = 100", popup)
+        self.assertIn(".slice(0, MAX_TABS_PER_SESSION)", popup)
+        self.assertIn("!tab.incognito", popup)
+        self.assertIn('["http:", "https:"]', popup)
+        self.assertIn("browser.tabs.create", popup)
+        self.assertIn("patch_saved_sessions", overlay)
+        self.assertIn("deprecated Collections backend", spec)
+
     def test_release_verification_uses_available_android_tools(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn('"$build_tools/aapt2" dump permissions', workflow)

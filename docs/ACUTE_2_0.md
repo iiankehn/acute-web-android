@@ -124,6 +124,19 @@ paths, make no network request, and are installed in both Stable and Beta. The
 old Midnight Pages disabled-site list is migrated locally when a user changes a
 site preference.
 
+### Saved sessions
+
+Saved Sessions creates an explicit, named snapshot of the current window's
+normal HTTP and HTTPS tabs. Snapshots can be reopened or deleted from the
+built-in extension action and remain separate from live Workspaces. They use
+extension-local storage and Gecko's maintained tabs API; no account, remote
+service, or deprecated Collections backend is involved.
+
+Private tabs and internal browser pages are never captured. A snapshot is
+bounded to 100 tabs and the device retains at most 50 snapshots, preventing a
+damaged or unexpectedly large window from producing unbounded local storage or
+restore work.
+
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.
 

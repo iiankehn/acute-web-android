@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Saved Sessions</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">ACUTE</span>
+        <h1>Saved Sessions</h1>
+        <p>Keep a local snapshot of this window and reopen it later.</p>
+      </header>
+      <form id="save-form">
+        <label for="session-name">Session name</label>
+        <div class="save-row">
+          <input id="session-name" maxlength="60" placeholder="Research, trip, project…">
+          <button type="submit">Save window</button>
+        </div>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section aria-labelledby="saved-heading">
+        <h2 id="saved-heading">On this device</h2>
+        <div id="empty-state">No saved sessions yet.</div>
+        <ul id="sessions"></ul>
+      </section>
+      <p class="privacy">Session names, titles, and addresses stay on this device.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
