@@ -9,7 +9,7 @@ Web releases. The public repository is
 Open **Actions → Build Android APK → Run workflow**. Use the pinned 40-character
 Mozilla commit unless a different upstream revision is being evaluated.
 
-Manual runs produce an unsigned/debug-signed ARM64 artifact for engineering
+Manual runs produce unsigned/debug-signed ARM64 and x86_64 artifacts for engineering
 inspection. They do not receive the production signing secrets and do not
 publish a release.
 
@@ -32,10 +32,10 @@ The release workflow:
 1. runs the complete Acute source and release-control audit;
 2. checks out the pinned Mozilla source revision;
 3. applies and validates the Acute overlay;
-4. builds and verifies the ARM64 APK without production signing secrets;
-5. signs the APK in an isolated job;
+4. builds and verifies the ARM64 and x86_64 APKs without production signing secrets;
+5. signs both APKs in isolated jobs;
 6. verifies the signing certificate against the established release identity;
-7. publishes the APK, checksum, signing report, permissions report, build
+7. publishes the APKs, checksums, signing reports, permissions reports, build
    inputs, and provenance attestation to GitHub Releases.
 
 Do not replace published APKs under an existing version tag. Corrections should

@@ -52,17 +52,20 @@ workflow runs create debug-signed artifacts and never publish a release.
 Download the APK and inspect its signing certificate:
 
 ```bash
-apksigner verify --verbose --print-certs acute-web-0.7.0-arm64-v8a.apk
+apksigner verify --verbose --print-certs acute-web-1.1.0-arm64-v8a.apk
+apksigner verify --verbose --print-certs acute-web-1.1.0-x86_64.apk
 ```
 
 Verify the accompanying SHA-256 checksum:
 
 ```bash
-sha256sum -c acute-web-0.7.0-arm64-v8a.apk.sha256
+sha256sum -c acute-web-1.1.0-arm64-v8a.apk.sha256
+sha256sum -c acute-web-1.1.0-x86_64.apk.sha256
 ```
 
-Each stable release includes the APK checksum, signing-certificate report,
-manifest-permissions report, exact build inputs, and provenance attestation.
+Each stable release includes both native APKs and their checksums,
+signing-certificate reports, manifest-permissions reports, exact build inputs,
+and provenance attestations.
 Compare the certificate digest with a previously trusted Acute release before
 installing an update. Record the production certificate digest somewhere
 independent of GitHub.

@@ -354,7 +354,9 @@ fun BrowserToolbar() {
 }
 '''
 
-BASE_BROWSER_FRAGMENT = '''class BaseBrowserFragment {
+BASE_BROWSER_FRAGMENT = '''import org.mozilla.fenix.utils.allowUndo
+
+class BaseBrowserFragment {
     fun initializeEngineView(topToolbarHeight: Int, bottomToolbarHeight: Int) {
         val context = requireContext()
 
@@ -407,6 +409,28 @@ TOOLBAR_BEHAVIOR_CONTROLLER = '''class ToolbarBehaviorController {
                         } else if (!state.content.loading) {
                             enableScrolling()
                         }
+    }
+}
+'''
+
+HOME_ACTIVITY = '''import android.view.KeyEvent
+import android.view.MotionEvent
+import org.mozilla.fenix.ext.setNavigationIcon
+
+class HomeActivity {
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
+            openMenu()
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    final override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return super.onKeyDown(keyCode, event)
     }
 }
 '''
@@ -619,6 +643,7 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
+        (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
@@ -717,6 +742,8 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
+        self.assertIn("import org.mozilla.fenix.utils.isLargeScreenSize", browser_fragment)
+        self.assertIn("!context.isLargeScreenSize()", browser_fragment)
         self.assertIn(
             "setDynamicToolbarMaxHeight(bottomToolbarHeight)",
             browser_fragment,
@@ -726,7 +753,10 @@ class OverlayTests(unittest.TestCase):
             browser_fragment,
         )
         self.assertIn("topToolbarHeight = topToolbarHeight", browser_fragment)
-        self.assertIn("swipeRefreshParams.topMargin = acuteGlassTopOverlayHeight", browser_fragment)
+        self.assertIn(
+            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
+            browser_fragment,
+        )
         self.assertIn("engineViewParent.translationY = 0f", clipping_behavior)
         self.assertIn("dynamicToolbarMaxHeight = bottomToolbarHeight", clipping_behavior)
         self.assertIn(
@@ -813,6 +843,8 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn("acuteCoreGlassModifier", toolbar)
         self.assertIn("Brush.verticalGradient", toolbar)
+        self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", toolbar)
+        self.assertIn("Color(0xD0193144)", toolbar)
         self.assertIn("Color(0x667AC6EA)", toolbar)
         self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
@@ -823,6 +855,22 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("permanently rendered with the Midnight theme", fragment)
         self.assertIn("showPocketRecommendationsFeature: Boolean", tablet_settings)
         self.assertIn("showContileFeature: Boolean", tablet_settings)
+        home_activity = (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").read_text()
+        self.assertIn("handleAcuteDesktopShortcut", home_activity)
+        self.assertIn("isLargeScreenSize()", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_L", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_T", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_W", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_TAB", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_R", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_F5", home_activity)
+        self.assertIn("KeyEvent.KEYCODE_F6", home_activity)
+        self.assertIn("tabsUseCases.undo()", home_activity)
+        self.assertIn("sessionUseCases.goBack()", home_activity)
+        self.assertIn("sessionUseCases.goForward()", home_activity)
+        self.assertIn("dispatchGenericMotionEvent", home_activity)
+        self.assertIn("MotionEvent.BUTTON_BACK", home_activity)
+        self.assertIn("MotionEvent.BUTTON_FORWARD", home_activity)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
         self.assertNotIn("showContileFeature by", tablet_settings)
         styles = (app / "src/main/res/values/styles.xml").read_text()

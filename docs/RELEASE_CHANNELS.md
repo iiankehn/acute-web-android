@@ -23,20 +23,20 @@ New features are developed and tested on `beta`. A feature is promoted to
 `main` only after its tests pass, its user-facing branding and documentation are
 complete, and it survives phone, tablet, upgrade, and update-channel testing.
 
-The 0.7 series is the current Beta and release-candidate train. Its work
-includes the Midnight-only application interface, standardized assets, CORE
-Glass surfaces, tab organization, a large-screen tab bar, Read Aloud, and
-stability work required for eventual Stable promotion.
+The 1.1 series is the current Beta train. Its first feature is native x86_64
+support alongside ARM64, including architecture-aware update selection and
+separately verified, signed release packages.
 
-Stable releases use tags such as `v0.7.0`. Beta releases use tags such as
-`v0.7.0-beta.1` and are published as GitHub prereleases.
+Stable releases use tags such as `v1.1.0`. Beta releases use tags such as
+`v1.1.0-beta.1` and are published as GitHub prereleases.
 
 ## Website publication
 
 After the release job publishes its assets, the website job validates the
 release tag, channel, non-empty signed ARM64 APK, and official GitHub asset URL
-before changing the website. Stable releases update Stable version labels and
-download buttons; prereleases update the Beta card and Beta download buttons.
+before changing the website. The x86_64 package is published alongside it;
+Stable releases update Stable version labels and download buttons, while
+prereleases update the Beta card and Beta download buttons.
 The resulting commit to `main` triggers the existing GitHub Pages deployment.
 
 ## Upstream policy

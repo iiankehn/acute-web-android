@@ -11,7 +11,9 @@ class ProjectTests(unittest.TestCase):
     def test_updater_uses_selected_public_repository(self):
         updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
         self.assertIn("iiankehn/acute-web-android/releases?per_page=20", updater)
-        self.assertIn("arm64-v8a.apk", updater)
+        self.assertIn('setOf("arm64-v8a", "x86_64")', updater)
+        self.assertIn('Build.SUPPORTED_ABIS.firstOrNull', updater)
+        self.assertIn('"acute-web-$version-$deviceAbi.apk"', updater)
         self.assertIn('BuildConfig.BUILD_TYPE == "beta"', updater)
         self.assertIn("candidate.optBoolean(\"prerelease\") == IS_BETA", updater)
         self.assertIn("BETA_VERSION", updater)
@@ -125,14 +127,14 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("certificate SHA-256 digest:", workflow)
         self.assertIn('test -n "$current_digest"', workflow)
 
-    def test_release_contains_arm64_firefox_engine(self):
+    def test_release_contains_native_firefox_engines(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("--target=aarch64-linux-android", workflow)
-        self.assertIn("lib/arm64-v8a/libmozglue.so", workflow)
-        self.assertIn("lib/arm64-v8a/libxul.so", workflow)
-        self.assertNotIn("x86_64-linux-android", workflow)
-        self.assertNotIn("smoke-x86_64", workflow)
-        self.assertIn("needs: build", workflow)
+        self.assertIn("target: aarch64-linux-android", workflow)
+        self.assertIn("target: x86_64-linux-android", workflow)
+        self.assertIn('grep -qx "lib/$ABI/libmozglue.so"', workflow)
+        self.assertIn('grep -qx "lib/$ABI/libxul.so"', workflow)
+        self.assertIn("abi: [arm64-v8a, x86_64]", workflow)
+        self.assertIn("needs: [metadata, build]", workflow)
 
     def test_android_build_bounds_gradle_resources(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
@@ -149,9 +151,9 @@ class ProjectTests(unittest.TestCase):
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.0.1-beta.2", workflow)
-        self.assertIn("1.0.1-dev.${GITHUB_RUN_NUMBER}", workflow)
-        self.assertIn("ACUTE_VERSION_NAME: ${{ steps.version.outputs.version }}", workflow)
+        self.assertIn("version=1.1.0-beta.1", workflow)
+        self.assertIn("1.1.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
         self.assertIn("--prerelease", workflow)
@@ -179,6 +181,11 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("patch_core_glass_toolbar", theme)
         self.assertIn("patch_core_glass_address_bar", theme)
         self.assertIn("patch_core_glass_compositor", theme)
+        self.assertIn("!context.isLargeScreenSize()", theme)
+        self.assertIn(
+            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
+            theme,
+        )
         self.assertIn("Brush.verticalGradient", theme)
         self.assertIn("Color(0xC2383D46)", theme)
         self.assertIn("Color(0x997AC6EA)", theme)
@@ -211,12 +218,32 @@ class ProjectTests(unittest.TestCase):
 
     def test_tablet_profiles_cover_large_screens(self):
         script = (ROOT / "scripts/tablet_smoke.sh").read_text()
-        for profile in ("compact-phone", "compact-tablet", "standard-tablet", "large-tablet"):
+        for profile in (
+            "compact-phone",
+            "compact-tablet",
+            "standard-tablet",
+            "large-tablet",
+            "laptop-landscape",
+        ):
             self.assertIn(profile, script)
         self.assertIn("capture_diagnostics", script)
         self.assertIn("https://en.wikipedia.org/wiki/Web_browser", script)
         self.assertIn("android.intent.action.VIEW", script)
         self.assertNotIn("KEYCODE_TAB", script)
+
+    def test_desktop_shortcuts_use_existing_browser_controls(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_desktop_shortcuts", overlay)
+        self.assertIn("handleAcuteDesktopShortcut", overlay)
+        self.assertIn("isLargeScreenSize()", overlay)
+        for key in ("KEYCODE_L", "KEYCODE_T", "KEYCODE_W", "KEYCODE_TAB", "KEYCODE_R", "KEYCODE_F5"):
+            self.assertIn(key, overlay)
+        self.assertIn("tabsUseCases.undo()", overlay)
+        self.assertIn("tabsUseCases.selectTab", overlay)
+        self.assertIn("sessionUseCases.goBack()", overlay)
+        self.assertIn("sessionUseCases.goForward()", overlay)
+        self.assertIn("MotionEvent.BUTTON_BACK", overlay)
+        self.assertIn("MotionEvent.BUTTON_FORWARD", overlay)
 
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()

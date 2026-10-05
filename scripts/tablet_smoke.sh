@@ -83,6 +83,7 @@ run_profile compact-phone 1080x1920 420
 run_profile compact-tablet 1200x1920 240
 run_profile standard-tablet 1600x2560 320
 run_profile large-tablet 1848x2960 320
+run_profile laptop-landscape 1920x1080 160
 
 adb shell dumpsys package "$package_name" > "$output_dir/package.txt"
 echo "Generic phone and tablet smoke tests passed for $package_name"

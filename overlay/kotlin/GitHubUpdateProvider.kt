@@ -9,6 +9,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -103,7 +104,8 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             json ?: return
             val version = json.getString("tag_name").removePrefix("v")
             val assets = json.getJSONArray("assets")
-            val expectedAsset = "acute-web-$version-arm64-v8a.apk"
+            val deviceAbi = Build.SUPPORTED_ABIS.firstOrNull { it in SUPPORTED_ABIS } ?: return
+            val expectedAsset = "acute-web-$version-$deviceAbi.apk"
             var apkUrl: String? = null
             for (index in 0 until assets.length()) {
                 val asset = assets.getJSONObject(index)
@@ -235,6 +237,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
         private const val MAX_APK_BYTES = 300L * 1024 * 1024
+        private val SUPPORTED_ABIS = setOf("arm64-v8a", "x86_64")
         private val IS_BETA = BuildConfig.BUILD_TYPE == "beta"
         private val STABLE_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
         private val BETA_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)-beta\\.([0-9]+)$")

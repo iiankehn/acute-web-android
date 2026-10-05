@@ -54,8 +54,15 @@ def validate_configuration() -> None:
     upstream_ref = config["upstream"]["ref"]
     if workflow.count(upstream_ref) < 2:
         fail("workflow and project configuration disagree on the Firefox pin")
-    if "x86_64-linux-android" in workflow or "smoke-x86_64" in workflow:
-        fail("pre-1.0 workflow must remain ARM64-only")
+    for target in ("aarch64-linux-android", "x86_64-linux-android"):
+        if target not in workflow:
+            fail(f"missing native Android build target: {target}")
+    for abi in ("arm64-v8a", "x86_64"):
+        if f"abi: {abi}" not in workflow:
+            fail(f"missing native Android ABI: {abi}")
+    for library in ("libmozglue.so", "libxul.so"):
+        if f'grep -qx "lib/$ABI/{library}"' not in workflow:
+            fail(f"workflow does not verify Gecko library: {library}")
     if "needs: audit" not in workflow:
         fail("APK build is not gated by the repository audit")
     if f"version={candidate}" not in workflow:

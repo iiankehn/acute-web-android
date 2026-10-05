@@ -41,7 +41,7 @@ def main() -> int:
     workflow_requirements = (
         "Build without release secrets",
         "Sign with isolated release credentials",
-        "Collect and verify ARM64 APK",
+        "Collect and verify ${{ matrix.abi }} APK",
         "attest-build-provenance@",
         "refusing to replace published files",
         "permissions:\n  contents: read",

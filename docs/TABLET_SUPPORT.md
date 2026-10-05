@@ -12,11 +12,31 @@ On qualifying devices, Acute enables:
 
 - a persistent tab strip, configurable in customization settings;
 - an expanded toolbar that uses the available width for direct actions;
+- fixed browser chrome that remains visible instead of collapsing like the
+  phone toolbar;
 - desktop browsing mode for newly opened tabs, with per-site and default
   overrides;
 - rotation and Android split-screen resizing;
 - picture-in-picture where supported by Android and the website;
 - installation on ChromeOS hardware that does not report a touchscreen.
+- mouse back/forward buttons mapped to browser history navigation;
+- a deeper blue CORE Glass toolbar treatment on wide layouts while phones keep
+  the existing subtler glass stack.
+
+## Keyboard shortcuts
+
+Tablet and laptop-class layouts support conventional browser controls:
+
+| Shortcut | Action |
+|---|---|
+| Ctrl/Command + L or F6 | Focus the address bar |
+| Ctrl/Command + T | Open a new tab |
+| Ctrl/Command + W | Close the selected tab |
+| Ctrl/Command + Shift + T | Restore the most recently closed tabs |
+| Ctrl/Command + Tab / Page Down | Select the next tab |
+| Ctrl/Command + Shift + Tab / Page Up | Select the previous tab |
+| Ctrl/Command + R or F5 | Reload the selected tab |
+| Alt + Left / Right | Navigate backward or forward |
 
 ## Automated coverage
 
@@ -28,6 +48,7 @@ configurations:
 | Compact tablet | 1200 × 1920 | 240 dpi | 800 dp |
 | Standard tablet | 1600 × 2560 | 320 dpi | 800 dp |
 | Large tablet | 1848 × 2960 | 320 dpi | 924 dp |
+| Laptop landscape | 1920 × 1080 | 160 dpi | 1080 dp |
 
 For each profile, the workflow installs Acute, launches it in portrait and
 landscape, sends keyboard navigation input, checks that the process remains
