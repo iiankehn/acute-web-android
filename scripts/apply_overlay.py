@@ -1432,6 +1432,142 @@ def patch_adaptive_menu(main_menu_path: Path, menu_dialog_path: Path) -> None:
     menu_dialog_path.write_text(dialog, encoding="utf-8")
 
 
+def patch_capture_export_actions(
+    main_menu_path: Path,
+    menu_dialog_path: Path,
+    more_settings_path: Path,
+) -> None:
+    """Promote Gecko's maintained document export actions into the page menu."""
+    main = main_menu_path.read_text(encoding="utf-8")
+
+    main = replace_once(
+        main,
+        '''    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {''',
+        '''    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+    onSaveAsPDFMenuClick: () -> Unit = {},
+    onPrintMenuClick: () -> Unit = {},
+    isAndroidAutomotiveAvailable: Boolean = false,
+) {''',
+        "capture callbacks on main menu",
+    )
+    main = replace_once(
+        main,
+        '''                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+            )''',
+        '''                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+                onSaveAsPDFMenuClick = onSaveAsPDFMenuClick,
+                onPrintMenuClick = onPrintMenuClick,
+                isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            )''',
+        "capture callbacks into tools menu",
+    )
+    main = replace_once(
+        main,
+        '''    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
+    MenuGroup {''',
+        '''    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+    onSaveAsPDFMenuClick: () -> Unit,
+    onPrintMenuClick: () -> Unit,
+    isAndroidAutomotiveAvailable: Boolean,
+) {
+    MenuGroup {''',
+        "capture callbacks on tools menu",
+    )
+    find_in_page = '''        MenuItem(
+            label = stringResource(id = R.string.browser_menu_find_in_page),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_search_24),
+            onClick = onFindInPageMenuClick,
+        )
+'''
+    capture_actions = find_in_page + '''
+        // Acute keeps dependable document capture one tap away. Both actions use
+        // Gecko's maintained page pipeline rather than an Acute-specific renderer.
+        MenuItem(
+            label = stringResource(id = R.string.browser_menu_save_as_pdf_2),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_save_file_24),
+            onClick = onSaveAsPDFMenuClick,
+        )
+
+        if (!isAndroidAutomotiveAvailable) {
+            MenuItem(
+                label = stringResource(id = R.string.browser_menu_print_2),
+                beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_print_24),
+                onClick = onPrintMenuClick,
+            )
+        }
+'''
+    main = replace_once(main, find_in_page, capture_actions, "primary capture actions")
+    main_menu_path.write_text(main, encoding="utf-8")
+
+    dialog = menu_dialog_path.read_text(encoding="utf-8")
+    dialog = replace_once(
+        dialog,
+        '''                                moreSettingsSubmenu = {''',
+        '''                                // Document capture is promoted into Acute's first-level page actions.
+                                onSaveAsPDFMenuClick = {
+                                    saveToPdfUseCase()
+                                    dismiss()
+                                },
+                                onPrintMenuClick = {
+                                    printContentUseCase()
+                                    dismiss()
+                                },
+                                isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                moreSettingsSubmenu = {''',
+        "capture handlers on main menu",
+    )
+    dialog = replace_once(
+        dialog,
+        '''                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        summarizationMenuState = summarizationMenuState,''',
+        '''                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        showCaptureActions = false,
+                                        summarizationMenuState = summarizationMenuState,''',
+        "hide duplicate capture submenu actions",
+    )
+    menu_dialog_path.write_text(dialog, encoding="utf-8")
+
+    more = more_settings_path.read_text(encoding="utf-8")
+    more = replace_once(
+        more,
+        '''    isAndroidAutomotiveAvailable: Boolean,
+    summarizationMenuState: SummarizationMenuState,''',
+        '''    isAndroidAutomotiveAvailable: Boolean,
+    showCaptureActions: Boolean = true,
+    summarizationMenuState: SummarizationMenuState,''',
+        "capture submenu visibility parameter",
+    )
+    more = replace_once(
+        more,
+        '''        SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+        PrintMenuItem(
+            isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            onPrintMenuClick = onPrintMenuClick,
+        )''',
+        '''        if (showCaptureActions) {
+            SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+            PrintMenuItem(
+                isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+                onPrintMenuClick = onPrintMenuClick,
+            )
+        }''',
+        "conditional capture submenu actions",
+    )
+    more_settings_path.write_text(more, encoding="utf-8")
+
+
 def patch_home_dashboard(path: Path) -> None:
     """Turn the inherited Firefox feed into Acute's local-first dashboard."""
     text = path.read_text(encoding="utf-8")
@@ -1992,6 +2128,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     homepage = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Homepage.kt"
     main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     menu_dialog = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
+    more_settings = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt"
+    )
     tab_storage_middleware = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt"
@@ -2030,7 +2170,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog, more_settings,
                 tab_storage_middleware, tab_management_fragment, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
@@ -2066,6 +2206,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_workspaces(homepage, values / "strings.xml", settings)
     patch_workspace_suspension(tab_storage_middleware, tab_management_fragment)
     patch_adaptive_menu(main_menu, menu_dialog)
+    patch_capture_export_actions(main_menu, menu_dialog, more_settings)
     patch_about_page(about)
     patch_midnight_pages(core, channel)
     patch_shared_uid_manifest(release_manifest)

@@ -273,6 +273,18 @@ class ProjectTests(unittest.TestCase):
             overlay,
         )
 
+    def test_document_capture_uses_upstream_gecko_actions(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn("patch_capture_export_actions", overlay)
+        self.assertIn("saveToPdfUseCase()", overlay)
+        self.assertIn("printContentUseCase()", overlay)
+        self.assertIn("showCaptureActions = false", overlay)
+        self.assertIn("isAndroidAutomotiveAvailable", overlay)
+        self.assertIn("Gecko's maintained", spec)
+        self.assertIn("document-generation path", spec)
+        self.assertIn("Full-page PNG capture remains deferred", spec)
+
     def test_workspaces_use_the_local_tab_group_backend(self):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
         spec = (ROOT / "docs/ACUTE_2_0.md").read_text()

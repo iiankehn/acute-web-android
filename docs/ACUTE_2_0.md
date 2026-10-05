@@ -67,7 +67,7 @@ The 2.0 design target includes:
 - Reading Shelf with offline and read-aloud queues;
 - local page notes;
 - improved link context actions;
-- full-page capture and save-as-PDF;
+- full-document PDF capture and printing;
 - per-site display preferences;
 - task-focused local home dashboard;
 - split browsing on large screens when it can be delivered without destabilizing
@@ -95,6 +95,21 @@ rather than a fixed device category so resizing remains predictable.
 Workspace terminology still requires localization before the 2.0 release
 candidate; unsupported translations currently retain upstream tab-group wording
 rather than receiving machine-translated copy.
+
+### Document capture and export
+
+Save as PDF and Print are promoted from Firefox's secondary overflow into
+Acute's first-level page actions. Both commands use Gecko's maintained
+document-generation path, so long pages are rendered as complete documents
+instead of stitched viewport bitmaps. Print stays hidden on Android Automotive,
+matching the upstream platform guard, and duplicate overflow entries are
+suppressed in Acute's menu.
+
+Firefox Android does not expose a maintained full-page PNG capture feature at
+the pinned 2.0 base revision. Full-page PNG capture remains deferred rather
+than shipping an Acute-only renderer with different layout, memory and restore
+behavior from Gecko. Android's normal visible-screen screenshot remains
+available at the operating-system level.
 
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.

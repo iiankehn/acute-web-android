@@ -447,7 +447,13 @@ class HomeActivity {
 }
 '''
 
-MAIN_MENU = '''fun MainMenu(accessPoint: MenuAccessPoint) {
+MAIN_MENU = '''fun MainMenu(
+    accessPoint: MenuAccessPoint,
+    onShareButtonClick: () -> Unit,
+    extensionsMenuItemDescription: String?,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
         if (accessPoint == MenuAccessPoint.Home && showBanner) {
             MenuBanner(
                 onDismiss = {
@@ -478,7 +484,11 @@ MAIN_MENU = '''fun MainMenu(accessPoint: MenuAccessPoint) {
         }
 
         if (accessPoint == MenuAccessPoint.Browser) {
-            ToolsAndActionsMenuGroup()
+            ToolsAndActionsMenuGroup(
+                onFindInPageMenuClick = onFindInPageMenuClick,
+                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+            )
         }
 
         LibraryMenuGroup(
@@ -503,6 +513,20 @@ MAIN_MENU = '''fun MainMenu(accessPoint: MenuAccessPoint) {
             MenuItem(label = "Settings")
         }
 }
+
+private fun ToolsAndActionsMenuGroup(
+    onFindInPageMenuClick: () -> Unit,
+    moreSettingsSubmenu: @Composable () -> Unit,
+    extensionSubmenu: @Composable () -> Unit,
+) {
+    MenuGroup {
+        MenuItem(
+            label = stringResource(id = R.string.browser_menu_find_in_page),
+            beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_search_24),
+            onClick = onFindInPageMenuClick,
+        )
+    }
+}
 '''
 
 MENU_DIALOG = '''import org.mozilla.fenix.utils.exitSubmenu
@@ -525,6 +549,31 @@ fun MenuDialog() {
                         bottomEnd = CornerSize(0.dp),
                     ),
     ) {}
+
+    MainMenu(
+                                moreSettingsSubmenu = {
+                                    MoreSettingsSubmenu(
+                                        isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
+                                        summarizationMenuState = summarizationMenuState,
+                                    )
+                                },
+    )
+}
+'''
+
+MORE_SETTINGS = '''fun MoreSettingsSubmenu(
+    isAndroidAutomotiveAvailable: Boolean,
+    summarizationMenuState: SummarizationMenuState,
+    onSaveAsPDFMenuClick: () -> Unit,
+    onPrintMenuClick: () -> Unit,
+) {
+    Column {
+        SaveAsPdfMenuItem(onSaveAsPDFMenuClick = onSaveAsPDFMenuClick)
+        PrintMenuItem(
+            isAndroidAutomotiveAvailable = isAndroidAutomotiveAvailable,
+            onPrintMenuClick = onPrintMenuClick,
+        )
+    }
 }
 '''
 
@@ -963,6 +1012,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
         (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").write_text(MAIN_MENU)
         (app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt").write_text(MENU_DIALOG)
+        (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt").write_text(
+            MORE_SETTINGS
+        )
         (app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt").write_text(
             TAB_STORAGE_MIDDLEWARE
         )
@@ -1228,6 +1280,10 @@ class OverlayTests(unittest.TestCase):
         menu_dialog = (
             app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
         ).read_text()
+        more_settings = (
+            app
+            / "src/main/java/org/mozilla/fenix/components/menu/compose/MoreSettingsSubmenu.kt"
+        ).read_text()
         self.assertIn("fixed library actions never move", main_menu)
         self.assertLess(main_menu.index("LibraryMenuGroup("), main_menu.index("ToolsAndActionsMenuGroup("))
         self.assertNotIn("MenuBanner(", main_menu)
@@ -1235,6 +1291,13 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("MozillaAccountMenuItem(", main_menu)
         self.assertIn("visible = !context.isLargeScreenSize()", menu_dialog)
         self.assertIn("MaterialTheme.shapes.extraLarge", menu_dialog)
+        self.assertIn("dependable document capture one tap away", main_menu)
+        self.assertIn("R.string.browser_menu_save_as_pdf_2", main_menu)
+        self.assertIn("R.string.browser_menu_print_2", main_menu)
+        self.assertIn("saveToPdfUseCase()", menu_dialog)
+        self.assertIn("printContentUseCase()", menu_dialog)
+        self.assertIn("showCaptureActions = false", menu_dialog)
+        self.assertIn("if (showCaptureActions)", more_settings)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
         self.assertNotIn("showContileFeature by", tablet_settings)
         styles = (app / "src/main/res/values/styles.xml").read_text()
