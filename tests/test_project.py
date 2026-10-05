@@ -264,6 +264,10 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Acute owns the homepage hierarchy", overlay)
         self.assertIn("emptyList<PopularSite>()", overlay)
         self.assertIn("reducedTopSpacing = false", overlay)
+        self.assertIn("patch_large_screen_dashboard", overlay)
+        self.assertIn("maxWidth >= 840.dp", overlay)
+        self.assertIn("bookmarks != null || recentlyVisited != null", overlay)
+        self.assertIn("Row(modifier = Modifier.fillMaxWidth())", overlay)
         self.assertNotIn(
             "val popularSites = observePopularSites(topSites = topSiteState?.topSites)",
             overlay,

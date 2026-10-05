@@ -1513,6 +1513,105 @@ def patch_home_dashboard(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_large_screen_dashboard(path: Path) -> None:
+    """Use an expanded two-column local dashboard when the window is wide enough."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import androidx.compose.foundation.layout.Column\n",
+        "import androidx.compose.foundation.layout.Column\n"
+        "import androidx.compose.foundation.layout.Row\n",
+        "dashboard row import",
+    )
+    text = replace_once(
+        text,
+        "import androidx.compose.foundation.layout.fillMaxSize\n",
+        "import androidx.compose.foundation.layout.fillMaxSize\n"
+        "import androidx.compose.foundation.layout.fillMaxWidth\n",
+        "dashboard width import",
+    )
+    stacked_sections = '''                            if (bookmarks != null) {
+                                BookmarksSection(
+                                    bookmarks = bookmarks,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            if (recentlyVisited != null) {
+                                RecentlyVisitedSection(
+                                    recentVisits = recentlyVisited,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            CollectionsSection(
+                                collectionsState = collectionsState,
+                                interactor = interactor,
+                                onCollectionsMigrationCardAction = onCollectionsMigrationCardAction,
+                            )
+'''
+    adaptive_sections = '''                            // Expanded Android windows use their width for a real
+                            // dashboard. Compact tablets and split windows retain phone flow.
+                            val acuteExpandedDashboard = maxWidth >= 840.dp
+                            if (acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)) {
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        if (bookmarks != null) {
+                                            BookmarksSection(
+                                                bookmarks = bookmarks,
+                                                interactor = interactor,
+                                            )
+                                        }
+
+                                        if (recentlyVisited != null) {
+                                            RecentlyVisitedSection(
+                                                recentVisits = recentlyVisited,
+                                                interactor = interactor,
+                                            )
+                                        }
+                                    }
+
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CollectionsSection(
+                                            collectionsState = collectionsState,
+                                            interactor = interactor,
+                                            onCollectionsMigrationCardAction =
+                                                onCollectionsMigrationCardAction,
+                                        )
+                                    }
+                                }
+                            } else {
+                                if (bookmarks != null) {
+                                    BookmarksSection(
+                                        bookmarks = bookmarks,
+                                        interactor = interactor,
+                                    )
+                                }
+
+                                if (recentlyVisited != null) {
+                                    RecentlyVisitedSection(
+                                        recentVisits = recentlyVisited,
+                                        interactor = interactor,
+                                    )
+                                }
+
+                                CollectionsSection(
+                                    collectionsState = collectionsState,
+                                    interactor = interactor,
+                                    onCollectionsMigrationCardAction =
+                                        onCollectionsMigrationCardAction,
+                                )
+                            }
+'''
+    text = replace_once(
+        text,
+        stacked_sections,
+        adaptive_sections,
+        "adaptive dashboard sections",
+    )
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Path) -> None:
     """Expose the maintained local tab-group model as Acute Workspaces."""
     homepage = homepage_path.read_text(encoding="utf-8")
@@ -1963,6 +2062,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
     patch_home_dashboard(homepage)
+    patch_large_screen_dashboard(homepage)
     patch_workspaces(homepage, values / "strings.xml", settings)
     patch_workspace_suspension(tab_storage_middleware, tab_management_fragment)
     patch_adaptive_menu(main_menu, menu_dialog)

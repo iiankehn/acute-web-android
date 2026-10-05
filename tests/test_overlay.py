@@ -561,7 +561,10 @@ class TabManagementFragment {
 }
 '''
 
-HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
+HOMEPAGE = '''import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+
+fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
             if (state is HomepageState.Normal) {
                 BannerCardSection(
                     shouldShowPrivacyNoticeBanner = state.shouldShowPrivacyNoticeBanner,
@@ -628,14 +631,24 @@ HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor)
                             }
 
                             if (bookmarks != null) {
-                                BookmarksSection(bookmarks = bookmarks)
+                                BookmarksSection(
+                                    bookmarks = bookmarks,
+                                    interactor = interactor,
+                                )
                             }
 
                             if (recentlyVisited != null) {
-                                RecentlyVisitedSection(recentVisits = recentlyVisited)
+                                RecentlyVisitedSection(
+                                    recentVisits = recentlyVisited,
+                                    interactor = interactor,
+                                )
                             }
 
-                            CollectionsSection(collectionsState = collectionsState)
+                            CollectionsSection(
+                                collectionsState = collectionsState,
+                                interactor = interactor,
+                                onCollectionsMigrationCardAction = onCollectionsMigrationCardAction,
+                            )
 
                             if (pocketState != null) {
                                 Spacer(Modifier.weight(1f))
@@ -1196,6 +1209,16 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("PocketSection(", homepage)
         self.assertNotIn("observePopularSites(topSites =", homepage)
         self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
+        self.assertIn("val acuteExpandedDashboard = maxWidth >= 840.dp", homepage)
+        self.assertIn(
+            "acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)",
+            homepage,
+        )
+        self.assertIn("Row(modifier = Modifier.fillMaxWidth())", homepage)
+        self.assertEqual(homepage.count("Column(modifier = Modifier.weight(1f))"), 1)
+        self.assertEqual(homepage.count("Box(modifier = Modifier.weight(1f))"), 1)
+        self.assertIn("import androidx.compose.foundation.layout.Row", homepage)
+        self.assertIn("import androidx.compose.foundation.layout.fillMaxWidth", homepage)
         self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", homepage)
         self.assertIn("CollectionsMigrationPromoCard(", homepage)
         self.assertNotIn("is CollectionsState.Content ->", homepage)

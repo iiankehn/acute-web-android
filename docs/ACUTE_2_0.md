@@ -86,10 +86,15 @@ live Gecko engine session. Gecko's native session-state restoration recreates a
 tab only when the user returns to it, reducing background memory use without a
 second Acute-specific cache or session format.
 
-A denser large-screen workspace dashboard remains follow-up work. Workspace
-terminology also requires localization before the 2.0 release candidate;
-unsupported translations currently retain upstream tab-group wording rather
-than receiving machine-translated copy.
+At 840dp and wider, the local dashboard becomes a two-column layout: bookmarks
+and recent activity remain together on the left while Workspaces receives a
+dedicated right column. Narrow windows, compact tablets and split-screen modes
+retain the single-column phone flow. The decision follows current window width
+rather than a fixed device category so resizing remains predictable.
+
+Workspace terminology still requires localization before the 2.0 release
+candidate; unsupported translations currently retain upstream tab-group wording
+rather than receiving machine-translated copy.
 
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.
