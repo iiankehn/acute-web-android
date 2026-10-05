@@ -1,11 +1,20 @@
-/* Local settings UI for Acute Midnight Pages. */
+/* Local settings UI for Acute Site Display. */
 (async () => {
   "use strict";
-  const storage = await browser.storage.local.get(["mode", "disabledHosts"]);
+  const storage = await browser.storage.local.get([
+    "mode",
+    "disabledHosts",
+    "siteModes",
+    "siteTextScales",
+    "reducedMotionHosts",
+  ]);
   const mode = ["off", "automatic", "always"].includes(storage.mode)
     ? storage.mode
     : "automatic";
   const disabledHosts = new Set(storage.disabledHosts || []);
+  const siteModes = { ...(storage.siteModes || {}) };
+  const siteTextScales = { ...(storage.siteTextScales || {}) };
+  const reducedMotionHosts = new Set(storage.reducedMotionHosts || []);
   const selected = document.querySelector(`input[name="mode"][value="${mode}"]`);
   if (selected) selected.checked = true;
 
@@ -31,14 +40,40 @@
   if (host) {
     const controls = document.getElementById("site-controls");
     const siteName = document.getElementById("site-name");
-    const siteEnabled = document.getElementById("site-enabled");
+    const siteAppearance = document.getElementById("site-appearance");
+    const siteTextScale = document.getElementById("site-text-scale");
+    const siteReduceMotion = document.getElementById("site-reduce-motion");
     controls.hidden = false;
     siteName.textContent = host;
-    siteEnabled.checked = !disabledHosts.has(host);
-    siteEnabled.addEventListener("change", async () => {
-      if (siteEnabled.checked) disabledHosts.delete(host);
-      else disabledHosts.add(host);
-      await browser.storage.local.set({ disabledHosts: [...disabledHosts].sort() });
+
+    // Migrate the original enabled/disabled host model without losing choices.
+    siteAppearance.value = siteModes[host] || (disabledHosts.has(host) ? "original" : "inherit");
+    siteTextScale.value = String(siteTextScales[host] || 100);
+    siteReduceMotion.checked = reducedMotionHosts.has(host);
+
+    siteAppearance.addEventListener("change", async () => {
+      if (siteAppearance.value === "inherit") delete siteModes[host];
+      else siteModes[host] = siteAppearance.value;
+      disabledHosts.delete(host);
+      await browser.storage.local.set({
+        siteModes,
+        disabledHosts: [...disabledHosts].sort(),
+      });
+      await reload();
+    });
+    siteTextScale.addEventListener("change", async () => {
+      const scale = Number(siteTextScale.value);
+      if (scale === 100) delete siteTextScales[host];
+      else siteTextScales[host] = scale;
+      await browser.storage.local.set({ siteTextScales });
+      await reload();
+    });
+    siteReduceMotion.addEventListener("change", async () => {
+      if (siteReduceMotion.checked) reducedMotionHosts.add(host);
+      else reducedMotionHosts.delete(host);
+      await browser.storage.local.set({
+        reducedMotionHosts: [...reducedMotionHosts].sort(),
+      });
       await reload();
     });
   }

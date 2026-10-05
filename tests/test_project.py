@@ -83,7 +83,7 @@ class ProjectTests(unittest.TestCase):
         stable = (ROOT / "overlay/res/mipmap-anydpi-v33/ic_launcher.xml").read_text()
         self.assertNotIn("acute_beta", stable)
 
-    def test_midnight_pages_is_local_and_conservative(self):
+    def test_site_display_is_local_per_site_and_conservative(self):
         extension = ROOT / "overlay/assets/extensions/acute-midnight"
         manifest = (extension / "manifest.json").read_text()
         script = (extension / "midnight.js").read_text()
@@ -99,6 +99,18 @@ class ProjectTests(unittest.TestCase):
             self.assertIn(mode, popup)
         self.assertIn("disabledHosts", popup)
         self.assertIn("textContent = host", popup)
+        self.assertIn('"siteModes"', popup)
+        self.assertIn('"siteTextScales"', popup)
+        self.assertIn('"reducedMotionHosts"', popup)
+        self.assertIn('siteMode === "dark"', script)
+        self.assertIn("zoom:", script)
+        self.assertIn("animation-duration", script)
+        self.assertIn('"name": "Acute Site Display"', manifest)
+        self.assertNotIn("#69bff2", (extension / "popup.css").read_text().lower())
+
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_site_display", overlay)
+        self.assertNotIn("def patch_midnight_pages", overlay)
 
     def test_release_workflow_requires_signing_key(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()

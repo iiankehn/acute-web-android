@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Midnight Pages</title>
+    <title>Site Display</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
     <main>
       <header>
-        <span class="eyebrow">ACUTE BETA</span>
-        <h1>Midnight Pages</h1>
-        <p>Darken bright websites locally on this device.</p>
+        <span class="eyebrow">ACUTE</span>
+        <h1>Site Display</h1>
+        <p>Remember how each website should look on this device.</p>
       </header>
       <fieldset>
         <legend>Page appearance</legend>
@@ -22,9 +22,27 @@
       <section id="site-controls" hidden>
         <span class="section-label">Current website</span>
         <strong id="site-name"></strong>
+        <label class="select-row">
+          Appearance
+          <select id="site-appearance">
+            <option value="inherit">Use global setting</option>
+            <option value="original">Always original</option>
+            <option value="dark">Always dark</option>
+          </select>
+        </label>
+        <label class="select-row">
+          Text size
+          <select id="site-text-scale">
+            <option value="90">90%</option>
+            <option value="100">100%</option>
+            <option value="110">110%</option>
+            <option value="125">125%</option>
+            <option value="150">150%</option>
+          </select>
+        </label>
         <label class="switch-row">
-          <input id="site-enabled" type="checkbox">
-          Use Midnight Pages here
+          <input id="site-reduce-motion" type="checkbox">
+          Reduce animation on this website
         </label>
       </section>
       <p class="privacy">No page content or browsing data leaves your device.</p>

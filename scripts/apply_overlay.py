@@ -2030,23 +2030,21 @@ def patch_about_page(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def patch_midnight_pages(core: Path, channel: str) -> None:
-    """Install Acute's local page-darkening engine in Beta builds only."""
-    if channel != "beta":
-        return
+def patch_site_display(core: Path) -> None:
+    """Install Acute's local per-site appearance and accessibility controls."""
     text = core.read_text(encoding="utf-8")
     anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
                 icons.install(engine, this)
 '''
-    install = '''                // Acute Beta: install the local-only Midnight Pages renderer. It does not
-                // contact a service or expose browsing data outside GeckoView.
+    install = '''                // Acute Site Display keeps per-domain appearance, text-size and motion
+                // preferences locally. It does not contact a service or expose browsing data.
                 engine.installBuiltInWebExtension(
                     id = "midnight-pages@acuteweb.core",
                     url = "resource://android/assets/extensions/acute-midnight/",
                 )
 
 '''
-    text = replace_once(text, anchor, anchor + install, "Midnight Pages extension hook")
+    text = replace_once(text, anchor, anchor + install, "Site Display extension hook")
     core.write_text(text, encoding="utf-8")
 
 
@@ -2208,7 +2206,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_adaptive_menu(main_menu, menu_dialog)
     patch_capture_export_actions(main_menu, menu_dialog, more_settings)
     patch_about_page(about)
-    patch_midnight_pages(core, channel)
+    patch_site_display(core)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     patch_app_labels(fenix, channel)

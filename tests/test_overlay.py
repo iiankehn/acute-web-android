@@ -1147,7 +1147,7 @@ class OverlayTests(unittest.TestCase):
         )
         self.assertIn("toolbar.collapse()", toolbar_behavior)
 
-    def test_midnight_pages_is_beta_only(self):
+    def test_site_display_is_available_in_both_channels(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
         apply(root, channel="beta")
@@ -1170,7 +1170,7 @@ class OverlayTests(unittest.TestCase):
         stable_core = (
             stable_root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Core.kt"
         ).read_text()
-        self.assertNotIn("midnight-pages@acuteweb.core", stable_core)
+        self.assertIn("midnight-pages@acuteweb.core", stable_core)
 
     def test_applies_branding_privacy_updater_and_signing(self):
         temp, root = self.make_checkout()

@@ -111,6 +111,19 @@ than shipping an Acute-only renderer with different layout, memory and restore
 behavior from Gecko. Android's normal visible-screen screenshot remains
 available at the operating-system level.
 
+### Per-site display preferences
+
+Acute Site Display stores page appearance, text scale, and reduced-motion
+choices by hostname in extension-local storage. A website can inherit the
+global automatic appearance rule, remain original, or always use the local
+dark-page treatment. Text scaling offers bounded presets from 90% through 150%,
+and reduced motion suppresses page animation, transitions, and smooth scrolling.
+
+These preferences run in normal browsing only, skip PDFs and sensitive payment
+paths, make no network request, and are installed in both Stable and Beta. The
+old Midnight Pages disabled-site list is migrated locally when a user changes a
+site preference.
+
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.
 
