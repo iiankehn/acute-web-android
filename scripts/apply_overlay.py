@@ -123,6 +123,7 @@ WORKSPACE_STRING_OVERRIDES = {
     "close_tab_and_delete_group_confirmation_dialog_body":
         "This permanently deletes the workspace.",
     "close_tab_and_delete_group_confirmation_dialog_confirm": "Delete workspace",
+    "tab_group_three_dot_menu_close": "Suspend",
     "tab_group_three_dot_menu_ungroup": "Dissolve",
     "ungroup_tab_group_confirmation_dialog_title": "Dissolve workspace?",
     "ungroup_tab_group_confirmation_dialog_body":
@@ -1607,6 +1608,66 @@ def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Pat
     settings_path.write_text(settings, encoding="utf-8")
 
 
+def patch_workspace_suspension(middleware_path: Path, fragment_path: Path) -> None:
+    """Release Gecko sessions when a workspace is closed, preserving restorable state."""
+    middleware = middleware_path.read_text(encoding="utf-8")
+    middleware = replace_once(
+        middleware,
+        "    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),\n"
+        ") : Middleware<TabsTrayState, TabsTrayAction> {\n",
+        "    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),\n"
+        "    // Acute Workspaces releases Gecko resources without deleting tab state.\n"
+        "    private val suspendTab: (String) -> Unit = {},\n"
+        ") : Middleware<TabsTrayState, TabsTrayAction> {\n",
+        "workspace suspension callback",
+    )
+    old_close = '''            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+'''
+    suspended_close = '''            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    // Persisted tab/group records remain intact. Suspending only unlinks and
+                    // closes each live Gecko engine; selecting a tab recreates and restores it.
+                    action.group.tabs.forEach { tab -> suspendTab(tab.id) }
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+'''
+    middleware = replace_once(
+        middleware,
+        old_close,
+        suspended_close,
+        "workspace close behavior",
+    )
+    middleware_path.write_text(middleware, encoding="utf-8")
+
+    fragment = fragment_path.read_text(encoding="utf-8")
+    fragment = replace_once(
+        fragment,
+        "import mozilla.components.browser.state.selector.privateTabs\n",
+        "import mozilla.components.browser.state.action.EngineAction\n"
+        "import mozilla.components.browser.state.selector.privateTabs\n",
+        "workspace suspension engine action import",
+    )
+    fragment = replace_once(
+        fragment,
+        "                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,\n"
+        "                            mainScope = lifecycleScope,\n",
+        "                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,\n"
+        "                            mainScope = lifecycleScope,\n"
+        "                            suspendTab = { tabId ->\n"
+        "                                requireComponents.core.store.dispatch(\n"
+        "                                    EngineAction.SuspendEngineSessionAction(tabId),\n"
+        "                                )\n"
+        "                            },\n",
+        "workspace suspension dispatch",
+    )
+    fragment_path.write_text(fragment, encoding="utf-8")
+
+
 def patch_about_page(path: Path) -> None:
     """Show Acute's package version and build number, retaining license links."""
     text = path.read_text(encoding="utf-8")
@@ -1832,6 +1893,14 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     homepage = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Homepage.kt"
     main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     menu_dialog = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt"
+    tab_storage_middleware = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt"
+    )
+    tab_management_fragment = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt"
+    )
     browser_toolbar = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
@@ -1862,7 +1931,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog,
+                tab_storage_middleware, tab_management_fragment, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1894,6 +1964,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_home_content_policy(settings)
     patch_home_dashboard(homepage)
     patch_workspaces(homepage, values / "strings.xml", settings)
+    patch_workspace_suspension(tab_storage_middleware, tab_management_fragment)
     patch_adaptive_menu(main_menu, menu_dialog)
     patch_about_page(about)
     patch_midnight_pages(core, channel)

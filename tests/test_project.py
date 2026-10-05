@@ -276,8 +276,13 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", overlay)
         self.assertIn('"create_tab_group_title": "Create workspace"', overlay)
         self.assertIn('"ungroup_tab_group_confirmation_dialog_confirm": "Dissolve"', overlay)
+        self.assertIn('"tab_group_three_dot_menu_close": "Suspend"', overlay)
+        self.assertIn("patch_workspace_suspension", overlay)
+        self.assertIn("EngineAction.SuspendEngineSessionAction(tabId)", overlay)
+        self.assertIn("action.group.tabs.forEach { tab -> suspendTab(tab.id) }", overlay)
         self.assertIn("default = { true }", overlay)
         self.assertIn("maintained local tab-group", spec)
+        self.assertIn("live Gecko engine session", spec)
         self.assertIn("requires localization before the 2.0", spec)
 
     def test_no_play_store_dependency(self):

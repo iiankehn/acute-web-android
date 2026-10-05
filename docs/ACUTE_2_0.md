@@ -81,10 +81,15 @@ default, remain on the device, survive process restoration, and are reachable
 from a permanent home-dashboard module as well as the contextual page menu.
 Create, edit, add-tab, dissolve and delete flows use Acute's workspace language.
 
-Tab suspension and a denser large-screen workspace dashboard remain separate
-follow-up work. Workspace terminology also requires localization before the 2.0
-release candidate; unsupported translations currently retain upstream tab-group
-wording rather than receiving machine-translated copy.
+Suspending a workspace keeps its local tab and group records but releases each
+live Gecko engine session. Gecko's native session-state restoration recreates a
+tab only when the user returns to it, reducing background memory use without a
+second Acute-specific cache or session format.
+
+A denser large-screen workspace dashboard remains follow-up work. Workspace
+terminology also requires localization before the 2.0 release candidate;
+unsupported translations currently retain upstream tab-group wording rather
+than receiving machine-translated copy.
 
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.

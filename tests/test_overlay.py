@@ -528,6 +528,39 @@ fun MenuDialog() {
 }
 '''
 
+TAB_STORAGE_MIDDLEWARE = '''class TabStorageMiddleware(
+    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+) : Middleware<TabsTrayState, TabsTrayAction> {
+    fun processAction(action: TabsStorageAction) {
+        when (action) {
+            is TabGroupAction.CloseTabGroupClicked -> {
+                scope.launch {
+                    tabGroupRepository.closeTabGroup(tabGroupId = action.group.id)
+                }
+            }
+        }
+    }
+}
+'''
+
+TAB_MANAGEMENT_FRAGMENT = '''import mozilla.components.browser.state.selector.privateTabs
+
+class TabManagementFragment {
+    fun createStore() {
+        TabStorageMiddleware(
+                            inactiveTabsEnabled = requireComponents.settings.inactiveTabsAreEnabled,
+                            tabGroupsEnabled = requireComponents.settings.tabGroupsEnabled,
+                            tabDataFlow = requireComponents.core.store.stateFlow.map { TabData(it) },
+                            tabGroupRepository = requireComponents.core.tabGroupRepository,
+                            removeTabsUseCase = requireComponents.useCases.tabsUseCases.removeTabs,
+                            moveTabsUseCase = requireComponents.useCases.tabsUseCases.moveTabs,
+                            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+                            mainScope = lifecycleScope,
+        )
+    }
+}
+'''
+
 HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
             if (state is HomepageState.Normal) {
                 BannerCardSection(
@@ -680,6 +713,7 @@ WORKSPACE_STRINGS = '''
 <string name="close_tab_and_delete_group_confirmation_dialog_title">Close tab and delete group?</string>
 <string name="close_tab_and_delete_group_confirmation_dialog_body">This deletes the group permanently.</string>
 <string name="close_tab_and_delete_group_confirmation_dialog_confirm">Delete group</string>
+<string name="tab_group_three_dot_menu_close">Close</string>
 <string name="tab_group_three_dot_menu_ungroup">Ungroup</string>
 <string name="ungroup_tab_group_confirmation_dialog_title">Ungroup tab group?</string>
 <string name="ungroup_tab_group_confirmation_dialog_body">The tabs remain open.</string>
@@ -895,6 +929,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/settings").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/home/ui").mkdir(parents=True)
         (app / "src/main/java/org/mozilla/fenix/components/menu/compose").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware").mkdir(parents=True)
+        (app / "src/main/java/org/mozilla/fenix/tabstray/ui").mkdir(parents=True)
         (app / "src/main/res/xml").mkdir(parents=True)
         (app / "src/release").mkdir(parents=True)
         (app / "src/beta").mkdir(parents=True)
@@ -914,6 +950,12 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
         (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").write_text(MAIN_MENU)
         (app / "src/main/java/org/mozilla/fenix/components/menu/MenuDialogFragment.kt").write_text(MENU_DIALOG)
+        (app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt").write_text(
+            TAB_STORAGE_MIDDLEWARE
+        )
+        (app / "src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt").write_text(
+            TAB_MANAGEMENT_FRAGMENT
+        )
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
@@ -1201,6 +1243,20 @@ class OverlayTests(unittest.TestCase):
         self.assertIn('name="collections_migration_homepage_banner_title">Workspaces<', strings)
         self.assertIn("%1$d workspaces open. Tap to switch tabs.", strings)
         self.assertIn("Dissolve workspace?", strings)
+        self.assertIn('name="tab_group_three_dot_menu_close">Suspend<', strings)
+        tab_storage_middleware = (
+            app / "src/main/java/org/mozilla/fenix/tabstray/redux/middleware/TabStorageMiddleware.kt"
+        ).read_text()
+        tab_management_fragment = (
+            app / "src/main/java/org/mozilla/fenix/tabstray/ui/TabManagementFragment.kt"
+        ).read_text()
+        self.assertIn("private val suspendTab: (String) -> Unit = {}", tab_storage_middleware)
+        self.assertIn("action.group.tabs.forEach { tab -> suspendTab(tab.id) }", tab_storage_middleware)
+        self.assertLess(
+            tab_storage_middleware.index("suspendTab(tab.id)"),
+            tab_storage_middleware.index("tabGroupRepository.closeTabGroup"),
+        )
+        self.assertIn("EngineAction.SuspendEngineSessionAction(tabId)", tab_management_fragment)
         self.assertIn("you’re an Acute Web user", strings)
         self.assertIn("developed by CORE using Mozilla’s open-source Gecko engine", strings)
         self.assertIn("Firefox Terms of Use", strings)
