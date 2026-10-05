@@ -56,6 +56,8 @@ packaging and the ARM64 candidate is tested on supported physical devices for:
 - rotation, split screen, phone and large-screen layouts;
 - update notification and handoff to Android's package installer;
 - CORE Glass contrast, touch targets, and page-content accessibility.
+- link context-action ordering and clean-link output with functional query
+  parameters, original encoding, and fragments preserved.
 
 Failures block promotion. Versions 0.8 and 0.9 are cut only when a verified
 issue requires a corrective candidate; otherwise the audited Beta proceeds

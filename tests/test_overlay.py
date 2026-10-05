@@ -393,6 +393,65 @@ class BaseBrowserFragment {
 }
 '''
 
+BROWSER_FRAGMENT = '''import android.content.Context
+import android.view.View
+import kotlinx.coroutines.Dispatchers
+
+class BrowserFragment {
+    fun getContextMenuCandidates(context: Context, view: View): List<ContextMenuCandidate> {
+        return if (nativeShareSheetEnabled) {
+            NativeShareSheetContextMenuCandidate.defaultCandidates()
+        } else {
+            ContextMenuCandidate.defaultCandidates()
+        } +
+            createOpenInExternalAppCandidate(
+                requireContext(),
+                contextMenuCandidateAppLinksUseCases,
+            ) +
+            createOpenWithGoogleLensCandidate(context)
+    }
+
+    private fun navigateToShareFragment(
+        currentTab: SessionState,
+        hitTabUrl: String,
+    ) {}
+
+    private fun String.isHttpUrl(): Boolean =
+        startsWith("https://", ignoreCase = true) || startsWith("http://", ignoreCase = true)
+}
+'''
+
+NATIVE_CONTEXT_MENU_CANDIDATES = '''object NativeShareSheetContextMenuCandidate {
+    fun defaultCandidates() =
+        listOf(
+            createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate),
+            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+            createShareImageCandidate(context, contextMenuUseCases),
+        )
+}
+'''
+
+COMPONENT_CONTEXT_MENU_CANDIDATES = '''data class ContextMenuCandidate(val id: String) {
+    companion object {
+        fun defaultCandidates() =
+            listOf(
+                createCopyLinkCandidate(context, snackBarParentView, snackbarDelegate),
+                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+                createShareLinkCandidate(context),
+                createShareImageCandidate(context, contextMenuUseCases),
+            )
+    }
+}
+'''
+
 ENGINE_VIEW_CLIPPING_BEHAVIOR = '''class EngineViewClippingBehavior(
     private val engineViewParent: View,
     private val topToolbarHeight: Int,
@@ -1026,6 +1085,21 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
+        (app / "src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt").write_text(
+            BROWSER_FRAGMENT
+        )
+        (
+            app
+            / "src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+        ).write_text(NATIVE_CONTEXT_MENU_CANDIDATES)
+        context_menu = (
+            root
+            / "mobile/android/android-components/components/feature/contextmenu/src/main/java/mozilla/components/feature/contextmenu"
+        )
+        context_menu.mkdir(parents=True, exist_ok=True)
+        (context_menu / "ContextMenuCandidate.kt").write_text(
+            COMPONENT_CONTEXT_MENU_CANDIDATES
+        )
         clipping_behavior = (
             root
             / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior"
@@ -1186,6 +1260,41 @@ class OverlayTests(unittest.TestCase):
                 stable_root
                 / "mobile/android/fenix/app/src/main/assets/extensions/acute-notes/manifest.json"
             ).is_file()
+        )
+
+    def test_adds_clean_link_action_and_prioritizes_sharing(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        browser = (
+            app / "src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt"
+        ).read_text()
+        native = (
+            app
+            / "src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+        ).read_text()
+        component = (
+            root
+            / "mobile/android/android-components/components/feature/contextmenu/src/main/java/mozilla/components/feature/contextmenu/ContextMenuCandidate.kt"
+        ).read_text()
+        context_strings = (
+            app / "src/main/res/values/acute_context_menu_strings.xml"
+        ).read_text()
+
+        self.assertIn('id = "acute.contextmenu.copy_clean_link"', browser)
+        self.assertIn("cleanTrackingUrl(hitResult.getUrl())", browser)
+        self.assertIn('name.startsWith("utm_")', browser)
+        self.assertIn('"fbclid"', browser)
+        self.assertIn("append(fragment)", browser)
+        self.assertIn("Copy clean link", context_strings)
+        self.assertLess(
+            native.index("createShareLinkCandidate("),
+            native.index("createDownloadLinkCandidate("),
+        )
+        self.assertLess(
+            component.index("createShareLinkCandidate(context)"),
+            component.index("createDownloadLinkCandidate("),
         )
 
     def test_applies_branding_privacy_updater_and_signing(self):

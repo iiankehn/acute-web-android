@@ -2084,6 +2084,169 @@ def patch_page_notes(core: Path) -> None:
     core.write_text(text, encoding="utf-8")
 
 
+def patch_link_context_actions(
+    browser_fragment: Path,
+    native_candidates: Path,
+    component_candidates: Path,
+) -> None:
+    """Add a conservative clean-link action and improve the link-action order."""
+    text = browser_fragment.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "import android.content.Context\n",
+        "import android.content.ClipData\n"
+        "import android.content.ClipboardManager\n"
+        "import android.content.Context\n",
+        "clean-link clipboard imports",
+    )
+    text = replace_once(
+        text,
+        "import kotlinx.coroutines.Dispatchers\n",
+        "import java.net.URLDecoder\n"
+        "import kotlinx.coroutines.Dispatchers\n",
+        "clean-link URL decoder import",
+    )
+    text = replace_once(
+        text,
+        '''        } +
+            createOpenInExternalAppCandidate(
+''',
+        '''        } +
+            createCopyCleanLinkCandidate(context, view) +
+            createOpenInExternalAppCandidate(
+''',
+        "clean-link context menu insertion",
+    )
+    navigate_anchor = '''    private fun navigateToShareFragment(
+'''
+    clean_link_helpers = '''    private fun createCopyCleanLinkCandidate(
+        context: Context,
+        snackBarParentView: View,
+    ) =
+        ContextMenuCandidate(
+            id = "acute.contextmenu.copy_clean_link",
+            label = context.getString(R.string.context_menu_copy_clean_link),
+            showFor = { _, hitResult -> cleanTrackingUrl(hitResult.getUrl()) != null },
+            action = { _, hitResult ->
+                val cleanUrl = cleanTrackingUrl(hitResult.getUrl())
+                    ?: return@ContextMenuCandidate
+                val clipboard =
+                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(cleanUrl, cleanUrl))
+                ContextMenuSnackbarDelegate().show(
+                    snackBarParentView = snackBarParentView,
+                    text = contextMenuR.string.mozac_feature_contextmenu_snackbar_link_copied,
+                    duration = com.google.android.material.snackbar.Snackbar.LENGTH_SHORT,
+                )
+            },
+        )
+
+    /**
+     * Remove only well-known advertising and campaign parameters. Unknown parameters,
+     * their original encoding and order, and the fragment are preserved byte-for-byte.
+     */
+    private fun cleanTrackingUrl(rawUrl: String): String? {
+        if (!rawUrl.isHttpUrl()) return null
+        val fragmentStart = rawUrl.indexOf('#')
+        val address = if (fragmentStart >= 0) rawUrl.substring(0, fragmentStart) else rawUrl
+        val fragment = if (fragmentStart >= 0) rawUrl.substring(fragmentStart) else ""
+        val queryStart = address.indexOf('?')
+        if (queryStart < 0) return null
+
+        val queryParts = address.substring(queryStart + 1).split('&')
+        val retained =
+            queryParts.filterNot { part ->
+                val encodedName = part.substringBefore('=')
+                val name =
+                    runCatching { URLDecoder.decode(encodedName, "UTF-8") }
+                        .getOrDefault(encodedName)
+                        .lowercase()
+                name.startsWith("utm_") || name in acuteTrackingQueryParameters
+            }
+        if (retained.size == queryParts.size) return null
+
+        return buildString {
+            append(address.substring(0, queryStart))
+            if (retained.isNotEmpty()) {
+                append('?')
+                append(retained.joinToString("&"))
+            }
+            append(fragment)
+        }
+    }
+
+    private val acuteTrackingQueryParameters =
+        setOf(
+            "dclid",
+            "fbclid",
+            "gbraid",
+            "gclid",
+            "igshid",
+            "mc_cid",
+            "mc_eid",
+            "mkt_tok",
+            "msclkid",
+            "oly_anon_id",
+            "oly_enc_id",
+            "srsltid",
+            "ttclid",
+            "twclid",
+            "vero_id",
+            "wbraid",
+            "_hsenc",
+            "_hsmi",
+        )
+
+'''
+    text = replace_once(
+        text,
+        navigate_anchor,
+        clean_link_helpers + navigate_anchor,
+        "clean-link helper methods",
+    )
+    browser_fragment.write_text(text, encoding="utf-8")
+
+    native = native_candidates.read_text(encoding="utf-8")
+    native = replace_once(
+        native,
+        '''            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+''',
+        '''            createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+            createShareLinkCandidate(
+                context = context,
+                shareUseCases = shareUseCases,
+                shareItems = getShareItems,
+                navigateToShareFragment = navigateToShareFragment,
+            ),
+            createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+''',
+        "native share-before-download ordering",
+    )
+    native_candidates.write_text(native, encoding="utf-8")
+
+    component = component_candidates.read_text(encoding="utf-8")
+    component = replace_once(
+        component,
+        '''                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+                createShareLinkCandidate(context),
+''',
+        '''                createCopyLinkTextCandidate(context, snackBarParentView, snackbarDelegate),
+                createShareLinkCandidate(context),
+                createDownloadLinkCandidate(context, contextMenuUseCases, downloadsLocation),
+''',
+        "component share-before-download ordering",
+    )
+    component_candidates.write_text(component, encoding="utf-8")
+
+
 def validate_tablet_upstream(manifest: Path, desktop_mode: Path) -> None:
     """Fail fast if upstream removes the tablet behaviors Acute depends on."""
     manifest_text = manifest.read_text(encoding="utf-8")
@@ -2187,6 +2350,16 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
+    browser_actions = fenix / "app/src/main/java/org/mozilla/fenix/browser/BrowserFragment.kt"
+    native_context_candidates = (
+        fenix
+        / "app/src/main/java/org/mozilla/fenix/browser/NativeShareSheetContextMenuCandidate.kt"
+    )
+    component_context_candidates = (
+        checkout
+        / "mobile/android/android-components/components/feature/contextmenu/src/main/java"
+        / "mozilla/components/feature/contextmenu/ContextMenuCandidate.kt"
+    )
     clipping_behavior = (
         checkout
         / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt"
@@ -2207,6 +2380,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, main_menu, menu_dialog, more_settings,
                 tab_storage_middleware, tab_management_fragment, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
+                browser_actions, native_context_candidates, component_context_candidates,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
@@ -2245,6 +2419,11 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_site_display(core)
     patch_saved_sessions(core)
     patch_page_notes(core)
+    patch_link_context_actions(
+        browser_actions,
+        native_context_candidates,
+        component_context_candidates,
+    )
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     patch_app_labels(fenix, channel)

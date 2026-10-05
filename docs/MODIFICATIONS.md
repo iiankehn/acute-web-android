@@ -32,6 +32,9 @@ the public overlay, resources, tests, and workflow in this repository.
   page-aware toolbar composition.
 - The top toolbar collapses after a page finishes loading and returns through
   the standard upward-scroll gesture, leaving page controls accessible.
+- Link context menus keep Firefox's native interaction model, prioritize
+  sharing over downloading, and offer a conservative local clean-link copy
+  action when recognized campaign parameters are present.
 - Launcher assets support circular, rounded-rectangle, square, and monochrome
   adaptive-icon treatments.
 - Upstream accessibility semantics and Android text scaling remain release

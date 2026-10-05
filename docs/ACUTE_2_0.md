@@ -146,6 +146,19 @@ Notes remain in extension-local storage, are limited to 5,000 characters each,
 and are capped at 500 entries. Private tabs and internal browser pages cannot
 create notes, and all rendered titles and excerpts use text-only DOM APIs.
 
+### Link context actions
+
+Long-pressing a web link keeps Firefox's maintained context menu instead of
+opening an Acute-specific sheet. Acute places the common share action before
+the less frequent download action and adds **Copy clean link** only when the
+address contains a recognized campaign or advertising parameter.
+
+Cleaning is deliberately conservative: functional and unknown query
+parameters, their ordering and encoding, and fragment identifiers remain
+unchanged. The action copies to Android's clipboard and does not contact a
+remote service. If no recognized tracking parameter is present, the extra
+action is not shown.
+
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.
 
