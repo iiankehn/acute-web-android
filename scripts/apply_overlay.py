@@ -2066,6 +2066,24 @@ def patch_saved_sessions(core: Path) -> None:
     core.write_text(text, encoding="utf-8")
 
 
+def patch_page_notes(core: Path) -> None:
+    """Install Acute's local page-addressed notes feature."""
+    text = core.read_text(encoding="utf-8")
+    anchor = '''                // Install the "icons" WebExtension to automatically load icons for every visited website.
+                icons.install(engine, this)
+'''
+    install = '''                // Page Notes keeps bounded notes associated with normal web addresses in
+                // extension-local storage. Private and internal pages are excluded.
+                engine.installBuiltInWebExtension(
+                    id = "page-notes@acuteweb.core",
+                    url = "resource://android/assets/extensions/acute-notes/",
+                )
+
+'''
+    text = replace_once(text, anchor, anchor + install, "Page Notes extension hook")
+    core.write_text(text, encoding="utf-8")
+
+
 def validate_tablet_upstream(manifest: Path, desktop_mode: Path) -> None:
     """Fail fast if upstream removes the tablet behaviors Acute depends on."""
     manifest_text = manifest.read_text(encoding="utf-8")
@@ -2226,6 +2244,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_about_page(about)
     patch_site_display(core)
     patch_saved_sessions(core)
+    patch_page_notes(core)
     patch_shared_uid_manifest(release_manifest)
     patch_shared_uid_manifest(beta_manifest)
     patch_app_labels(fenix, channel)

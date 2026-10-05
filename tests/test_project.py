@@ -149,6 +149,23 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("patch_saved_sessions", overlay)
         self.assertIn("deprecated Collections backend", spec)
 
+    def test_page_notes_are_local_bounded_and_private_safe(self):
+        extension = ROOT / "overlay/assets/extensions/acute-notes"
+        manifest = (extension / "manifest.json").read_text()
+        popup = (extension / "popup.js").read_text()
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn('"id": "page-notes@acuteweb.core"', manifest)
+        self.assertNotIn("http://", popup)
+        self.assertNotIn("https://", popup)
+        self.assertIn("MAX_NOTES = 500", popup)
+        self.assertIn("MAX_NOTE_LENGTH = 5000", popup)
+        self.assertIn("tab.incognito", popup)
+        self.assertIn("url.hash = \"\"", popup)
+        self.assertIn("textContent = saved.title", popup)
+        self.assertIn("patch_page_notes", overlay)
+        self.assertIn("Reading Shelf, offline-page storage", spec)
+
     def test_release_verification_uses_available_android_tools(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertIn('"$build_tools/aapt2" dump permissions', workflow)

@@ -1,0 +1,49 @@
+:root {
+  color-scheme: dark;
+  font: 15px/1.4 system-ui, sans-serif;
+  background: #0b0c0e;
+  color: #f1f2f4;
+}
+body { margin: 0; min-width: 340px; }
+main { padding: 18px; }
+h1 { margin: 2px 0 4px; font-size: 21px; }
+h2 { margin: 0 0 9px; font-size: 14px; }
+p { margin: 0; color: #b8bbc1; }
+.eyebrow { color: #f1f2f4; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+form, section {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #3a3d42;
+  border-radius: 14px;
+  background: #17191d;
+}
+label { display: block; margin-bottom: 6px; color: #d9dadd; font-size: 13px; }
+textarea, button {
+  border: 1px solid #4a4d53;
+  border-radius: 10px;
+  background: #22252a;
+  color: #f1f2f4;
+}
+textarea { box-sizing: border-box; width: 100%; padding: 10px; resize: vertical; font: inherit; }
+button { min-height: 36px; padding: 0 11px; font-weight: 650; cursor: pointer; }
+button:hover, button:focus-visible { background: #30343a; }
+.form-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+#count, #status { color: #aeb1b7; font-size: 12px; }
+#status { min-height: 20px; margin-top: 8px; }
+#empty-state { color: #9c9fa5; font-size: 13px; }
+ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.saved-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border-radius: 10px;
+  background: #22252a;
+}
+.saved-note strong, .saved-note small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-note small { color: #aeb1b7; }
+.actions { display: flex; gap: 5px; }
+.actions button { min-height: 32px; padding: 0 8px; font-size: 12px; }
+.actions .delete { color: #ffc9c9; }
+.privacy { margin-top: 14px; font-size: 12px; }

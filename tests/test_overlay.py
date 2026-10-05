@@ -1155,6 +1155,7 @@ class OverlayTests(unittest.TestCase):
         core = (app / "src/main/java/org/mozilla/fenix/components/Core.kt").read_text()
         self.assertIn("midnight-pages@acuteweb.core", core)
         self.assertIn("saved-sessions@acuteweb.core", core)
+        self.assertIn("page-notes@acuteweb.core", core)
         self.assertTrue(
             (app / "src/main/assets/extensions/acute-midnight/manifest.json").is_file()
         )
@@ -1173,10 +1174,17 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn("midnight-pages@acuteweb.core", stable_core)
         self.assertIn("saved-sessions@acuteweb.core", stable_core)
+        self.assertIn("page-notes@acuteweb.core", stable_core)
         self.assertTrue(
             (
                 stable_root
                 / "mobile/android/fenix/app/src/main/assets/extensions/acute-sessions/manifest.json"
+            ).is_file()
+        )
+        self.assertTrue(
+            (
+                stable_root
+                / "mobile/android/fenix/app/src/main/assets/extensions/acute-notes/manifest.json"
             ).is_file()
         )
 

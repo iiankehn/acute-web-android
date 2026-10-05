@@ -31,7 +31,8 @@ unprivileged builds succeed.
 ## Dependency policy
 
 The Acute overlay has no third-party Python package dependency. Its local
-Site Display and Saved Sessions extensions make no external service request. GitHub Actions are
+Site Display, Saved Sessions, and Page Notes extensions make no external service
+request. GitHub Actions are
 pinned to reviewed commit hashes, and the complete Mozilla source input is
 pinned to one full commit recorded in `acute-android.toml`, the workflow, and
 each release's `build-inputs.txt`.

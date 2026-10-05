@@ -35,7 +35,6 @@ dashboard. Search remains primary. Optional modules provide:
 
 - user-selected shortcuts;
 - active workspaces and saved sessions;
-- Reading Shelf and offline pages;
 - recent downloads;
 - locally stored page notes;
 - resume and recently closed actions.
@@ -64,7 +63,6 @@ The 2.0 design target includes:
 
 - tab workspaces with suspension and crash-safe restoration;
 - saved browsing sessions;
-- Reading Shelf with offline and read-aloud queues;
 - local page notes;
 - improved link context actions;
 - full-document PDF capture and printing;
@@ -137,6 +135,17 @@ bounded to 100 tabs and the device retains at most 50 snapshots, preventing a
 damaged or unexpectedly large window from producing unbounded local storage or
 restore work.
 
+### Local page notes
+
+Page Notes attaches a bounded plain-text note to the current page's canonical
+HTTP or HTTPS address. Notes can be edited from that page, reopened from a list
+of recent notes, or deleted. Fragment identifiers are removed before matching
+so navigating within one document does not create duplicate notes.
+
+Notes remain in extension-local storage, are limited to 5,000 characters each,
+and are capped at 500 entries. Private tabs and internal browser pages cannot
+create notes, and all rendered titles and excerpts use text-only DOM APIs.
+
 Split browsing may move to 2.1 if it fails the stability gate. It must not delay
 the rest of 2.0.
 
@@ -149,7 +158,8 @@ The following are not part of 2.0:
 - password or authenticated-session transfer;
 - a proprietary search engine;
 - a full native replacement for mature content-blocking extensions;
-- expanded privacy marketing or anonymity claims.
+- expanded privacy marketing or anonymity claims;
+- Reading Shelf, offline-page storage, and read-aloud queues.
 
 ## Release gates
 
