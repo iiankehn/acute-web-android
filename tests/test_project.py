@@ -269,6 +269,17 @@ class ProjectTests(unittest.TestCase):
             overlay,
         )
 
+    def test_workspaces_use_the_local_tab_group_backend(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        spec = (ROOT / "docs/ACUTE_2_0.md").read_text()
+        self.assertIn("patch_workspaces", overlay)
+        self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", overlay)
+        self.assertIn('"create_tab_group_title": "Create workspace"', overlay)
+        self.assertIn('"ungroup_tab_group_confirmation_dialog_confirm": "Dissolve"', overlay)
+        self.assertIn("default = { true }", overlay)
+        self.assertIn("maintained local tab-group", spec)
+        self.assertIn("requires localization before the 2.0", spec)
+
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()
         self.assertRegex(readme, r"sideloadable\s+apk")

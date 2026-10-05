@@ -169,6 +169,18 @@ class Settings(private val appContext: Context) {
             appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
             default = false,
         )
+
+    var tabGroupsEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_tab_groups),
+            default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },
+        )
+
+    var showTabGroupsInMenu by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_show_tab_groups_in_menu),
+            default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },
+        )
 }
 '''
 
@@ -612,6 +624,81 @@ HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor)
                 }
             }
 }
+
+@Composable
+private fun CollectionsSection(
+    collectionsState: CollectionsState,
+    interactor: CollectionInteractor,
+    onCollectionsMigrationCardAction: (CollectionsMigrationCardAction) -> Unit,
+) {
+    when (collectionsState) {
+        is CollectionsState.Content -> {
+            CollectionsSectionContent {
+                Collections(
+                    collections = collectionsState.collections,
+                    expandedCollections = collectionsState.expandedCollections,
+                    showAddTabToCollection = collectionsState.showSaveTabsToCollection,
+                    interactor = interactor,
+                )
+            }
+        }
+
+        CollectionsState.MigrationCard -> {
+            CollectionsSectionContent {
+                CollectionsMigrationPromoCard(onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) })
+            }
+        }
+
+        CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
+    }
+}
+'''
+
+WORKSPACE_STRINGS = '''
+<string name="browser_menu_add_to_tab_group">Add to group</string>
+<string name="preferences_tab_groups_feature">Enable Tab Groups</string>
+<string name="create_tab_group_content_description">Create tab group</string>
+<string name="tab_manager_multiselect_menu_item_add_to_tab_group">Add to group</string>
+<string name="tab_group_onboarding_item_title">Create a tab group</string>
+<string name="tab_group_onboarding_grid_item_description">Drag one tab onto another to group them.</string>
+<string name="tab_group_onboarding_list_item_description">Select multiple tabs to create a group.</string>
+<string name="tab_group_onboarding_item_dismiss_content_description">Dismiss tab group onboarding</string>
+<string name="tab_manager_empty_tab_groups_page_header">Try tab groups</string>
+<string name="tab_manager_empty_tab_groups_page_description">Select tabs to create a group.</string>
+<string name="create_tab_group_title">Create tab group</string>
+<string name="edit_tab_group_title">Edit group</string>
+<string name="edit_tab_group_bottom_sheet_grabber_content_description">New group, collapse drag handle</string>
+<string name="create_tab_group_form_default_name">Group %d</string>
+<string name="add_to_tab_group_title">Add to</string>
+<string name="add_to_tab_group_bottom_sheet_grabber_content_description">Add to a tab group, collapse drag handle</string>
+<string name="add_to_new_tab_group_content_description">Add to new tab group</string>
+<string name="add_to_new_tab_group_title">New tab group</string>
+<string name="tab_group_sheet_dismiss_description">View tab group, collapse drag handle</string>
+<string name="delete_tab_group_confirmation_dialog_title">Delete tab group?</string>
+<string name="delete_tab_group_confirmation_dialog_body">This deletes the group permanently.</string>
+<string name="delete_tab_group_confirmation_dialog_confirm">Delete group</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_title">Close tab and delete group?</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_body">This deletes the group permanently.</string>
+<string name="close_tab_and_delete_group_confirmation_dialog_confirm">Delete group</string>
+<string name="tab_group_three_dot_menu_ungroup">Ungroup</string>
+<string name="ungroup_tab_group_confirmation_dialog_title">Ungroup tab group?</string>
+<string name="ungroup_tab_group_confirmation_dialog_body">The tabs remain open.</string>
+<string name="ungroup_tab_group_confirmation_dialog_confirm">Ungroup</string>
+<string name="collections_migration_homepage_banner_title">Collections are now groups</string>
+<string name="collections_migration_homepage_card_message">Keep tabs organized</string>
+<string name="collections_migration_homepage_card_link">View my tab groups</string>
+<plurals name="tabs_header_tab_group_counter_title">
+<item quantity="one">%1$d tab group open.</item>
+<item quantity="other">%1$d tab groups open.</item>
+</plurals>
+<plurals name="add_to_exiting_tab_group_content_description">
+<item quantity="one">Add to %1$s tab group, %2$d tab, color %3$s</item>
+<item quantity="other">Add to %1$s tab group, %2$d tabs, color %3$s</item>
+</plurals>
+<plurals name="expanded_tab_group_header_description">
+<item quantity="one">%1$s tab group with %2$d tab, color %3$s</item>
+<item quantity="other">%1$s tab group with %2$d tabs, color %3$s</item>
+</plurals>
 '''
 
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
@@ -880,6 +967,7 @@ class OverlayTests(unittest.TestCase):
             '<string name="marketing">Tell a partner that you’re a Firefox user.</string>'
             '<string name="onboarding_term_of_service_line_one_link_text_2">Firefox Terms of Use</string>'
             '<string name="sync_connect_device_dialog">Sign in to Firefox on another device.</string>'
+            + WORKSPACE_STRINGS +
             '</resources>')
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
@@ -1038,6 +1126,9 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("permanently rendered with the Midnight theme", fragment)
         self.assertIn("showPocketRecommendationsFeature: Boolean", tablet_settings)
         self.assertIn("showContileFeature: Boolean", tablet_settings)
+        self.assertIn("Acute Workspaces is a first-class, local dashboard feature", tablet_settings)
+        self.assertIn("Keep the contextual Add to workspace command discoverable", tablet_settings)
+        self.assertEqual(tablet_settings.count("default = { true }"), 2)
         home_activity = (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").read_text()
         self.assertIn("handleAcuteDesktopShortcut", home_activity)
         self.assertIn("isLargeScreenSize()", home_activity)
@@ -1063,6 +1154,9 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("PocketSection(", homepage)
         self.assertNotIn("observePopularSites(topSites =", homepage)
         self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
+        self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", homepage)
+        self.assertIn("CollectionsMigrationPromoCard(", homepage)
+        self.assertNotIn("is CollectionsState.Content ->", homepage)
         main_menu = (
             app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
         ).read_text()
@@ -1103,6 +1197,10 @@ class OverlayTests(unittest.TestCase):
         reporting_strings = (app / "src/main/res/values/acute_reporting_strings.xml").read_text()
         self.assertIn("issues/new/choose", reporting_strings)
         self.assertIn("Welcome to Acute Web", strings)
+        self.assertIn('name="create_tab_group_title">Create workspace<', strings)
+        self.assertIn('name="collections_migration_homepage_banner_title">Workspaces<', strings)
+        self.assertIn("%1$d workspaces open. Tap to switch tabs.", strings)
+        self.assertIn("Dissolve workspace?", strings)
         self.assertIn("you’re an Acute Web user", strings)
         self.assertIn("developed by CORE using Mozilla’s open-source Gecko engine", strings)
         self.assertIn("Firefox Terms of Use", strings)
@@ -1146,6 +1244,7 @@ class OverlayTests(unittest.TestCase):
             '<string name="pair_instructions_2">Visit firefox.com/pair</string>'
             '<string name="sign_in_instructions">Visit firefox.com/pair</string>'
             '<string name="about_content">Firefox</string>'
+            + WORKSPACE_STRINGS +
             "</resources>"
         )
         apply(root, channel="beta")

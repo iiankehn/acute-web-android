@@ -85,6 +85,72 @@ MIDNIGHT_COLOR_OVERRIDES = {
 }
 
 
+# Acute Workspaces deliberately uses Firefox's maintained, local tab-group
+# store. Resource identifiers stay upstream-compatible while the user-facing
+# model is consistently named and described as a workspace.
+WORKSPACE_STRING_OVERRIDES = {
+    "browser_menu_add_to_tab_group": "Add to workspace",
+    "preferences_tab_groups_feature": "Enable Workspaces",
+    "create_tab_group_content_description": "Create workspace",
+    "tab_manager_multiselect_menu_item_add_to_tab_group": "Add to workspace",
+    "tab_group_onboarding_item_title": "Create a workspace",
+    "tab_group_onboarding_grid_item_description":
+        "Drag one tab onto another to create a workspace.",
+    "tab_group_onboarding_list_item_description":
+        "Select multiple tabs to create a workspace.",
+    "tab_group_onboarding_item_dismiss_content_description":
+        "Dismiss workspace introduction",
+    "tab_manager_empty_tab_groups_page_header": "Build your first workspace",
+    "tab_manager_empty_tab_groups_page_description":
+        "Select related tabs to keep them together and ready when you return.",
+    "create_tab_group_title": "Create workspace",
+    "edit_tab_group_title": "Edit workspace",
+    "edit_tab_group_bottom_sheet_grabber_content_description":
+        "New workspace, collapse drag handle",
+    "create_tab_group_form_default_name": "Workspace %d",
+    "add_to_tab_group_title": "Add to workspace",
+    "add_to_tab_group_bottom_sheet_grabber_content_description":
+        "Add to a workspace, collapse drag handle",
+    "add_to_new_tab_group_content_description": "Add to new workspace",
+    "add_to_new_tab_group_title": "New workspace",
+    "tab_group_sheet_dismiss_description": "View workspace, collapse drag handle",
+    "delete_tab_group_confirmation_dialog_title": "Delete workspace?",
+    "delete_tab_group_confirmation_dialog_body":
+        "This permanently deletes the workspace.",
+    "delete_tab_group_confirmation_dialog_confirm": "Delete workspace",
+    "close_tab_and_delete_group_confirmation_dialog_title":
+        "Close tab and delete workspace?",
+    "close_tab_and_delete_group_confirmation_dialog_body":
+        "This permanently deletes the workspace.",
+    "close_tab_and_delete_group_confirmation_dialog_confirm": "Delete workspace",
+    "tab_group_three_dot_menu_ungroup": "Dissolve",
+    "ungroup_tab_group_confirmation_dialog_title": "Dissolve workspace?",
+    "ungroup_tab_group_confirmation_dialog_body":
+        "The tabs will remain open on this device, but the workspace will be deleted.",
+    "ungroup_tab_group_confirmation_dialog_confirm": "Dissolve",
+    "collections_migration_homepage_banner_title": "Workspaces",
+    "collections_migration_homepage_card_message":
+        "Keep related tabs together and return to them later.",
+    "collections_migration_homepage_card_link": "Open workspaces",
+}
+
+
+WORKSPACE_PLURAL_OVERRIDES = {
+    "tabs_header_tab_group_counter_title": (
+        "%1$d workspace open. Tap to switch tabs.",
+        "%1$d workspaces open. Tap to switch tabs.",
+    ),
+    "add_to_exiting_tab_group_content_description": (
+        "Add to %1$s workspace, %2$d tab, color %3$s",
+        "Add to %1$s workspace, %2$d tabs, color %3$s",
+    ),
+    "expanded_tab_group_header_description": (
+        "%1$s workspace with %2$d tab, color %3$s",
+        "%1$s workspace with %2$d tabs, color %3$s",
+    ),
+}
+
+
 def patch_midnight_palette(path: Path) -> None:
     """Replace upstream night colors in place so Android sees one definition."""
     text = path.read_text(encoding="utf-8")
@@ -1446,6 +1512,101 @@ def patch_home_dashboard(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Path) -> None:
+    """Expose the maintained local tab-group model as Acute Workspaces."""
+    homepage = homepage_path.read_text(encoding="utf-8")
+    old_section = '''    when (collectionsState) {
+        is CollectionsState.Content -> {
+            CollectionsSectionContent {
+                Collections(
+                    collections = collectionsState.collections,
+                    expandedCollections = collectionsState.expandedCollections,
+                    showAddTabToCollection = collectionsState.showSaveTabsToCollection,
+                    interactor = interactor,
+                )
+            }
+        }
+
+        CollectionsState.MigrationCard -> {
+            CollectionsSectionContent {
+                CollectionsMigrationPromoCard(onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) })
+            }
+        }
+
+        CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
+    }
+'''
+    workspace_section = '''    // Acute Workspaces is backed by the maintained local tab-group store. The
+    // dashboard entry remains available even before the first workspace exists.
+    CollectionsSectionContent {
+        CollectionsMigrationPromoCard(
+            onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) },
+        )
+    }
+'''
+    homepage = replace_once(
+        homepage,
+        old_section,
+        workspace_section,
+        "workspace dashboard section",
+    )
+    homepage_path.write_text(homepage, encoding="utf-8")
+
+    strings = strings_path.read_text(encoding="utf-8")
+    for name, value in WORKSPACE_STRING_OVERRIDES.items():
+        pattern = re.compile(
+            rf'(<string\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</string>)',
+            flags=re.DOTALL,
+        )
+        strings, count = pattern.subn(
+            lambda match, replacement=value: (
+                f"{match.group(1)}{replacement}{match.group(2)}"
+            ),
+            strings,
+            count=1,
+        )
+        if count != 1:
+            raise OverlayError(f"Could not locate workspace string {name} in {strings_path}")
+
+    for name, (one, other) in WORKSPACE_PLURAL_OVERRIDES.items():
+        pattern = re.compile(
+            rf'(<plurals\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</plurals>)',
+            flags=re.DOTALL,
+        )
+        replacement = (
+            "\n      "
+            f'<item quantity="one">{one}</item>\n'
+            "      "
+            f'<item quantity="other">{other}</item>\n    '
+        )
+        strings, count = pattern.subn(
+            lambda match, body=replacement: f"{match.group(1)}{body}{match.group(2)}",
+            strings,
+            count=1,
+        )
+        if count != 1:
+            raise OverlayError(f"Could not locate workspace plurals {name} in {strings_path}")
+
+    strings_path.write_text(strings, encoding="utf-8")
+
+    settings = settings_path.read_text(encoding="utf-8")
+    settings = replace_once(
+        settings,
+        "            default = { DefaultTabManagementFeatureHelper.tabGroupsEnabled },\n",
+        "            // Acute Workspaces is a first-class, local dashboard feature.\n"
+        "            default = { true },\n",
+        "workspace default",
+    )
+    settings = replace_once(
+        settings,
+        "            default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },\n",
+        "            // Keep the contextual Add to workspace command discoverable.\n"
+        "            default = { true },\n",
+        "workspace menu default",
+    )
+    settings_path.write_text(settings, encoding="utf-8")
+
+
 def patch_about_page(path: Path) -> None:
     """Show Acute's package version and build number, retaining license links."""
     text = path.read_text(encoding="utf-8")
@@ -1732,6 +1893,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
     patch_home_dashboard(homepage)
+    patch_workspaces(homepage, values / "strings.xml", settings)
     patch_adaptive_menu(main_menu, menu_dialog)
     patch_about_page(about)
     patch_midnight_pages(core, channel)
