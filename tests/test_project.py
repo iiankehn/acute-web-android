@@ -246,6 +246,17 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("MotionEvent.BUTTON_BACK", overlay)
         self.assertIn("MotionEvent.BUTTON_FORWARD", overlay)
 
+    def test_home_dashboard_is_local_and_feed_free(self):
+        overlay = (ROOT / "scripts/apply_overlay.py").read_text()
+        self.assertIn("patch_home_dashboard", overlay)
+        self.assertIn("Acute owns the homepage hierarchy", overlay)
+        self.assertIn("emptyList<PopularSite>()", overlay)
+        self.assertIn("reducedTopSpacing = false", overlay)
+        self.assertNotIn(
+            "val popularSites = observePopularSites(topSites = topSiteState?.topSites)",
+            overlay,
+        )
+
     def test_no_play_store_dependency(self):
         readme = (ROOT / "README.md").read_text().lower()
         self.assertRegex(readme, r"sideloadable\s+apk")

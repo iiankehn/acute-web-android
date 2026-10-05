@@ -24,6 +24,25 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def replace_span_once(
+    text: str,
+    start: str,
+    end: str,
+    replacement: str,
+    label: str,
+) -> str:
+    """Replace one fail-closed span while retaining its end anchor."""
+    start_count = text.count(start)
+    end_count = text.count(end)
+    if start_count != 1 or end_count != 1:
+        raise OverlayError(
+            f"Expected one {label} span; found start={start_count}, end={end_count}"
+        )
+    prefix, remainder = text.split(start, 1)
+    _, suffix = remainder.split(end, 1)
+    return prefix + replacement + end + suffix
+
+
 UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
     "account",
     "fxa_",
@@ -1233,6 +1252,87 @@ def patch_home_content_policy(settings: Path) -> None:
     settings.write_text(text, encoding="utf-8")
 
 
+def patch_home_dashboard(path: Path) -> None:
+    """Turn the inherited Firefox feed into Acute's local-first dashboard."""
+    text = path.read_text(encoding="utf-8")
+
+    header_start = '''            if (state is HomepageState.Normal) {
+'''
+    content_start = '''            if (state.firstFrameDrawn) {
+'''
+    acute_header = '''            // Acute owns the homepage hierarchy. Experimental news controls,
+            // promotional banners and remote messaging are never rendered.
+            HomepageHeader(
+                browsingMode = state.browsingMode,
+                browsingModeChanged = browsingModeChanged,
+            )
+
+'''
+    text = replace_span_once(
+        text,
+        header_start,
+        content_start,
+        acute_header,
+        "Acute homepage header",
+    )
+
+    animated_feed_start = '''                            LaunchedEffect(showLongfoxAnimation) {
+'''
+    shortcuts_start = '''                            if (topSiteState != null) {
+'''
+    text = replace_span_once(
+        text,
+        animated_feed_start,
+        shortcuts_start,
+        '''                            // Acute's dashboard begins with user-owned shortcuts.
+''',
+        "inherited homepage animation and feed entry point",
+    )
+
+    inherited_cards_start = '''                            if (showPrivacyReport) {
+'''
+    bookmarks_start = '''                            if (bookmarks != null) {
+'''
+    local_activity = '''                            // Resume is local-only. Synced-tab, setup,
+                            // promotional and telemetry-backed cards are intentionally omitted.
+                            if (recentTabs != null) {
+                                RecentTabsSection(
+                                    interactor = interactor,
+                                    recentTabs = recentTabs,
+                                    reducedTopSpacing = false,
+                                )
+                            }
+
+'''
+    text = replace_span_once(
+        text,
+        inherited_cards_start,
+        bookmarks_start,
+        local_activity,
+        "inherited homepage cards",
+    )
+
+    remote_feed_start = '''                            if (pocketState != null) {
+'''
+    dialogs_start = '''                            when (shortcutsDialogState) {
+'''
+    local_shortcuts = '''                            Spacer(Modifier.height(bottomPadding.dp))
+
+                            // Adding a shortcut never fetches a remote popular-sites list.
+                            val popularSites = emptyList<PopularSite>()
+
+'''
+    text = replace_span_once(
+        text,
+        remote_feed_start,
+        dialogs_start,
+        local_shortcuts,
+        "remote homepage feed",
+    )
+
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_about_page(path: Path) -> None:
     """Show Acute's package version and build number, retaining license links."""
     text = path.read_text(encoding="utf-8")
@@ -1455,6 +1555,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     beta_manifest = fenix / "app/src/beta/AndroidManifest.xml"
     settings = fenix / "app/src/main/java/org/mozilla/fenix/utils/Settings.kt"
     home_activity = fenix / "app/src/main/java/org/mozilla/fenix/HomeActivity.kt"
+    homepage = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Homepage.kt"
     browser_toolbar = (
         fenix
         / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
@@ -1485,7 +1586,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, homepage, browser_toolbar,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1515,6 +1616,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
+    patch_home_dashboard(homepage)
     patch_about_page(about)
     patch_midnight_pages(core, channel)
     patch_shared_uid_manifest(release_manifest)

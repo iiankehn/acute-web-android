@@ -435,6 +435,104 @@ class HomeActivity {
 }
 '''
 
+HOMEPAGE = '''fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
+            if (state is HomepageState.Normal) {
+                BannerCardSection(
+                    shouldShowPrivacyNoticeBanner = state.shouldShowPrivacyNoticeBanner,
+                    nimbusMessage = state.nimbusMessage,
+                    privacyNoticeBannerInteractor = interactor,
+                    messageCardInteractor = interactor,
+                )
+            }
+
+            when (val headerState = state.headerState) {
+                is HeaderState.Experimental.Normal -> {
+                    ExperimentalHomepageHeader(
+                        showStoriesButton = headerState.showStoriesButton,
+                    )
+                }
+                is HeaderState.Experimental.Private -> {
+                    ExperimentalPrivateHomepageHeader()
+                }
+                is HeaderState.Normal -> {
+                    HomepageHeader(
+                        browsingMode = state.browsingMode,
+                        browsingModeChanged = browsingModeChanged,
+                    )
+                }
+            }
+
+            if (state.firstFrameDrawn) {
+                with(state) {
+                    when (this) {
+                        is HomepageState.Private -> {
+                            PrivateBrowsingDescription()
+                        }
+                        is HomepageState.Normal -> {
+                            val context = LocalContext.current
+
+                            LaunchedEffect(showLongfoxAnimation) {
+                                showAnimation()
+                            }
+
+                            val longfoxEntryPointShown = longfoxEnabled && showPrivacyReport
+
+                            if (topSiteState != null) {
+                                TopSitesSection(state = topSiteState)
+                            }
+
+                            if (showPrivacyReport) {
+                                TrackersBlockedCard(
+                                    trackersBlockedCount = trackersBlockedCount,
+                                )
+                            }
+
+                            MaybeAddSetupChecklist(setupChecklistState, interactor)
+
+                            if (recentTabs != null) {
+                                RecentTabsSection(
+                                    interactor = interactor,
+                                    recentTabs = recentTabs,
+                                    reducedTopSpacing = showPrivacyReport && showLongfoxAnimation,
+                                )
+
+                                when (val syncedTabState = recentSyncedTabSectionState) {
+                                    RecentSyncedTabSectionState.Gone -> Unit
+                                }
+                            }
+
+                            if (bookmarks != null) {
+                                BookmarksSection(bookmarks = bookmarks)
+                            }
+
+                            if (recentlyVisited != null) {
+                                RecentlyVisitedSection(recentVisits = recentlyVisited)
+                            }
+
+                            CollectionsSection(collectionsState = collectionsState)
+
+                            if (pocketState != null) {
+                                Spacer(Modifier.weight(1f))
+                                PocketSection(
+                                    state = pocketState,
+                                    interactor = interactor,
+                                )
+                            }
+
+                            Spacer(Modifier.height(bottomPadding.dp))
+
+                            val popularSites = observePopularSites(topSites = topSiteState?.topSites)
+
+                            when (shortcutsDialogState) {
+                                DialogState.Closed -> Unit
+                            }
+                        }
+                    }
+                }
+            }
+}
+'''
+
 CUSTOMIZATION = '''<androidx.preference.PreferenceScreen>
     <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
@@ -644,6 +742,7 @@ class OverlayTests(unittest.TestCase):
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
+        (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
@@ -871,6 +970,15 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("dispatchGenericMotionEvent", home_activity)
         self.assertIn("MotionEvent.BUTTON_BACK", home_activity)
         self.assertIn("MotionEvent.BUTTON_FORWARD", home_activity)
+        homepage = (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").read_text()
+        self.assertIn("Acute owns the homepage hierarchy", homepage)
+        self.assertIn("Acute's dashboard begins with user-owned shortcuts", homepage)
+        self.assertIn("reducedTopSpacing = false", homepage)
+        self.assertIn("emptyList<PopularSite>()", homepage)
+        self.assertNotIn("ExperimentalHomepageHeader(", homepage)
+        self.assertNotIn("PocketSection(", homepage)
+        self.assertNotIn("observePopularSites(topSites =", homepage)
+        self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
         self.assertNotIn("showPocketRecommendationsFeature by", tablet_settings)
         self.assertNotIn("showContileFeature by", tablet_settings)
         styles = (app / "src/main/res/values/styles.xml").read_text()
