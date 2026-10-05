@@ -36,17 +36,17 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
 
 
 MIDNIGHT_COLOR_OVERRIDES = {
-    "fx_mobile_primary": "@color/acute_glass_blue_soft",
+    "fx_mobile_primary": "@color/acute_glass_light",
     "fx_mobile_on_primary": "@color/acute_glass_canvas",
-    "fx_mobile_primary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_primary_container": "@color/acute_glass_surface_selected",
     "fx_mobile_on_primary_container": "@color/acute_glass_text",
     "fx_mobile_secondary": "@color/acute_glass_text_muted",
     "fx_mobile_on_secondary": "@color/acute_glass_canvas",
     "fx_mobile_secondary_container": "@color/acute_glass_surface_high",
     "fx_mobile_on_secondary_container": "@color/acute_glass_text",
-    "fx_mobile_tertiary": "@color/acute_glass_blue_soft",
+    "fx_mobile_tertiary": "@color/acute_glass_light",
     "fx_mobile_on_tertiary": "@color/acute_glass_canvas",
-    "fx_mobile_tertiary_container": "@color/acute_glass_blue_container",
+    "fx_mobile_tertiary_container": "@color/acute_glass_surface_selected",
     "fx_mobile_on_tertiary_container": "@color/acute_glass_text",
     "fx_mobile_background": "@color/acute_glass_canvas",
     "fx_mobile_on_background": "@color/acute_glass_text",
@@ -112,22 +112,22 @@ def patch_core_glass_toolbar(path: Path) -> None:
     theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
     glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
                         // CORE Glass uses a translucent charcoal stack over a subtle
-                        // signature-blue glow. The child surfaces retain their own alpha,
+                        // ambient-light reflection. The child surfaces retain their own alpha,
                         // so the address field and selected tabs read as separate layers.
                         val acuteLargeScreen =
                             LocalConfiguration.current.smallestScreenWidthDp >= 600
                         val acuteGlassColors =
                             if (acuteLargeScreen) {
                                 listOf(
-                                    Color(0xD0193144),
-                                    Color(0xC0102434),
-                                    Color(0xB8071926),
+                                    Color(0xE025282D),
+                                    Color(0xD01B1D21),
+                                    Color(0xC0121417),
                                 )
                             } else {
                                 listOf(
-                                    Color(0xA6121820),
-                                    Color(0x990B1117),
-                                    Color(0x8C07121A),
+                                    Color(0xB316181C),
+                                    Color(0xA60F1114),
+                                    Color(0x99090B0D),
                                 )
                             }
                         val acuteCoreGlassModifier =
@@ -142,7 +142,7 @@ def patch_core_glass_toolbar(path: Path) -> None:
                                 .drawWithContent {
                                     drawContent()
                                     drawLine(
-                                        color = Color(0x667AC6EA),
+                                        color = Color(0x66F1F2F4),
                                         start = Offset(0f, size.height - 1f),
                                         end = Offset(size.width, size.height - 1f),
                                         strokeWidth = 1f,
@@ -297,9 +297,9 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                     Brush.horizontalGradient(
                                         colors =
                                             listOf(
-                                                Color(0xC2383D46),
-                                                Color(0xA8263A4A),
-                                                Color(0xB82A3038),
+                                                Color(0xD034373C),
+                                                Color(0xBC24272B),
+                                                Color(0xC02B2E33),
                                             )
                                     ),
                                 shape = CircleShape,
@@ -308,7 +308,7 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                 width = 1.dp,
                                 brush =
                                     Brush.horizontalGradient(
-                                        colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                        colors = listOf(Color(0x99F1F2F4), Color(0x33F1F2F4))
                                     ),
                                 shape = CircleShape,
                             )
@@ -338,9 +338,9 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                                 Brush.horizontalGradient(
                                     colors =
                                         listOf(
-                                            Color(0xC2383D46),
-                                            Color(0xA8263A4A),
-                                            Color(0xB82A3038),
+                                            Color(0xD034373C),
+                                            Color(0xBC24272B),
+                                            Color(0xC02B2E33),
                                         )
                                 )
                         )
@@ -348,7 +348,7 @@ def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
                             width = 1.dp,
                             brush =
                                 Brush.horizontalGradient(
-                                    colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
+                                    colors = listOf(Color(0x99F1F2F4), Color(0x33F1F2F4))
                                 ),
                             shape = CircleShape,
                         ),

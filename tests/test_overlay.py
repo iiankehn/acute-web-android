@@ -716,8 +716,8 @@ class OverlayTests(unittest.TestCase):
         ):
             text = source.read_text()
             self.assertIn("Brush.horizontalGradient", text)
-            self.assertIn("Color(0xC2383D46)", text)
-            self.assertIn("Color(0x997AC6EA)", text)
+            self.assertIn("Color(0xD034373C)", text)
+            self.assertIn("Color(0x99F1F2F4)", text)
             self.assertIn("import androidx.compose.foundation.border", text)
 
     def test_composites_toolbar_over_live_gecko_content(self):
@@ -831,7 +831,7 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("shouldFollowDeviceTheme: Boolean", tablet_settings)
         night_colors = (app / "src/main/res/values-night/colors.xml").read_text()
         self.assertIn(
-            '<color name="fx_mobile_primary">@color/acute_glass_blue_soft</color>',
+            '<color name="fx_mobile_primary">@color/acute_glass_light</color>',
             night_colors,
         )
         self.assertIn(
@@ -844,8 +844,8 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("acuteCoreGlassModifier", toolbar)
         self.assertIn("Brush.verticalGradient", toolbar)
         self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", toolbar)
-        self.assertIn("Color(0xD0193144)", toolbar)
-        self.assertIn("Color(0x667AC6EA)", toolbar)
+        self.assertIn("Color(0xE025282D)", toolbar)
+        self.assertIn("Color(0x66F1F2F4)", toolbar)
         self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)

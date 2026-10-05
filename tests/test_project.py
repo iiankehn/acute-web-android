@@ -166,18 +166,19 @@ class ProjectTests(unittest.TestCase):
             "acute_glass_surface",
             "acute_glass_surface_selected",
             "acute_glass_outline",
-            "acute_glass_blue",
+            "acute_glass_light",
         ):
             self.assertIn(f'name="{color}"', tokens)
-        self.assertIn("#FF0072BC", tokens)
-        self.assertIn("#B81B1E23", tokens)
-        self.assertIn("#739FCBE8", tokens)
+        self.assertIn("#FFF1F2F4", tokens)
+        self.assertIn("#C0191B1F", tokens)
+        self.assertIn("#668E9299", tokens)
+        self.assertNotIn("acute_glass_blue", tokens)
         self.assertIn('"fx_mobile_surface": "@color/acute_glass_surface"', theme)
         self.assertIn(
             '"fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected"',
             theme,
         )
-        self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
+        self.assertIn('"fx_mobile_primary": "@color/acute_glass_light"', theme)
         self.assertIn("patch_core_glass_toolbar", theme)
         self.assertIn("patch_core_glass_address_bar", theme)
         self.assertIn("patch_core_glass_compositor", theme)
@@ -187,8 +188,8 @@ class ProjectTests(unittest.TestCase):
             theme,
         )
         self.assertIn("Brush.verticalGradient", theme)
-        self.assertIn("Color(0xC2383D46)", theme)
-        self.assertIn("Color(0x997AC6EA)", theme)
+        self.assertIn("Color(0xD034373C)", theme)
+        self.assertIn("Color(0x99F1F2F4)", theme)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)
         self.assertIn("engineViewParent.translationY = 0f", theme)
         self.assertIn("toolbar.collapse()", theme)

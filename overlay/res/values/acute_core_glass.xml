@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        Acute CORE Glass design tokens.
+        Acute 2.0 CORE Glass design tokens.
 
-        Keep product colors centralized here so browser surfaces can move as
-        one system. The opaque canvas protects readability; the translucent
-        layers are intended for controls that sit above that canvas.
+        Smoked slate surfaces create structure without a colored cast. Soft
+        neutral light, opacity and elevation distinguish interactive layers.
+        Product branding may retain its own artwork, but application chrome
+        must not use blue as a structural or selected-state color.
     -->
-    <color name="acute_glass_canvas">#FF090B0E</color>
-    <color name="acute_glass_surface">#B81B1E23</color>
-    <color name="acute_glass_surface_low">#9912151A</color>
-    <color name="acute_glass_surface_high">#C0272B31</color>
-    <color name="acute_glass_surface_selected">#D6294052</color>
-    <color name="acute_glass_outline">#739FCBE8</color>
-    <color name="acute_glass_text">#FFF4F8FB</color>
-    <color name="acute_glass_text_muted">#FFB8C3CC</color>
-    <color name="acute_glass_blue">#FF0072BC</color>
-    <color name="acute_glass_blue_soft">#FF8ACEEF</color>
-    <color name="acute_glass_blue_container">#C4173B52</color>
+    <color name="acute_glass_canvas">#FF08090B</color>
+    <color name="acute_glass_surface">#C0191B1F</color>
+    <color name="acute_glass_surface_low">#A6111316</color>
+    <color name="acute_glass_surface_high">#D025282D</color>
+    <color name="acute_glass_surface_selected">#E033363C</color>
+    <color name="acute_glass_outline">#668E9299</color>
+    <color name="acute_glass_text">#FFF4F5F6</color>
+    <color name="acute_glass_text_muted">#FFB9BDC3</color>
+    <color name="acute_glass_light">#FFF1F2F4</color>
+    <color name="acute_glass_light_soft">#BFDDE0E5</color>
 </resources>
