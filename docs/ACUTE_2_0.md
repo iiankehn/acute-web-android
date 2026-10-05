@@ -28,6 +28,13 @@ as an application-chrome structural, selected-state or navigation color.
 Glass opacity must adapt to readability. Reduced-transparency and reduced-motion
 paths are required before release.
 
+The first beta includes a persisted **Reduce toolbar transparency** switch in
+Customization. It replaces the toolbar's translucent gradient with fully opaque
+charcoal layers while keeping the address-field outline and neutral depth cues.
+Restart Acute after changing this option. Acute adds no animated glass effects;
+upstream Android motion behavior and the per-site reduced-motion control remain
+in place. Physical contrast and motion acceptance are not yet certified.
+
 ## Home dashboard
 
 The Firefox news/recommendation surface is replaced by an Acute-owned, local
@@ -146,6 +153,11 @@ Notes remain in extension-local storage, are limited to 5,000 characters each,
 and are capped at 500 entries. Private tabs and internal browser pages cannot
 create notes, and all rendered titles and excerpts use text-only DOM APIs.
 
+Both local feature panels block mutations until their initial storage read has
+finished, serialize repeated taps, and preserve the last saved in-memory state
+if a write fails. Notes keep the editor's unsaved draft on a failed save. Load
+errors leave mutation controls disabled instead of overwriting existing data.
+
 ### Link context actions
 
 Long-pressing a web link keeps Firefox's maintained context menu instead of
@@ -181,3 +193,11 @@ privacy/telemetry policy, signing continuity and phone behavior. The final
 candidate must pass phone, tablet and laptop-class layout testing, upgrade
 testing, process-death restoration, reduced-transparency accessibility checks,
 and memory testing with suspended workspaces.
+
+## First beta checkpoint
+
+`2.0.0-beta.1` is the first integrated test candidate, not a Stable release.
+The implementation and outstanding product targets are separated in
+[`BETA_2_0_HANDOFF.md`](BETA_2_0_HANDOFF.md). An overlay match and passing local
+tests do not establish APK compilation, native ABI correctness, or physical
+device acceptance. Those remain build and test gates.

@@ -39,6 +39,8 @@ jobs:
           python-version: "3.12"
       - name: Run complete Acute audit suite
         run: make audit
+      - name: Verify pinned upstream source compatibility before native builds
+        run: make upstream-check
 
   metadata:
     name: Select immutable build inputs
@@ -97,13 +99,13 @@ jobs:
               # Keep branch builds parseable by the GitHub updater. The
               # monotonically increasing ACUTE_BUILD_NUMBER still permits
               # install-over updates between Beta artifacts.
-              echo "version=1.1.0-beta.1" >> "$GITHUB_OUTPUT"
+              echo "version=2.0.0-beta.1" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
               echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
               echo "kind=debug" >> "$GITHUB_OUTPUT"
-              echo "version=1.1.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "version=2.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi

@@ -173,6 +173,17 @@ def patch_midnight_palette(path: Path) -> None:
 def patch_core_glass_toolbar(path: Path) -> None:
     """Give the browser toolbar a visibly layered CORE Glass treatment."""
     text = path.read_text(encoding="utf-8")
+    for acute_import in (
+        "import androidx.compose.ui.platform.LocalContext\n",
+        "import org.mozilla.fenix.ext.settings\n",
+    ):
+        if acute_import not in text:
+            text = replace_once(
+                text,
+                "import androidx.compose.ui.Modifier\n",
+                "import androidx.compose.ui.Modifier\n" + acute_import,
+                "opaque glass preference import " + acute_import.strip(),
+            )
     text = replace_once(
         text,
         "import androidx.compose.foundation.background\n",
@@ -203,7 +214,13 @@ def patch_core_glass_toolbar(path: Path) -> None:
                         val acuteLargeScreen =
                             LocalConfiguration.current.smallestScreenWidthDp >= 600
                         val acuteGlassColors =
-                            if (acuteLargeScreen) {
+                            if (LocalContext.current.settings().acuteReduceTransparency) {
+                                listOf(
+                                    Color(0xFF25282D),
+                                    Color(0xFF1B1D21),
+                                    Color(0xFF121417),
+                                )
+                            } else if (acuteLargeScreen) {
                                 listOf(
                                     Color(0xE025282D),
                                     Color(0xD01B1D21),
@@ -687,7 +704,14 @@ def patch_dark_theme_default(path: Path) -> None:
             default = false,
         )
 '''
-    light_locked = '''    // Acute has one application theme: Midnight.
+    light_locked = '''    // Persisted by Android's standard preference UI; no new settings backend.
+    var acuteReduceTransparency by
+        booleanPreference(
+            "acute_reduce_transparency",
+            default = false,
+        )
+
+    // Acute has one application theme: Midnight.
     var shouldUseLightTheme: Boolean
         get() = false
         set(value) = Unit
@@ -1241,7 +1265,17 @@ def patch_branding_ui(fenix: Path) -> None:
     </androidx.preference.PreferenceCategory>
 
 '''
-    pref_text = replace_once(pref_text, theme_category, "", "application theme settings")
+    opaque_preference = '''    <androidx.preference.SwitchPreferenceCompat
+        android:key="acute_reduce_transparency"
+        android:title="@string/acute_reduce_transparency_title"
+        android:summary="@string/acute_reduce_transparency_summary"
+        android:defaultValue="false"
+        app:iconSpaceReserved="false" />
+
+'''
+    pref_text = replace_once(
+        pref_text, theme_category, opaque_preference, "application theme settings"
+    )
     icon_picker = '''    <androidx.preference.PreferenceCategory
         android:layout="@layout/preference_cat_style"
         android:title="@string/preferences_app_icon"

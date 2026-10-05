@@ -20,7 +20,11 @@ start:
 - immutable 40-character GitHub Action references;
 - agreement between project metadata, the workflow, and the pinned Firefox
   source commit;
-- explicit ARM64 and x86_64 native build targets and package verification.
+- explicit ARM64 and x86_64 native build targets and package verification;
+- behavioral tests for the shipped local feature panels, including failed writes,
+  private/internal-page exclusions, and duplicate-tap protection;
+- complete Stable and Beta overlay compatibility against the pinned upstream
+  source files before expensive native builds.
 
 The APK pipeline then verifies the expected Gecko libraries for each ABI,
 minimized permissions, release signature, signer continuity with earlier

@@ -1172,6 +1172,24 @@ class OverlayTests(unittest.TestCase):
             self.assertIn("Color(0x99F1F2F4)", text)
             self.assertIn("import androidx.compose.foundation.border", text)
 
+    def test_opaque_toolbar_preference_is_persisted_and_rendered(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
+        preferences = (app / "src/main/res/xml/customization_preferences.xml").read_text()
+        toolbar = (
+            app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
+        ).read_text()
+        self.assertIn('"acute_reduce_transparency"', settings)
+        self.assertIn('android:key="acute_reduce_transparency"', preferences)
+        self.assertIn("LocalContext.current.settings().acuteReduceTransparency", toolbar)
+        self.assertIn("Color(0xFF25282D)", toolbar)
+        self.assertIn("Color(0xFF1B1D21)", toolbar)
+        self.assertIn("Color(0xFF121417)", toolbar)
+        self.assertEqual(toolbar.count("import androidx.compose.ui.platform.LocalContext"), 1)
+
     def test_composites_toolbar_over_live_gecko_content(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)

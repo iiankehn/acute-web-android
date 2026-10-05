@@ -10,6 +10,34 @@
   const status = document.getElementById("status");
   const list = document.getElementById("notes");
   const emptyState = document.getElementById("empty-state");
+  let ready = false;
+  let busy = false;
+
+  const updateControls = () => {
+    document.querySelectorAll("button").forEach((button) => {
+      button.disabled = !ready || busy;
+    });
+    document.querySelector('#note-form button[type="submit"]').disabled =
+      !ready || busy || !state.currentPage;
+    editor.disabled = !ready || busy || !state.currentPage;
+  };
+
+  const runAction = async (action) => {
+    if (!ready || busy) return;
+    busy = true;
+    const previous = JSON.parse(JSON.stringify(state.notes));
+    updateControls();
+    try {
+      await action();
+    } catch (_) {
+      state.notes = previous;
+      renderRecent();
+      setStatus("Could not complete this action. Saved notes were kept; please try again.");
+    } finally {
+      busy = false;
+      updateControls();
+    }
+  };
 
   const canonicalPage = (tab) => {
     if (!tab || tab.incognito) return null;
@@ -50,20 +78,22 @@
       const openButton = document.createElement("button");
       openButton.type = "button";
       openButton.textContent = "Open";
-      openButton.addEventListener("click", () => browser.tabs.create({ url: saved.url }));
+      openButton.addEventListener("click", () => runAction(async () => {
+        await browser.tabs.create({ url: saved.url });
+      }));
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "delete";
       deleteButton.textContent = "Delete";
       deleteButton.setAttribute("aria-label", `Delete note for ${saved.title}`);
-      deleteButton.addEventListener("click", async () => {
+      deleteButton.addEventListener("click", () => runAction(async () => {
         delete state.notes[saved.key];
-        if (state.currentPage && state.currentPage.key === saved.key) editor.value = "";
         await persist();
+        if (state.currentPage && state.currentPage.key === saved.key) editor.value = "";
         updateCount();
         renderRecent();
         setStatus("Note deleted.");
-      });
+      }));
       actions.append(openButton, deleteButton);
       item.append(description, actions);
       list.append(item);
@@ -75,27 +105,29 @@
   };
   editor.addEventListener("input", updateCount);
 
-  document.getElementById("note-form").addEventListener("submit", async (event) => {
+  document.getElementById("note-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!state.currentPage) return;
-    const text = editor.value.trim().slice(0, MAX_NOTE_LENGTH);
-    if (text) {
-      state.notes[state.currentPage.key] = {
-        ...state.currentPage,
-        text,
-        updatedAt: Date.now(),
-      };
-      const recent = Object.values(state.notes).sort((a, b) => b.updatedAt - a.updatedAt);
-      state.notes = Object.fromEntries(recent.slice(0, MAX_NOTES).map((note) => [note.key, note]));
-      setStatus("Note saved locally.");
-    } else {
-      delete state.notes[state.currentPage.key];
-      setStatus("Empty note removed.");
-    }
-    await persist();
-    renderRecent();
+    return runAction(async () => {
+      if (!state.currentPage) return;
+      const text = editor.value.trim().slice(0, MAX_NOTE_LENGTH);
+      if (text) {
+        state.notes[state.currentPage.key] = {
+          ...state.currentPage,
+          text,
+          updatedAt: Date.now(),
+        };
+        const recent = Object.values(state.notes).sort((a, b) => b.updatedAt - a.updatedAt);
+        state.notes = Object.fromEntries(recent.slice(0, MAX_NOTES).map((note) => [note.key, note]));
+      } else {
+        delete state.notes[state.currentPage.key];
+      }
+      await persist();
+      setStatus(text ? "Note saved locally." : "Empty note removed.");
+      renderRecent();
+    });
   });
 
+  updateControls();
   Promise.all([
     browser.tabs.query({ active: true, currentWindow: true }),
     browser.storage.local.get("pageNotes"),
@@ -130,5 +162,9 @@
     }
     updateCount();
     renderRecent();
+    ready = true;
+    updateControls();
+  }).catch(() => {
+    setStatus("Could not load page notes. Close this panel and try again; nothing was changed.");
   });
 })();
