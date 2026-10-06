@@ -175,7 +175,7 @@ def patch_core_glass_toolbar(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     for acute_import in (
         "import androidx.compose.ui.platform.LocalContext\n",
-        "import org.mozilla.fenix.ext.settings\n",
+        "import org.mozilla.fenix.ext.components\n",
     ):
         if acute_import not in text:
             text = replace_once(
@@ -214,7 +214,7 @@ def patch_core_glass_toolbar(path: Path) -> None:
                         val acuteLargeScreen =
                             LocalConfiguration.current.smallestScreenWidthDp >= 600
                         val acuteGlassColors =
-                            if (LocalContext.current.settings().acuteReduceTransparency) {
+                            if (LocalContext.current.components.settings.acuteReduceTransparency) {
                                 listOf(
                                     Color(0xFF25282D),
                                     Color(0xFF1B1D21),
@@ -1688,6 +1688,14 @@ def patch_large_screen_dashboard(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     text = replace_once(
         text,
+        "    BoxWithConstraints(modifier = modifier.fillMaxSize()) {\n",
+        "    BoxWithConstraints(modifier = modifier.fillMaxSize()) {\n"
+        "        // Capture constraints before Column's layout scope hides the receiver.\n"
+        "        val acuteExpandedDashboard = maxWidth >= 840.dp\n",
+        "dashboard constraint capture",
+    )
+    text = replace_once(
+        text,
         "import androidx.compose.foundation.layout.Column\n",
         "import androidx.compose.foundation.layout.Column\n"
         "import androidx.compose.foundation.layout.Row\n",
@@ -1722,7 +1730,6 @@ def patch_large_screen_dashboard(path: Path) -> None:
 '''
     adaptive_sections = '''                            // Expanded Android windows use their width for a real
                             // dashboard. Compact tablets and split windows retain phone flow.
-                            val acuteExpandedDashboard = maxWidth >= 840.dp
                             if (acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)) {
                                 Row(modifier = Modifier.fillMaxWidth()) {
                                     Column(modifier = Modifier.weight(1f)) {

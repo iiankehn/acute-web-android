@@ -669,10 +669,15 @@ class TabManagementFragment {
 }
 '''
 
-HOMEPAGE = '''import androidx.compose.foundation.layout.Column
+HOMEPAGE = '''import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 
 fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+        ) {
             if (state is HomepageState.Normal) {
                 BannerCardSection(
                     shouldShowPrivacyNoticeBanner = state.shouldShowPrivacyNoticeBanner,
@@ -777,6 +782,8 @@ fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
                     }
                 }
             }
+        }
+    }
 }
 
 @Composable
@@ -1184,7 +1191,9 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn('"acute_reduce_transparency"', settings)
         self.assertIn('android:key="acute_reduce_transparency"', preferences)
-        self.assertIn("LocalContext.current.settings().acuteReduceTransparency", toolbar)
+        self.assertIn("LocalContext.current.components.settings.acuteReduceTransparency", toolbar)
+        self.assertIn("import org.mozilla.fenix.ext.components\n", toolbar)
+        self.assertNotIn("import org.mozilla.fenix.ext.settings", toolbar)
         self.assertIn("Color(0xFF25282D)", toolbar)
         self.assertIn("Color(0xFF1B1D21)", toolbar)
         self.assertIn("Color(0xFF121417)", toolbar)
@@ -1405,6 +1414,14 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("observePopularSites(topSites =", homepage)
         self.assertNotIn("trackersBlockedCount = trackersBlockedCount", homepage)
         self.assertIn("val acuteExpandedDashboard = maxWidth >= 840.dp", homepage)
+        self.assertIn(
+            "    BoxWithConstraints(modifier = modifier.fillMaxSize()) {\n"
+            "        // Capture constraints before Column's layout scope hides the receiver.\n"
+            "        val acuteExpandedDashboard = maxWidth >= 840.dp\n"
+            "        Column(",
+            homepage,
+        )
+        self.assertEqual(homepage.count("maxWidth >= 840.dp"), 1)
         self.assertIn(
             "acuteExpandedDashboard && (bookmarks != null || recentlyVisited != null)",
             homepage,
