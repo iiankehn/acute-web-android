@@ -7,115 +7,75 @@
   <meta name="description" content="Acute Web by CORE — an independent Gecko-powered browser for Android phones and tablets.">
   <title>Acute Web by CORE</title>
   <link rel="icon" href="acute-mark.png">
-  <link rel="stylesheet" href="styles.css?v=metro-20261007">
+  <link rel="stylesheet" href="styles.css?v=landing-exact-20261007">
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="#top" aria-label="Acute Web home">
-      <img src="acute-mark.png" alt="" width="52" height="48">
-      <span><strong>Acute</strong><small>WEB BY CORE</small></span>
-    </a>
-    <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
-    <nav id="site-nav" aria-label="Primary navigation">
-      <a href="#features">Features</a>
-      <a href="#channels">Channels</a>
-      <a href="#screens">Devices</a>
-      <a href="https://github.com/iiankehn/acute-web-android/tree/main">Source</a>
-      <a class="nav-download" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Download</a>
-    </nav>
-  </header>
-
-  <main id="top">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">ACUTE WEB <span data-release-version="stable-short">1.1</span> · ANDROID</p>
-        <h1>The web,<br><span>in focus.</span></h1>
-        <p class="lede">A fast, independent browser powered by Mozilla’s open-source Gecko engine—refined by CORE for Android phones and tablets.</p>
-        <div class="actions">
-          <a class="button primary" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Download APK <span>↓</span></a>
-          <a class="button secondary" data-release-link="beta" href="https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue">Try Acute Beta</a>
+  <a class="skip" href="#main">Skip to content</a><header class="site-header"><div class="shell header-inner"><a class="brand" href="index.html">Acute<span>.</span></a><nav aria-label="Primary"><a href="#top" aria-current="page">Home</a><a href="#features">App</a><a href="#channels">Download</a></nav></div></header><main id="main" class="shell">
+    <section class="home-intro" id="top"><div class="intro-top"><img class="avatar app-avatar" src="acute-mark.png" alt="Acute Web icon" width="120" height="120"><h1>Acute Web<span>.</span></h1></div><p class="home-statement">The web, in focus.</p><p class="work-line">A fast, independent browser powered by Mozilla’s open-source Gecko engine—refined by CORE for Android phones and tablets.</p>
+        <div class="home-actions">
+          <a class="button" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Download APK <span>↓</span></a>
+          <a class="text-link" data-release-link="beta" href="https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue">Try Acute Beta</a>
         </div>
-        <p class="meta">Android 8.0+ · ARM64 · 144 MB · Signed sideload</p>
-      </div>
-      <div class="hero-art" aria-label="Acute Web clear-glass cat-fox mark">
-        <div class="glow"></div>
-        <img src="acute-mark.png" alt="Acute Web clear-glass cat-fox mark">
-        <span class="version" data-release-version="stable-short">1.1</span>
-      </div>
-    </section>
-
-    <section class="section channels" id="channels">
-      <p class="eyebrow">PUBLIC RELEASE CHANNELS</p>
+        </section><section class="content-section" id="channels">
+      <header class="section-heading"><p class="overline">PUBLIC RELEASE CHANNELS</p>
       <h2>Stable by default.<br>Beta in the open.</h2>
-      <p class="section-intro">Every Acute build maps to public source. Stable and Beta use separate branches, application identities, and signed release tracks.</p>
-      <div class="channel-grid">
-        <article class="channel-card stable-card">
-          <div class="channel-heading"><span>STABLE</span><strong data-release-version="stable">1.1.0</strong></div>
+      </header><p class="work-line">Every Acute build maps to public source. Stable and Beta use separate branches, application identities, and signed release tracks.</p>
+      <div class="projects">
+        <article class="project">
+          <div class="project-top"><span>STABLE</span><strong data-release-version="stable">1.1.0</strong></div>
           <h3>Ready for everyday browsing.</h3>
           <p>The tested channel for regular use, delivered as a signed ARM64 APK with GitHub update checks.</p>
           <div class="channel-actions">
-            <a class="button primary" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Download Stable</a>
+            <a class="button" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Download Stable</a>
             <a class="text-link" href="https://github.com/iiankehn/acute-web-android/tree/main">View `main` source →</a>
           </div>
         </article>
-        <article class="channel-card beta-card">
-          <div class="channel-heading"><span>BETA</span><strong data-release-version="beta">1.1.0-beta.1</strong></div>
+        <article class="project">
+          <div class="project-top"><span>BETA</span><strong data-release-version="beta">1.1.0-beta.1</strong></div>
           <h3>See what CORE is building next.</h3>
           <p>Early access to native x86_64 support alongside ARM64, with architecture-aware updates and signed packages.</p>
           <div class="channel-actions">
-            <a class="button secondary" data-release-link="beta" href="https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue">Download Beta</a>
+            <a class="button" data-release-link="beta" href="https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue">Download Beta</a>
             <a class="text-link" href="https://github.com/iiankehn/acute-web-android/tree/beta">View `beta` source →</a>
           </div>
         </article>
       </div>
-      <p class="channel-note">Beta builds may be unstable. Stable and Beta install side by side and maintain separate browsing profiles.</p>
+      <p class="work-line">Beta builds may be unstable. Stable and Beta install side by side and maintain separate browsing profiles.</p>
     </section>
 
-    <section class="trust-strip" aria-label="Highlights">
-      <div><strong>Gecko</strong><span>Independent rendering engine</span></div>
-      <div><strong>Private</strong><span>Telemetry disabled</span></div>
-      <div><strong>Open</strong><span>Built publicly on GitHub</span></div>
-      <div><strong>Responsive</strong><span>Phone + tablet interface</span></div>
+    <section class="projects" aria-label="Highlights">
+      <div class="project"><h3>Gecko</h3><p>Independent rendering engine</p></div>
+      <div class="project"><h3>Private</h3><p>Telemetry disabled</p></div>
+      <div class="project"><h3>Open</h3><p>Built publicly on GitHub</p></div>
+      <div class="project"><h3>Responsive</h3><p>Phone + tablet interface</p></div>
     </section>
 
-    <section class="section" id="features">
-      <p class="eyebrow">ACUTE WEB BY CORE</p>
+    <section class="content-section" id="features">
+      <header class="section-heading"><p class="overline">ACUTE WEB BY CORE</p>
       <h2>Familiar browsing.<br>Sharper identity.</h2>
-      <div class="feature-grid">
-        <article><span>01</span><h3>Universal address bar</h3><p>Search the web or enter an address from one focused, familiar field.</p></article>
-        <article><span>02</span><h3>Private by default</h3><p>Private browsing, password tools, downloads, bookmarks, and history are built in.</p></article>
-        <article><span>03</span><h3>Extension support</h3><p>Customize Acute with compatible browser extensions and add-ons.</p></article>
-        <article><span>04</span><h3>GitHub updates</h3><p>Acute checks official releases and guides you through Android’s secure installer.</p></article>
+      </header><div class="projects">
+        <article class="project"><span>01</span><h3>Universal address bar</h3><p>Search the web or enter an address from one focused, familiar field.</p></article>
+        <article class="project"><span>02</span><h3>Private by default</h3><p>Private browsing, password tools, downloads, bookmarks, and history are built in.</p></article>
+        <article class="project"><span>03</span><h3>Extension support</h3><p>Customize Acute with compatible browser extensions and add-ons.</p></article>
+        <article class="project"><span>04</span><h3>GitHub updates</h3><p>Acute checks official releases and guides you through Android’s secure installer.</p></article>
       </div>
     </section>
 
-    <section class="section devices" id="screens">
-      <div>
-        <p class="eyebrow">BUILT FOR EVERY SCREEN</p>
+    <section class="content-section" id="screens">
+      <header class="section-heading"><p class="overline">BUILT FOR EVERY SCREEN</p>
         <h2>Room to browse.</h2>
+        </header><div class="reading">
         <p>Acute adapts from compact phones to landscape tablets with a desktop-style tab strip, responsive controls, and keyboard-and-mouse support.</p>
       </div>
-      <div class="device-stack" aria-label="Responsive device preview">
-        <div class="tablet mockup"><span class="camera"></span><div class="browser-ui"><i></i><b>Search or enter address</b><em></em></div><div class="page-mark"><img src="acute-mark.png" alt=""><strong>Acute</strong><small>by CORE</small></div></div>
-        <div class="phone mockup"><span class="camera"></span><div class="page-mark"><img src="acute-mark.png" alt=""><strong>Acute</strong><small>by CORE</small></div><div class="browser-ui"><b>Search or enter address</b></div></div>
-      </div>
-    </section>
+      </section>
 
-    <section class="download-panel">
-      <img src="acute-mark.png" alt="" width="120">
-      <div><p class="eyebrow">VERSION <span data-release-version="stable">1.1.0</span></p><h2>Ready when you are.</h2><p>Download the signed ARM64 APK directly from the official Acute Web GitHub release.</p></div>
-      <a class="button primary" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Get Acute Web</a>
+    <section class="content-section" id="section-5">
+      <header class="section-heading"><p class="overline">VERSION <span data-release-version="stable">1.1.0</span></p><h2>Ready when you are.</h2></header><img src="acute-mark.png" alt="" width="120">
+      <div class="reading"><p>Download the signed ARM64 APK directly from the official Acute Web GitHub release.</p></div>
+      <a class="button" data-release-link="stable" href="https://github.com/iiankehn/acute-web-android/releases/download/v1.1.0/acute-web-1.1.0-arm64-v8a.apk">Get Acute Web</a>
     </section>
   </main>
 
-  <footer>
-    <div class="brand"><img src="acute-mark.png" alt="" width="42"><span><strong>Acute</strong><small>WEB BY CORE</small></span></div>
-    <p>Independent open-source software. Not affiliated with Mozilla.</p>
-    <a href="https://github.com/iiankehn/acute-web-android/tree/main">Stable source</a>
-    <a href="https://github.com/iiankehn/acute-web-android/tree/beta">Beta source</a>
-    <a href="https://github.com/iiankehn/acute-web-android/blob/main/docs/SOURCE_AND_LICENSE.md">Licensing</a>
-  </footer>
-  <script src="script.js"></script>
+  <footer class="site-footer"><div class="shell footer-inner"><span>Acute Web by CORE</span><a href="https://github.com/iiankehn">GitHub</a></div></footer><script src="script.js"></script>
 </body>
 </html>
-
