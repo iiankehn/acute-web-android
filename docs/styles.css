@@ -38,3 +38,15 @@ h1,h2,h3,p{margin-top:0}.home-intro h1{font-size:clamp(3rem,6vw,5.4rem);font-wei
 @media print{.site-header,.site-footer,.home-actions{display:none}body{background:white;color:black}.shell,.reading{width:100%;max-width:none}.reading a{color:black}}
 
 .project{min-width:0}.tile-image{width:100%;margin:0 0 24px}.article-meta span+span:before{content:" · "}.project .overline{color:var(--accent)}
+
+/* Compact product pages, using the shared Landing type and spacing. */
+.product-meta{display:flex;flex-wrap:wrap;gap:8px 20px;margin:22px 0 0;color:var(--muted);font-size:.85rem}
+.product-note{color:var(--muted);font-size:.8rem;margin:12px 0 0;max-width:650px}
+.product-about{border-top:1px solid var(--line);padding-top:34px}
+.product-about h2{font-size:1.9rem;font-weight:400;letter-spacing:-.035em;line-height:1.25;margin-bottom:18px}
+.product-highlights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin-top:28px}
+.product-highlights h3{font-size:1.05rem;font-weight:500;margin-bottom:8px}
+.product-highlights p{color:var(--muted);font-size:.9rem;margin-bottom:0;max-width:320px}
+.beta-release{margin:18px 0 0;font-size:.85rem;color:var(--muted)}
+.beta-release a{color:var(--accent)}
+@media(max-width:600px){.product-about{margin-top:22px;padding-top:28px}.product-highlights{grid-template-columns:1fr;gap:22px}.product-meta{gap:6px 16px}}

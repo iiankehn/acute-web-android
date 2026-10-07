@@ -75,6 +75,18 @@ def release_details(payload: dict) -> tuple[str, str, str, str]:
 def update_site(payload: dict, html_path: Path) -> bool:
     channel, version, _tag, download_url = release_details(payload)
     html = html_path.read_text(encoding="utf-8")
+    original_html = html
+    if channel == "beta" and 'data-release-link="beta"' not in html:
+        # Show a beta option only after an actual signed beta is published.
+        slot = "<!-- beta-release:start --><!-- beta-release:end -->"
+        if slot not in html:
+            raise ValueError("No beta release slot was found in the website")
+        html = html.replace(slot, (
+            '<!-- beta-release:start --><p class="beta-release">'
+            f'<a data-release-link="beta" href="{download_url}">Try Acute Beta '
+            f'<span data-release-version="beta">{version}</span></a>'
+            ' · Early access; may be unstable.</p><!-- beta-release:end -->'
+        ))
     updated = replace_marked_href(html, channel, download_url)
     updated = replace_marked_text(updated, channel, version)
 
@@ -82,7 +94,7 @@ def update_site(payload: dict, html_path: Path) -> bool:
         major_minor = ".".join(version.split(".")[:2])
         updated = replace_marked_text(updated, "stable-short", major_minor)
 
-    if updated == html:
+    if updated == original_html:
         return False
     html_path.write_text(updated, encoding="utf-8")
     return True
