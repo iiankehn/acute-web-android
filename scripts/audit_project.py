@@ -65,6 +65,10 @@ def validate_configuration() -> None:
             fail(f"workflow does not verify Gecko library: {library}")
     if "needs: audit" not in workflow:
         fail("APK build is not gated by the repository audit")
+    if 'ACUTE_TARGET_ABI: ${{ matrix.abi }}' not in workflow:
+        fail("APK packaging is not constrained to the Gecko artifact ABI")
+    if 'python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"' not in workflow:
+        fail("APK build does not reject partial foreign native architectures")
     if f"version={candidate}" not in workflow:
         fail("workflow and project configuration disagree on the release candidate")
     # The website describes published releases, not an unbuilt development
