@@ -527,6 +527,17 @@ def patch_app_labels(fenix: Path, channel: str) -> None:
 
 def patch_gradle(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "\nandroid {\n", '''
+// A single Gecko artifact build supplies only one complete native ABI.
+// Partial ABIs from Maven dependencies must never influence Android's ABI selection.
+def acuteTargetAbi = System.getenv("ACUTE_TARGET_ABI")
+if (!(acuteTargetAbi in ["arm64-v8a", "x86_64"])) {
+    throw new GradleException("Set ACUTE_TARGET_ABI to the ABI of the Gecko artifact build")
+}
+android {
+    packaging.jniLibs.excludes += ["armeabi", "armeabi-v7a", "arm64-v8a", "x86", "x86_64", "mips", "mips64"]
+        .findAll { it != acuteTargetAbi }.collect { "**/${it}/*.so" }
+''', "single native architecture packaging")
     text = replace_once(text, 'applicationId "org.mozilla"',
                         'applicationId "com.acuteweb.browser"', "application ID")
     text = replace_once(text, 'applicationIdSuffix ".fenix.debug"',
@@ -565,6 +576,10 @@ def patch_gradle(path: Path) -> None:
         text = text.replace(old, new)
 
     # Produce one updater-friendly universal APK in addition to ABI APKs.
+    text = replace_once(
+        text, 'include "armeabi-v7a", "arm64-v8a", "x86_64"',
+        'include acuteTargetAbi', "single native architecture splits",
+    )
     universal_pattern = re.compile(
         r"(splits\s*\{\s*abi\s*\{.*?)(if\s*\([^\n]*MOZILLA_OFFICIAL[^\n]*\)\s*\{\s*)"
         r"(universalApk\s+true\s*\})",

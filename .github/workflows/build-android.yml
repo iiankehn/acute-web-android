@@ -201,6 +201,7 @@ jobs:
       - name: Build APK without release credentials
         working-directory: firefox
         env:
+          ACUTE_TARGET_ABI: ${{ matrix.abi }}
           ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}
           ACUTE_BUILD_NUMBER: ${{ github.run_number }}
           GRADLE_FLAGS: ${{ needs.metadata.outputs.gradle_flags }}
@@ -245,6 +246,7 @@ jobs:
           test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libmozglue.so"
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libxul.so"
+          python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"
           cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
           printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \
             "$VERSION" "$ABI" "$FIREFOX_REF" "$GITHUB_SHA" > "dist/build-inputs-${ABI}.txt"

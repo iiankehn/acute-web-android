@@ -65,10 +65,18 @@ def validate_configuration() -> None:
             fail(f"workflow does not verify Gecko library: {library}")
     if "needs: audit" not in workflow:
         fail("APK build is not gated by the repository audit")
+    if 'ACUTE_TARGET_ABI: ${{ matrix.abi }}' not in workflow:
+        fail("APK packaging is not constrained to the Gecko artifact ABI")
+    if 'python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"' not in workflow:
+        fail("APK build does not reject partial foreign native architectures")
     if f"version={candidate}" not in workflow:
         fail("workflow and project configuration disagree on the release candidate")
-    if f'data-release-version="beta">{candidate}' not in website:
-        fail("website and project configuration disagree on the release candidate")
+    # The website may hide Beta downloads until a Beta is published. A build
+    # candidate is not a published release and must not gate Stable fixes.
+    if 'data-release-version="beta"' in website and not re.search(
+        r'data-release-version="beta">\d+\.\d+\.\d+-beta\.\d+', website
+    ):
+        fail("website Beta version metadata is malformed")
 
 
 def validate_action_pinning() -> None:

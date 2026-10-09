@@ -34,6 +34,7 @@ android {
     }
     splits {
         abi {
+            include "armeabi-v7a", "arm64-v8a", "x86_64"
             if (gradle.mozconfig.substs.MOZILLA_OFFICIAL || System.getenv("MOZ_BUILD_CONFIG_LINT") == "1") {
                 universalApk true
             }
