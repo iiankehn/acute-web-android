@@ -6,6 +6,10 @@ Target branch: `beta`. Stable `main` must not be promoted or changed by this han
 
 ## Integrated implementation
 
+- Shared neutral Material/Acorn Compose tokens and gradients, a native Workspaces
+  action card without migration artwork or the obsolete Collections heading,
+  and a shared homepage/browser glass modifier. Added after device testing
+  exposed inherited Compose styling that the XML palette checks did not cover.
 - Neutral smoked CORE Glass with white edge light and a persisted opaque-toolbar
   accessibility option in Customization (restart required).
 - Feed-free local home foundation and responsive two-column layout at 840dp+.

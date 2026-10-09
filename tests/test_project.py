@@ -47,7 +47,8 @@ class ProjectTests(unittest.TestCase):
         overlay = (ROOT / "scripts/apply_overlay.py").read_text()
         self.assertIn('text = "Acute"', overlay)
         self.assertIn('text = "by CORE"', overlay)
-        self.assertIn("#0072BC", overlay)
+        self.assertIn("MaterialTheme.colorScheme.onSurfaceVariant", overlay)
+        self.assertNotIn("#0072BC", overlay)
 
     def test_clear_glass_branding_matches_canonical_android_assets(self):
         stable_hash = "832be7ecb30d8abc1bab6956ee572e80eb9ca5cfd59bf9dcfcd2536ae5b185af"
@@ -235,7 +236,9 @@ class ProjectTests(unittest.TestCase):
             "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
             theme,
         )
-        self.assertIn("Brush.verticalGradient", theme)
+        glass = (ROOT / "overlay/kotlin/AcuteThemeTokens.kt").read_text()
+        self.assertIn("Brush.verticalGradient", glass)
+        self.assertIn("coreGlassToolbarModifier()", theme)
         self.assertIn("Color(0xD034373C)", theme)
         self.assertIn("Color(0x99F1F2F4)", theme)
         self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)

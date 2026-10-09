@@ -36,6 +36,8 @@ FENIX_KOTLIN = (
     "HomeActivity.kt",
     "home/ui/Homepage.kt",
     "home/ui/Wordmark.kt",
+    "theme/FirefoxTheme.kt",
+    "home/toolbar/HomeToolbarComposable.kt",
     "components/menu/compose/MainMenu.kt",
     "components/menu/MenuDialogFragment.kt",
     "components/menu/compose/MoreSettingsSubmenu.kt",

@@ -673,6 +673,7 @@ class TabManagementFragment {
 HOMEPAGE = '''import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import org.mozilla.fenix.home.collections.CollectionsMigrationPromoCard
 
 fun Homepage(state: HomepageState, interactor: HomepageInteractor) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -813,6 +814,32 @@ private fun CollectionsSection(
 
         CollectionsState.Gone -> {} // no-op. Nothing is shown where there are no collections.
     }
+}
+
+private fun CollectionsSectionContent(content: @Composable ColumnScope.() -> Unit) {
+        HomeSectionHeader(headerText = stringResource(R.string.collections_header))
+        content()
+}
+'''
+
+COMPOSE_THEME = '''import androidx.compose.material3.ColorScheme
+fun FirefoxTheme(theme: Theme, content: @Composable () -> Unit) {
+    val colors: AcornColors =
+        when (theme) { Theme.Dark -> darkColorPalette }
+    val colorScheme: ColorScheme = acornDarkColorScheme()
+    val gradients: AcornGradientScheme = darkAcornGradientScheme
+    val tabGroupColors: TabGroupColorPalette =
+        when (theme) { Theme.Private -> TabGroupColorPalette.privatePalette }
+    AcornTheme(colors = colors, colorScheme = colorScheme, gradients = gradients, content = content)
+}
+'''
+
+HOME_TOOLBAR = '''import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
+fun Toolbar() {
+            MaterialTheme {
+                ToolbarContent(wallpaperTextColor = wallpaperTextColor)
+            }
 }
 '''
 
@@ -1041,6 +1068,45 @@ class AboutFragment {
 
 
 class OverlayTests(unittest.TestCase):
+    def test_compose_surfaces_and_home_toolbar_use_acute_tokens(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        java = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix"
+        theme = (java / "theme/FirefoxTheme.kt").read_text()
+        home = (java / "home/toolbar/HomeToolbarComposable.kt").read_text()
+        browser = (java / "components/toolbar/BrowserToolbarComposable.kt").read_text()
+        self.assertIn("val colors: AcornColors = AcuteThemeTokens.colors", theme)
+        self.assertIn("theme == Theme.Private", theme)
+        self.assertIn("val gradients: AcornGradientScheme = AcuteThemeTokens.gradients", theme)
+        self.assertIn("Theme.Private -> TabGroupColorPalette.privatePalette", theme)
+        self.assertNotIn("acornDarkColorScheme()", theme)
+        self.assertNotIn("darkAcornGradientScheme\n", theme.split("fun FirefoxTheme", 1)[1])
+        self.assertIn("Box(modifier = coreGlassToolbarModifier())", home)
+        self.assertIn("val acuteCoreGlassModifier = coreGlassToolbarModifier()", browser)
+        self.assertEqual(home.count("ToolbarContent(wallpaperTextColor = wallpaperTextColor)"), 1)
+
+    def test_workspace_card_is_native_neutral_and_preserves_navigation(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="beta")
+        app = root / "mobile/android/fenix/app"
+        java = app / "src/main/java/org/mozilla/fenix"
+        home = (java / "home/ui/Homepage.kt").read_text()
+        card = (java / "acute/AcuteWorkspaceCard.kt").read_text()
+        self.assertIn("onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) }", home)
+        self.assertNotIn("CollectionsMigrationPromoCard", home)
+        self.assertNotIn("R.string.collections_header", home)
+        self.assertIn("OutlinedCard(", card)
+        self.assertIn("onClick = onClick", card)
+        self.assertIn("Modifier.fillMaxWidth()", card)
+        self.assertIn("MaterialTheme.colorScheme.surfaceContainerHigh", card)
+        self.assertNotIn("PromoCard", card)
+        self.assertNotIn("mozac_ic_kit_tab_groups", card)
+        self.assertTrue((app / "src/main/res/drawable/ic_acute_workspaces.xml").is_file())
+        wordmark = (java / "home/ui/Wordmark.kt").read_text()
+        self.assertNotIn("0xFF0072BC", wordmark)
+
     def make_checkout(self):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
@@ -1075,6 +1141,12 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").write_text(
             SEARCH_PROVIDERS)
         (app / "src/main/java/org/mozilla/fenix/components/Core.kt").write_text(CORE)
+        theme_path = app / "src/main/java/org/mozilla/fenix/theme/FirefoxTheme.kt"
+        theme_path.parent.mkdir(parents=True, exist_ok=True)
+        theme_path.write_text(COMPOSE_THEME)
+        home_toolbar_path = app / "src/main/java/org/mozilla/fenix/home/toolbar/HomeToolbarComposable.kt"
+        home_toolbar_path.parent.mkdir(parents=True, exist_ok=True)
+        home_toolbar_path.write_text(HOME_TOOLBAR)
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/home/ui/Homepage.kt").write_text(HOMEPAGE)
         (app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").write_text(MAIN_MENU)
@@ -1192,13 +1264,15 @@ class OverlayTests(unittest.TestCase):
         ).read_text()
         self.assertIn('"acute_reduce_transparency"', settings)
         self.assertIn('android:key="acute_reduce_transparency"', preferences)
-        self.assertIn("LocalContext.current.components.settings.acuteReduceTransparency", toolbar)
-        self.assertIn("import org.mozilla.fenix.ext.components\n", toolbar)
-        self.assertNotIn("import org.mozilla.fenix.ext.settings", toolbar)
-        self.assertIn("Color(0xFF25282D)", toolbar)
-        self.assertIn("Color(0xFF1B1D21)", toolbar)
-        self.assertIn("Color(0xFF121417)", toolbar)
-        self.assertEqual(toolbar.count("import androidx.compose.ui.platform.LocalContext"), 1)
+        glass = (app / "src/main/java/org/mozilla/fenix/acute/AcuteThemeTokens.kt").read_text()
+        self.assertIn("coreGlassToolbarModifier()", toolbar)
+        self.assertIn("LocalContext.current.components.settings.acuteReduceTransparency", glass)
+        self.assertIn("import org.mozilla.fenix.ext.components\n", glass)
+        self.assertNotIn("import org.mozilla.fenix.ext.settings", glass)
+        self.assertIn("Color(0xFF25282D)", glass)
+        self.assertIn("Color(0xFF1B1D21)", glass)
+        self.assertIn("Color(0xFF121417)", glass)
+        self.assertEqual(glass.count("import androidx.compose.ui.platform.LocalContext"), 1)
 
     def test_composites_toolbar_over_live_gecko_content(self):
         temp, root = self.make_checkout()
@@ -1373,10 +1447,11 @@ class OverlayTests(unittest.TestCase):
             app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
         ).read_text()
         self.assertIn("acuteCoreGlassModifier", toolbar)
-        self.assertIn("Brush.verticalGradient", toolbar)
-        self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", toolbar)
-        self.assertIn("Color(0xE025282D)", toolbar)
-        self.assertIn("Color(0x66F1F2F4)", toolbar)
+        glass = (app / "src/main/java/org/mozilla/fenix/acute/AcuteThemeTokens.kt").read_text()
+        self.assertIn("Brush.verticalGradient", glass)
+        self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", glass)
+        self.assertIn("Color(0xE025282D)", glass)
+        self.assertIn("Color(0x66F1F2F4)", glass)
         self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)
@@ -1433,7 +1508,9 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("import androidx.compose.foundation.layout.Row", homepage)
         self.assertIn("import androidx.compose.foundation.layout.fillMaxWidth", homepage)
         self.assertIn("Acute Workspaces is backed by the maintained local tab-group store", homepage)
-        self.assertIn("CollectionsMigrationPromoCard(", homepage)
+        self.assertIn("AcuteWorkspaceCard(", homepage)
+        self.assertNotIn("CollectionsMigrationPromoCard", homepage)
+        self.assertNotIn("R.string.collections_header", homepage)
         self.assertNotIn("is CollectionsState.Content ->", homepage)
         main_menu = (
             app / "src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"

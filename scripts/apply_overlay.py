@@ -174,8 +174,7 @@ def patch_core_glass_toolbar(path: Path) -> None:
     """Give the browser toolbar a visibly layered CORE Glass treatment."""
     text = path.read_text(encoding="utf-8")
     for acute_import in (
-        "import androidx.compose.ui.platform.LocalContext\n",
-        "import org.mozilla.fenix.ext.components\n",
+        "import org.mozilla.fenix.acute.coreGlassToolbarModifier\n",
     ):
         if acute_import not in text:
             text = replace_once(
@@ -184,73 +183,10 @@ def patch_core_glass_toolbar(path: Path) -> None:
                 "import androidx.compose.ui.Modifier\n" + acute_import,
                 "opaque glass preference import " + acute_import.strip(),
             )
-    text = replace_once(
-        text,
-        "import androidx.compose.foundation.background\n",
-        "import androidx.compose.foundation.background\n"
-        "import androidx.compose.ui.draw.drawWithContent\n",
-        "toolbar glass draw import",
-    )
-    text = replace_once(
-        text,
-        "import androidx.compose.ui.graphics.Color\n",
-        "import androidx.compose.ui.geometry.Offset\n"
-        "import androidx.compose.ui.graphics.Brush\n"
-        "import androidx.compose.ui.graphics.Color\n",
-        "toolbar glass graphics imports",
-    )
-    text = replace_once(
-        text,
-        "import androidx.compose.ui.Modifier\n",
-        "import androidx.compose.ui.Modifier\n"
-        "import androidx.compose.ui.platform.LocalConfiguration\n",
-        "toolbar large-screen configuration import",
-    )
     theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
     glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
-                        // CORE Glass uses a translucent charcoal stack over a subtle
-                        // ambient-light reflection. The child surfaces retain their own alpha,
-                        // so the address field and selected tabs read as separate layers.
-                        val acuteLargeScreen =
-                            LocalConfiguration.current.smallestScreenWidthDp >= 600
-                        val acuteGlassColors =
-                            if (LocalContext.current.components.settings.acuteReduceTransparency) {
-                                listOf(
-                                    Color(0xFF25282D),
-                                    Color(0xFF1B1D21),
-                                    Color(0xFF121417),
-                                )
-                            } else if (acuteLargeScreen) {
-                                listOf(
-                                    Color(0xE025282D),
-                                    Color(0xD01B1D21),
-                                    Color(0xC0121417),
-                                )
-                            } else {
-                                listOf(
-                                    Color(0xB316181C),
-                                    Color(0xA60F1114),
-                                    Color(0x99090B0D),
-                                )
-                            }
-                        val acuteCoreGlassModifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .wrapContentHeight()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = acuteGlassColors
-                                    )
-                                )
-                                .drawWithContent {
-                                    drawContent()
-                                    drawLine(
-                                        color = Color(0x66F1F2F4),
-                                        start = Offset(0f, size.height - 1f),
-                                        end = Offset(size.width, size.height - 1f),
-                                        strokeWidth = 1f,
-                                    )
-                                }
+                        // The homepage and browser share one CORE Glass treatment.
+                        val acuteCoreGlassModifier = coreGlassToolbarModifier()
 '''
     text = replace_once(text, theme_open, glass_open, "toolbar glass theme wrapper")
     column = "Column(modifier = Modifier.fillMaxWidth().wrapContentHeight())"
@@ -258,6 +194,38 @@ def patch_core_glass_toolbar(path: Path) -> None:
     if count != 2:
         raise OverlayError(f"Expected two browser toolbar columns; found {count}")
     text = text.replace(column, "Column(modifier = acuteCoreGlassModifier)")
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_compose_theme(path: Path) -> None:
+    """Route Material, Acorn extension colors, and gradients through Acute tokens."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "import androidx.compose.material3.ColorScheme\n",
+                        "import androidx.compose.material3.ColorScheme\n"
+                        "import org.mozilla.fenix.acute.AcuteThemeTokens\n", "Acute Compose tokens import")
+    text = replace_span_once(
+        text, "    val colors: AcornColors =\n", "    val tabGroupColors: TabGroupColorPalette =\n",
+        '''    // Structural colors never inherit the upstream brand palette.
+    // Keep the private-mode branch and its explicit mask/labels intact.
+    val colors: AcornColors = AcuteThemeTokens.colors
+    val colorScheme: ColorScheme = AcuteThemeTokens.colorScheme(isPrivate = theme == Theme.Private)
+    val gradients: AcornGradientScheme = AcuteThemeTokens.gradients
+
+''', "Acute Compose palette and gradients",
+    )
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_home_toolbar(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "import androidx.compose.ui.Modifier\n",
+                        "import androidx.compose.ui.Modifier\n"
+                        "import org.mozilla.fenix.acute.coreGlassToolbarModifier\n", "home shared glass import")
+    text = replace_once(text, "                ToolbarContent(wallpaperTextColor = wallpaperTextColor)\n",
+                        "                // Same glass stack and opacity preference as the browser.\n"
+                        "                Box(modifier = coreGlassToolbarModifier()) {\n"
+                        "                    ToolbarContent(wallpaperTextColor = wallpaperTextColor)\n"
+                        "                }\n", "home shared glass surface")
     path.write_text(text, encoding="utf-8")
 
 
@@ -1186,7 +1154,7 @@ def patch_branding_ui(fenix: Path) -> None:
         )
         Text(
             text = "by CORE",
-            color = Color(0xFF0072BC),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             lineHeight = 10.sp,
@@ -1199,23 +1167,23 @@ def patch_branding_ui(fenix: Path) -> None:
     color_text = colors.read_text(encoding="utf-8")
     replacements = {
         '<color name="fx_mobile_primary">@color/novaViolet70</color>':
-            '<color name="fx_mobile_primary">#0072BC</color>',
+            '<color name="fx_mobile_primary">@color/acute_glass_light</color>',
         '<color name="fx_mobile_primary_container">@color/novaViolet20</color>':
-            '<color name="fx_mobile_primary_container">#D8EEFC</color>',
+            '<color name="fx_mobile_primary_container">@color/acute_glass_surface_selected</color>',
         '<color name="fx_mobile_tertiary">@color/novaViolet50</color>':
-            '<color name="fx_mobile_tertiary">#0072BC</color>',
+            '<color name="fx_mobile_tertiary">@color/acute_glass_light</color>',
         '<color name="fx_mobile_splashscreen_background">#FCF3EE</color>':
-            '<color name="fx_mobile_splashscreen_background">#F4F9FC</color>',
+            '<color name="fx_mobile_splashscreen_background">@color/acute_glass_canvas</color>',
         '<color name="fx_mobile_private_primary">@color/novaViolet20</color>':
-            '<color name="fx_mobile_private_primary">#44C7F4</color>',
+            '<color name="fx_mobile_private_primary">@color/acute_glass_light</color>',
         '<color name="fx_mobile_private_primary_container">@color/novaViolet60</color>':
-            '<color name="fx_mobile_private_primary_container">#005A94</color>',
+            '<color name="fx_mobile_private_primary_container">@color/acute_glass_surface_selected</color>',
         '<color name="fx_mobile_private_background">@color/novaVioletDesaturated90</color>':
-            '<color name="fx_mobile_private_background">#071827</color>',
+            '<color name="fx_mobile_private_background">@color/acute_glass_canvas</color>',
         '<color name="fx_mobile_private_surface">@color/novaVioletDesaturated90</color>':
-            '<color name="fx_mobile_private_surface">#071827</color>',
+            '<color name="fx_mobile_private_surface">@color/acute_glass_surface</color>',
         '<color name="fx_mobile_private_surface_variant">@color/novaVioletDesaturated80</color>':
-            '<color name="fx_mobile_private_surface_variant">#0D2A40</color>',
+            '<color name="fx_mobile_private_surface_variant">@color/acute_glass_surface_high</color>',
     }
     for old, new in replacements.items():
         color_text = replace_once(color_text, old, new, f"brand color {old}")
@@ -1807,6 +1775,14 @@ def patch_large_screen_dashboard(path: Path) -> None:
 def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Path) -> None:
     """Expose the maintained local tab-group model as Acute Workspaces."""
     homepage = homepage_path.read_text(encoding="utf-8")
+    homepage = replace_once(
+        homepage, "import org.mozilla.fenix.home.collections.CollectionsMigrationPromoCard\n",
+        "import org.mozilla.fenix.acute.AcuteWorkspaceCard\n", "native workspace card import",
+    )
+    homepage = replace_once(
+        homepage, "        HomeSectionHeader(headerText = stringResource(R.string.collections_header))\n",
+        "        // The native Workspaces card contains its own title.\n", "remove legacy Collections heading",
+    )
     old_section = '''    when (collectionsState) {
         is CollectionsState.Content -> {
             CollectionsSectionContent {
@@ -1831,7 +1807,7 @@ def patch_workspaces(homepage_path: Path, strings_path: Path, settings_path: Pat
     workspace_section = '''    // Acute Workspaces is backed by the maintained local tab-group store. The
     // dashboard entry remains available even before the first workspace exists.
     CollectionsSectionContent {
-        CollectionsMigrationPromoCard(
+        AcuteWorkspaceCard(
             onClick = { onCollectionsMigrationCardAction(ViewTabGroupsClicked) },
         )
     }
@@ -2327,8 +2303,8 @@ def patch_shared_uid_manifest(path: Path) -> None:
 def copy_overlay(fenix: Path, channel: str) -> None:
     java_target = fenix / "app/src/main/java/org/mozilla/fenix/acute"
     java_target.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "overlay/kotlin/GitHubUpdateProvider.kt",
-                 java_target / "GitHubUpdateProvider.kt")
+    for source in (ROOT / "overlay/kotlin").glob("*.kt"):
+        shutil.copy2(source, java_target / source.name)
 
     source_res = ROOT / "overlay/res"
     resource_targets = [fenix / "app/src/main/res"]
@@ -2429,6 +2405,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
     core = fenix / "app/src/main/java/org/mozilla/fenix/components/Core.kt"
+    compose_theme = fenix / "app/src/main/java/org/mozilla/fenix/theme/FirefoxTheme.kt"
+    home_toolbar = fenix / "app/src/main/java/org/mozilla/fenix/home/toolbar/HomeToolbarComposable.kt"
     about = fenix / "app/src/main/java/org/mozilla/fenix/settings/about/AboutFragment.kt"
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
@@ -2438,7 +2416,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 browser_actions, native_context_candidates, component_context_candidates,
                 clipping_behavior, toolbar_behavior, onboarding,
-                preferences, search_providers, desktop_mode, core, about, customization,
+                preferences, search_providers, desktop_mode, core, about, customization, compose_theme, home_toolbar,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -2453,6 +2431,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_desktop_shortcuts(home_activity)
     patch_dark_theme_default(settings)
     patch_midnight_palette(night_colors)
+    patch_compose_theme(compose_theme)
+    patch_home_toolbar(home_toolbar)
     patch_core_glass_toolbar(browser_toolbar)
     patch_core_glass_address_bar(display_toolbar, edit_toolbar)
     patch_core_glass_compositor(
