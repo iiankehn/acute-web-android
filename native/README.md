@@ -4,7 +4,7 @@ Independent Android application on `dev`, with GeckoView providing rendering
 and native session state. Preserved Fenix code/checkpoints are documented in
 [the migration baseline](../docs/NATIVE_MIGRATION.md).
 
-Current batch: `2.0.0-dev.5`, normal/private tabs, encrypted normal-session
+Current batch: `2.0.0-dev.6`, normal/private tabs, encrypted normal-session
 restoration, rotation continuity, reload recovery and native tab controls.
 Private tabs are never written to the archive. Existing Stable/Beta profiles
 are not read or migrated.
@@ -63,3 +63,17 @@ Dev.5 acceptance and signing passed in CI run 38213421174: 22 core tests,
 19 Android runtime tests and both force-stop stages. The signed candidate is
 available in that run's `acute-dev-signed` artifact. Physical file-picker,
 ARM64 and Waydroid acceptance remain outstanding.
+
+Dev.6 adds first-level Save as PDF and Print page actions. Gecko generates the
+complete PDF document; PDF saves use the existing explicit Save/document-picker
+flow and session download controls. Print opens Android's print service and is
+hidden on Automotive or devices without printing support. Private printing
+requires separate explicit consent before copying the document to temporary
+app cache and Android's print spooler. Print services may retain exported data.
+
+Print copies are limited to 64 MiB, are removed on print completion/cancellation,
+and leftover owned copies are cleared at the next app start. Paper options use
+the already generated PDF layout rather than reflowing Gecko. Generation is
+cancelled when switching pages, rotating or backgrounding; late streams are
+closed. No screenshot stitching, permission additions or persistent document
+index is introduced. Dev.6 Android acceptance/signing is pending CI.

@@ -28,6 +28,14 @@ class GeckoBrowserEngine(
     private var disposed = false
     private var active = false
     init {
+        // Only app-owned explicit actions may export to Android. Do not install GeckoView's fallback printer.
+        session.printDelegate = object : GeckoSession.PrintDelegate {
+            override fun onPrint(pdfInputStream: java.io.InputStream) { runCatching { pdfInputStream.close() } }
+            override fun onPrintWithStatus(pdfInputStream: java.io.InputStream): GeckoResult<Boolean> {
+                runCatching { pdfInputStream.close() }
+                return GeckoResult.fromException(IllegalStateException("Use Acute's explicit Print action"))
+            }
+        }
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(session: GeckoSession, url: String?, perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Boolean) {
                 if (url != state.uri) savedState = null
@@ -121,6 +129,15 @@ class GeckoBrowserEngine(
         active = visible; session.setActive(visible); session.setFocused(visible)
     }
     fun flush() { if (!disposed && session.isOpen) session.flushSessionState() }
+    /** Gecko owns document layout and original PDF retrieval. Callbacks run on the session thread. */
+    fun pdf(callback: (Result<java.io.InputStream>) -> Unit) {
+        if (disposed || !session.isOpen) { callback(Result.failure(IllegalStateException("Closed tab"))); return }
+        runCatching { session.saveAsPdf().accept({ stream ->
+            if (disposed) { runCatching { stream?.close() }; callback(Result.failure(IllegalStateException("Closed tab"))) }
+            else if (stream == null) callback(Result.failure(IllegalStateException("No document")))
+            else callback(Result.success(stream))
+        }, { error -> callback(Result.failure(error ?: IllegalStateException("Document generation failed"))) }) }.onFailure { callback(Result.failure(it)) }
+    }
     private fun update(next: PageState) { if (!disposed) { state = next; changed(next) } }
     override fun navigate(uri: String) {
         require(NavigationPolicy.allows(uri)); ensureOpen()
@@ -139,6 +156,7 @@ class GeckoBrowserEngine(
         disposed = true
         session.navigationDelegate = null; session.contentDelegate = null
         session.progressDelegate = null; session.permissionDelegate = null; session.historyDelegate = null
+        session.printDelegate = null
         if (session.isOpen) session.close()
     }
 }

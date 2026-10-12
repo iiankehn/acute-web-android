@@ -59,4 +59,11 @@
     <string name="download_cancelled">Cancelled. A selected file may be incomplete.</string>
     <string name="open_download">Open saved file</string>
     <string name="download_open_failed">The saved file could not be opened</string>
+    <string name="save_pdf">Save as PDF</string>
+    <string name="print_page">Print</string>
+    <string name="private_print_notice">Printing exports this private page to Android and your chosen print service, which may keep it. A temporary app copy is removed when printing ends or when Acute next starts.</string>
+    <string name="document_preparing">Preparing document…</string>
+    <string name="document_preparing_notice">Keep this page open while Gecko generates the complete document.</string>
+    <string name="document_unavailable">Open a web page first, and finish any current download before exporting.</string>
+    <string name="document_failed">The document could not be prepared or printed.</string>
 </resources>

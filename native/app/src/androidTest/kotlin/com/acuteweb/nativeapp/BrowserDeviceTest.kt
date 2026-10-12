@@ -61,7 +61,8 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
                     }
                     val token = path.substringAfter("token=", "fixture")
                     val marker = when { path.startsWith("/normal-set") -> "normal"; path.startsWith("/private-set") -> "private"; else -> null }
-                    val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>Offline fixture</body></html>"
+                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else "Offline fixture"
+                    val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>$content</body></html>"
                     val bytes = body.toByteArray(Charsets.UTF_8)
                     val cookie = if (marker != null) "Set-Cookie: marker=$marker; Path=/; SameSite=Lax\r\n" else ""
                     val headers = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n${cookie}Content-Length: ${bytes.size}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"

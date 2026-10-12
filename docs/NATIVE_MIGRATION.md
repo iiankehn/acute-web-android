@@ -407,3 +407,38 @@ IPC and native prompt lifecycle on Android 12 x86_64. It does not certify a
 physical device's system file-picker/provider flow, ARM64, Waydroid, resumable
 background transfers or Stable/Beta migration. The source checkpoints and
 original application profiles remain untouched.
+
+## Document export and printing — 2.0.0-dev.6
+
+The pinned GeckoSession source was reviewed before integration. `saveAsPdf()`
+uses Gecko's document print machinery for HTML and the PDF.js saver for original
+PDF bytes. Acute does not render pages or stitch viewport images. Save as PDF
+hands the generated stream to the existing bounded download/document-picker
+flow, preserving its private-export warning, lifecycle and cancellation rules.
+
+Print uses the public Android PrintManager/PrintDocumentAdapter APIs. Only an
+explicit Print action creates a temporary app-private cached PDF. Private-mode
+printing first requires a FLAG_SECURE consent prompt disclosing the app cache,
+system spooler and possible print-service retention. The adapter inspects page
+count using PdfRenderer but never renders document bytes for printing; it copies
+the full Gecko PDF to the spooler and reports ALL_PAGES, leaving selection to
+Android. It does not reflow the source after paper-option changes.
+
+Temporary print copies have a 64 MiB bound, fixed-buffer off-main I/O, resource
+closure and cancellation checks. Finishing/cancelling a print removes its owned
+copy; process-death leftovers are deleted only from Acute's dedicated print-cache
+directory at the next app start. Export to the print service is explicit and
+does not imply that system/printer copies can be deleted by Acute. Other cache
+files, user documents, session archives and Places are unaffected.
+
+Document generation is bound to the current Activity/tab/URI. Switching pages,
+rotation, backgrounding or closing invalidates it and closes late streams. Gecko
+does not expose a generation-abort handle here; a cancelled generation can
+finish internally before its returned stream is closed. Print is hidden on
+Automotive and devices without Android printing support. Web-triggered automatic
+printing is not wired into this app-owned flow.
+
+Instrumentation covers a real three-page Gecko export with the last page's
+visible marker below the viewport, byte-exact descriptor writes, cancelled and
+malformed streams, temporary-file cleanup, private-print consent and Android's
+actual print-dialog cancellation. CI acceptance/signing remains pending.
