@@ -150,6 +150,35 @@ class BrowserDeviceTest {
             File(app.noBackupFilesDir, name).delete()
         }
     }
+    @Test fun externalLinkCreatesNormalTabWithoutReusingPrivateSession() {
+        TestSite().use { site ->
+            ActivityScenario.launch(BrowserActivity::class.java).use { scenario ->
+                eventually { fromMain { app.browser.ready } }
+                lateinit var privateSession: GeckoSession
+                scenario.onActivity {
+                    app.browser.newTab(BrowsingMode.PRIVATE)
+                    privateSession = app.browser.selectedEngine()!!.session
+                }
+                val token = UUID.randomUUID().toString()
+                val uri = site.uri("/external-link", token)
+                app.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(uri)).apply {
+                    setClass(app, BrowserActivity::class.java); addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+                eventually { fromMain { app.browser.tabs.mode == BrowsingMode.NORMAL && app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true } }
+                onMain {
+                    assertNotSame(privateSession, app.browser.selectedEngine()!!.session)
+                    assertFalse(app.browser.selectedEngine()!!.session.settings.usePrivateMode)
+                    assertTrue(app.browser.tabs.all.any { tab -> tab.mode == BrowsingMode.PRIVATE })
+                    app.browser.closePrivateTabs()
+                }
+                val count = fromMain { app.browser.tabs.all.size }
+                val selected = fromMain { app.browser.tabs.selected!!.id }
+                scenario.recreate()
+                assertEquals(count, fromMain { app.browser.tabs.all.size })
+                assertEquals(selected, fromMain { app.browser.tabs.selected!!.id })
+            }
+        }
+    }
     @Test fun rotationKeepsPrivateSessionAndScreenshotProtection() {
         ActivityScenario.launch(BrowserActivity::class.java).use { scenario ->
             lateinit var selected: GeckoSession

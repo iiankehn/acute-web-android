@@ -296,3 +296,21 @@ Downloads remain pending feature work; an ignored Gecko external response now
 closes its body stream and reports unsupported download handling rather than
 leaking the connection. New tests cover URL byte preservation, link scheme
 validation and external stream closure.
+
+The corruption/context follow-up passed build job 114671710238 in CI run
+38206717768: 18 core tests, all 12 Android tests, and both force-stop stages.
+Both corrupt-file preservation cases passed, as did Places reopen compatibility,
+actual Gecko visits, private exclusions, archive restoration and adapter stream
+closure. Lint and all four native libraries for both ABIs passed. The isolated
+signing job also passed and uploaded the certificate-verified Dev.3 candidate.
+
+## Android link intake — 2.0.0-dev.4
+
+The Dev launcher now advertises HTTP/HTTPS VIEW/BROWSABLE handling. Incoming
+links are validated before engine use and queued until session restoration has
+finished. Every external link opens a fresh normal tab; it does not replace or
+reuse a private session. The consumed Intent data is cleared so rotation cannot
+open duplicate tabs. Unsupported schemes/credentials and oversized links are
+rejected, and the existing tab limit applies. Android acceptance tests deliver
+an actual VIEW Intent while private mode is active, check the normal session
+boundary, and verify rotation does not duplicate the link.

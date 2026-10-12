@@ -31,6 +31,7 @@ class BrowserActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var tabStrip: LinearLayout
     private lateinit var tabScroll: HorizontalScrollView
+    private var pendingExternalUri: String? = null
     private var linkDialog: AlertDialog? = null
     private var linkTab: String? = null
     private var attachedSession: GeckoSession? = null
@@ -92,6 +93,7 @@ class BrowserActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33) {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { handleBack() }
         }
+        receiveExternal(intent)
         render()
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -116,6 +118,13 @@ class BrowserActivity : Activity() {
     private fun newGeckoView() = GeckoView(this).apply { isSaveEnabled = false; isSaveFromParentEnabled = false }
     private fun render() {
         if (!::gecko.isInitialized) return
+        if (browser.ready) pendingExternalUri?.let { uri ->
+            pendingExternalUri = null
+            intent?.data = null // Consumed once; rotation must not open the same link again.
+            // External Android links always enter a fresh normal tab, never the live private window.
+            if (browser.newTab(BrowsingMode.NORMAL)) browser.navigate(uri)
+            else Toast.makeText(this, R.string.tab_limit, Toast.LENGTH_SHORT).show()
+        }
         applyPrivacy()
         if (browser.tabs.mode == BrowsingMode.PRIVATE) library.dismiss()
         val tab = browser.tabs.selected
@@ -242,6 +251,14 @@ class BrowserActivity : Activity() {
         }.create()
         if (private) dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         linkDialog = dialog; dialog.show()
+    }
+    private fun receiveExternal(incoming: android.content.Intent?) {
+        if (incoming?.action != android.content.Intent.ACTION_VIEW) return
+        val uri = incoming.dataString ?: return
+        if (uri.length <= 4096 && com.acuteweb.core.NavigationPolicy.allows(uri)) pendingExternalUri = uri
+    }
+    override fun onNewIntent(incoming: android.content.Intent) {
+        super.onNewIntent(incoming); setIntent(incoming); receiveExternal(incoming); render()
     }
     private fun focusAddress() {
         address.requestFocus(); address.selectAll()

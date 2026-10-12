@@ -9,7 +9,7 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.orElse(1).get()
-        versionName = "2.0.0-dev.3"
+        versionName = "2.0.0-dev.4"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     compileOptions {
