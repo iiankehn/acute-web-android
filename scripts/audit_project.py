@@ -92,6 +92,7 @@ def validate_action_pinning() -> None:
 def validate_security_invariants() -> None:
     overlay = (ROOT / "scripts/apply_overlay.py").read_text(encoding="utf-8")
     updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text(encoding="utf-8")
+    workflow = (WORKFLOWS / "build-android.yml").read_text(encoding="utf-8")
     required = (
         'android:authorities="${applicationId}.acute-updates"',
         'android:exported="false"',

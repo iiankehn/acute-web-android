@@ -137,6 +137,9 @@ def patch_native_menu(path: Path) -> None:
     text = replace_once(text, "import androidx.compose.material3.MaterialTheme\n",
                         "import androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Text\n",
                         "native menu heading import")
+    text = replace_once(text, "import androidx.compose.ui.semantics.semantics\n",
+                        "import androidx.compose.ui.semantics.semantics\nimport androidx.compose.ui.semantics.heading\n",
+                        "native menu accessibility heading import")
     start = text.index("    MenuFrame(", text.index("fun MainMenu("))
     end = text.index("\n@Composable\nprivate fun QuitMenuGroup", start)
     text = text[:start] + """    MenuFrame(
@@ -184,6 +187,24 @@ def patch_native_menu(path: Path) -> None:
                 moreSettingsSubmenu = moreSettingsSubmenu,
                 extensionSubmenu = extensionSubmenu,
             )
+        }
+        if (isReaderViewActive && accessPoint != MenuAccessPoint.Home) {
+            MenuGroup {
+                MenuItem(
+                    label = stringResource(R.string.browser_menu_customize_reader_view_2),
+                    beforeIconPainter = painterResource(iconsR.drawable.mozac_ic_tool_24),
+                    onClick = onCustomizeReaderViewMenuClick,
+                )
+            }
+        }
+        if (showIPProtection) {
+            MenuGroup {
+                IPProtectionMenuItem(
+                    state = ipProtectionMenuState,
+                    onToggle = onIPProtectionClick,
+                    onNavigate = onIPProtectionNavigate,
+                )
+            }
         }
         AcuteMenuHeading(R.string.acute_menu_library)
         LibraryMenuGroup(
@@ -234,7 +255,7 @@ private fun AcuteMenuHeading(label: Int) {
         text = stringResource(label),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 8.dp),
+        modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 8.dp).semantics { heading() },
     )
 }
 """ + text[end:]
@@ -454,6 +475,8 @@ android {
         text = replace_once(text, 'applicationId "com.acuteweb.browser"',
                             'applicationId "com.acuteweb.browser.dev"', "isolated Dev package")
 
+    text = replace_once(text, "        minSdk config.minSdkVersion", "        minSdk 31", "Android 12 minimum SDK")
+
     # Acute must not share Firefox's Linux UID or data sandbox.
     text = re.sub(
         r'^\s*"sharedUserId": "org\.mozilla\.firefox\.sharedID",\n',
@@ -579,6 +602,31 @@ def patch_dark_theme_default(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_runtime_privacy(settings_path: Path, analytics_path: Path) -> None:
+    """Disable upload consent even for profiles with old or overridden preferences."""
+    text = settings_path.read_text(encoding="utf-8")
+    for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
+        pattern = re.compile(rf"    var {name} by\n        booleanPreference\(.*?\n        \)\n", re.DOTALL)
+        replacement = f"    // Acute does not participate in telemetry or remote experiments.\n    var {name}: Boolean\n        get() = false\n        set(value) = Unit\n"
+        text, count = pattern.subn(lambda _: replacement, text)
+        if count != 1:
+            raise OverlayError(f"Could not locate runtime privacy preference: {name}")
+    settings_path.write_text(text, encoding="utf-8")
+
+    text = analytics_path.read_text(encoding="utf-8")
+    text = replace_once(text, "            services = services,", "            services = emptyList(),", "local-only crash services")
+    start = text.index("            telemetryServices =")
+    end = text.index("            shouldPrompt =", start)
+    text = text[:start] + "            telemetryServices = emptyList(),\n" + text[end:]
+    text = replace_once(text, "private fun isSentryEnabled() = !BuildConfig.SENTRY_TOKEN.isNullOrEmpty()",
+                        "private fun isSentryEnabled() = false", "disabled Sentry initialization")
+    # Do not construct attribution/usage SDK services even though the controller is a no-op.
+    start = text.index("            listOf(", text.index("MetricController.create("))
+    end = text.index("            isDataTelemetryEnabled =", start)
+    text = text[:start] + "            emptyList(),\n" + text[end:]
+    analytics_path.write_text(text, encoding="utf-8")
+
+
 def patch_manifest(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     # Acute does not use Mozilla partner attribution, advertising identifiers,
@@ -607,6 +655,11 @@ def patch_manifest(path: Path) -> None:
     install_permission = '''    <uses-permission-sdk-23 android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
 '''
+    # Attribution broadcasts are unnecessary when marketing telemetry is disabled.
+    receiver = re.compile(r'        <receiver\s+android:name="com\.adjust\.sdk\.AdjustPreinstallReferrerReceiver".*?</receiver>\n', re.DOTALL)
+    text, count = receiver.subn("", text)
+    if count != 1:
+        raise OverlayError("Could not locate the upstream attribution receiver")
     text = replace_once(text, adjust_permission, "", "partner attribution permission")
     text = text.replace(ad_id_permission, "")
     if "com.google.android.gms.permission.AD_ID" in text:
@@ -1404,6 +1457,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
     toolbar_middleware = fenix / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarMiddleware.kt"
+    analytics = fenix / "app/src/main/java/org/mozilla/fenix/components/Analytics.kt"
     main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
     clipping_behavior = (
@@ -1423,7 +1477,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1444,6 +1498,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_native_address_bar(display_toolbar, edit_toolbar)
     patch_native_navigation(toolbar_middleware)
     patch_native_menu(main_menu)
+    patch_runtime_privacy(settings, analytics)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)

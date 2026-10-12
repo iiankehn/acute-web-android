@@ -19,9 +19,9 @@ class ProjectTests(unittest.TestCase):
         self.assertIn("BETA_VERSION", updater)
         self.assertIn("requestUpdateCheck()", updater)
         self.assertIn('uri.host == "github.com"', updater)
-        self.assertIn('uri.path == expectedPath', updater)
+        self.assertIn('uri.encodedPath == expectedPath', updater)
         self.assertIn('assetSize in 1..MAX_APK_BYTES', updater)
-        self.assertIn('pageUri.path != expectedPagePath', updater)
+        self.assertIn('pageUri.encodedPath != expectedPagePath', updater)
         self.assertIn("KEY_REMIND_AFTER", updater)
         self.assertIn("KEY_LAST_ATTEMPT", updater)
         self.assertIn("MAX_RESPONSE_BYTES", updater)
@@ -146,52 +146,28 @@ class ProjectTests(unittest.TestCase):
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("4452e9a17a29f762c5af6326f45c000dcf3117bb", workflow)
+        self.assertIn("0c469c2352451630bc69fc328c9f0c589c6c534d", workflow)
         self.assertNotIn("uses: actions/checkout@v", workflow)
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=1.1.0-beta.1", workflow)
-        self.assertIn("1.1.0-dev.${GITHUB_RUN_NUMBER}", workflow)
+        self.assertIn("version=2.0.0-beta.1", workflow)
+        self.assertIn("2.0.0-dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)
         self.assertIn("com.acuteweb.browser.beta", workflow)
         self.assertIn("--prerelease", workflow)
 
-    def test_core_glass_dark_theme_tokens_are_packaged(self):
-        tokens = (ROOT / "overlay/res/values/acute_core_glass.xml").read_text()
+    def test_native_dark_theme_tokens_are_opaque(self):
+        import xml.etree.ElementTree as ET
+        colors = ET.parse(ROOT / "overlay/res/values/acute_native_theme.xml").getroot()
+        for color in colors:
+            self.assertRegex(color.text, r"^#FF[0-9A-F]{6}$")
+        self.assertFalse((ROOT / "overlay/res/values/acute_core_glass.xml").exists())
         theme = (ROOT / "scripts/apply_overlay.py").read_text()
-        for color in (
-            "acute_glass_canvas",
-            "acute_glass_surface",
-            "acute_glass_surface_selected",
-            "acute_glass_outline",
-            "acute_glass_blue",
-        ):
-            self.assertIn(f'name="{color}"', tokens)
-        self.assertIn("#FF0072BC", tokens)
-        self.assertIn("#B81B1E23", tokens)
-        self.assertIn("#739FCBE8", tokens)
-        self.assertIn('"fx_mobile_surface": "@color/acute_glass_surface"', theme)
-        self.assertIn(
-            '"fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected"',
-            theme,
-        )
-        self.assertIn('"fx_mobile_primary": "@color/acute_glass_blue_soft"', theme)
-        self.assertIn("patch_core_glass_toolbar", theme)
-        self.assertIn("patch_core_glass_address_bar", theme)
-        self.assertIn("patch_core_glass_compositor", theme)
-        self.assertIn("!context.isLargeScreenSize()", theme)
-        self.assertIn(
-            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
-            theme,
-        )
-        self.assertIn("Brush.verticalGradient", theme)
-        self.assertIn("Color(0xC2383D46)", theme)
-        self.assertIn("Color(0x997AC6EA)", theme)
-        self.assertIn("val acuteGlassTopOverlayHeight = 0", theme)
-        self.assertIn("engineViewParent.translationY = 0f", theme)
-        self.assertIn("toolbar.collapse()", theme)
+        self.assertIn('"fx_mobile_surface": "@color/acute_native_surface"', theme)
+        for removed in ("patch_core_glass", "acuteGlassTopOverlayHeight", "toolbar.collapse()", "Brush.verticalGradient"):
+            self.assertNotIn(removed, theme)
         self.assertIn("Config.generateFennecVersionCode(abi) + acuteBuildNumber", theme)
 
     def test_unneeded_upstream_permissions_are_removed(self):

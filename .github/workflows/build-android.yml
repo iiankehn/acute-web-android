@@ -40,6 +40,8 @@ jobs:
           python-version: "3.12"
       - name: Run complete Acute audit suite
         run: make audit
+      - name: Check all channel overlays against pinned Firefox
+        run: make upstream-check
 
   metadata:
     name: Select immutable build inputs
@@ -222,21 +224,6 @@ jobs:
             --max-workers=2
             '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
           )
-          # Fenix's final vital-lint analysis stalled until the three-hour job
-          # timeout on the 0.7 Beta build. Package the APK without that task;
-          # the prior signed Beta build completed it on the same Firefox pin.
-          if [[ "$GRADLE_TASK" == *assembleBeta ]]; then
-            variant=Beta
-          elif [[ "$GRADLE_TASK" == *assembleRelease ]]; then
-            variant=Release
-          else
-            variant=
-          fi
-          if [[ -n "$variant" ]]; then
-            gradle_resource_args+=(
-              -x ":fenix:lintVital${variant}"
-            )
-          fi
           for attempt in 1 2 3; do
             ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}" && break
             test "$attempt" -lt 3 || exit 1
@@ -257,6 +244,7 @@ jobs:
           build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$build_tools/aapt2" dump badging "$apk" > "$RUNNER_TEMP/acute-badging.txt"
           grep -F "package: name='${{ needs.metadata.outputs.package }}' " "$RUNNER_TEMP/acute-badging.txt"
+          grep -qx "sdkVersion:'31'" "$RUNNER_TEMP/acute-badging.txt"
           if [[ "$BUILD_KIND" != debug ]]; then ! grep -q '^application-debuggable' "$RUNNER_TEMP/acute-badging.txt"; fi
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libmozglue.so"
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libxul.so"
@@ -319,9 +307,10 @@ jobs:
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
           test -x "$build_tools/aapt2"
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"' EXIT
           printf '%s' "$ACUTE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/acute-web-release.jks"
           chmod 600 "$RUNNER_TEMP/acute-web-release.jks"
-          trap 'rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"' EXIT
           mkdir -p dist
           unsigned_apk="$(find unsigned -name '*-unsigned.apk' -print -quit)"
           "$build_tools/aapt2" dump badging "$unsigned_apk" > "$RUNNER_TEMP/acute-unsigned-badging.txt"

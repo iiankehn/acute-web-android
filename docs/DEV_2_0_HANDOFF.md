@@ -1,3 +1,23 @@
+# Android 2.0 reviewed-source handoff
+
+Repository: `iiankehn/acute-web-android`. Review branch:
+`wip/android-2.0-native-ui-2026-10-12`; promotion target: `dev`.
+Stable and Beta refs and `archive/native-geckoview-2026-10-12` must remain unchanged.
+
+The original WIP below has been reviewed and repaired. The audit-script error, stale Glass fixtures,
+missing menu handlers and runtime privacy gaps are fixed. Android 12 is enforced. Restored vital lint
+and added real upstream/output invariants plus metadata shell execution tests. 47 regressions pass.
+See [DEV_2_0_SECURITY_AUDIT.md](DEV_2_0_SECURITY_AUDIT.md) for evidence, scope and remaining gates.
+
+Next: validate the final immutable upstream check, promote the reviewed source to Dev, and inspect
+both GitHub build/signing results. A source pass is not an accepted APK. Device checks, traffic
+verification and a transitive dependency scan remain pending. No public release is requested.
+The large-screen tab strip remains separate; do not claim a merged tablet capsule row.
+
+---
+
+## Original checkpoint (historical; superseded status)
+
 # Fresh Acute Android 2.0 — unfinished handoff
 
 Checkpoint branch: `wip/android-2.0-native-ui-2026-10-12`.

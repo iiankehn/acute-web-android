@@ -1,12 +1,13 @@
 # Acute release channels
 
-Acute Web uses two release channels with separate Git branches and Android
+Acute Web uses two release channels and an isolated Dev channel with separate Git branches and Android
 application identities.
 
 | Channel | Branch | Application ID | Version format |
 |---|---|---|---|
 | Stable | `main` | `com.acuteweb.browser` | `vMAJOR.MINOR.PATCH` |
 | Beta | `beta` | `com.acuteweb.browser.beta` | `vMAJOR.MINOR.PATCH-beta.NUMBER` |
+| Dev | `dev` | `com.acuteweb.browser.dev` | `2.0.0-dev.NUMBER` CI artifacts |
 
 Browse the public channel sources directly:
 
@@ -19,7 +20,7 @@ Testing Beta therefore does not replace or modify a user's Stable installation.
 
 ## Promotion policy
 
-New features are developed and tested on `beta`. A feature is promoted to
+Android 2.0 experiments are reviewed and tested on `dev` before a Beta candidate. Dev builds do not publish releases or update the public download website. Its release updater is disabled. A feature is promoted to
 `main` only after its tests pass, its user-facing branding and documentation are
 complete, and it survives phone, tablet, upgrade, and update-channel testing.
 

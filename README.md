@@ -16,19 +16,17 @@ for ARM64 and x86_64 phones, tablets, ChromeOS devices, and Android computers.
 [Beta releases](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) ·
 [Report an issue](https://github.com/iiankehn/acute-web-android/issues/new/choose)
 
-> **You are viewing the Stable source branch.** GitHub opens this branch by
-> default because it represents published Acute releases. Active development is
-> publicly available from the
-> [Beta source (`beta`)](https://github.com/iiankehn/acute-web-android/tree/beta).
+> **Android 2.0 development source.** This branch keeps the established Fenix application. The independent GeckoView migration is archived; it is not the basis of this work.
 
 ## Release channels
 
 | Channel | Public source | Downloads | Purpose |
 |---|---|---|---|
 | Stable | [`main`](https://github.com/iiankehn/acute-web-android/tree/main) | [Signed stable APK](https://github.com/iiankehn/acute-web-android/releases/latest) | Tested releases intended for everyday use |
-| Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Feature development and release-candidate testing |
+| Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Release-candidate testing |
+| Dev | [`dev`](https://github.com/iiankehn/acute-web-android/tree/dev) | GitHub Actions artifacts | Isolated Android 2.0 experiments |
 
-The branches use separate Android application IDs, so Stable and Beta can be
+The branches use separate Android application IDs, so Stable, Beta and Dev can be
 installed together. The complete Acute source, build transformations, tests,
 and documentation for each channel are available from its corresponding
 branch.
@@ -118,19 +116,16 @@ For release operations, see:
 
 ## Project status
 
-Acute Web is under active development. Stable source and releases remain on
-`main`; upcoming work is published and tested on `beta` before promotion.
-Version 0.7 brings the CORE Glass visual system: a dark
-black/grey canvas, layered translucent surfaces, restrained soft-blue accents,
-and accessible high-contrast text. The application interface is Midnight-only;
-the separate Midnight Pages control still lets users choose how websites are
-rendered. The design is implemented as shared tokens so phones, tablets,
-large-screen Android and ChromeOS devices use one consistent interface.
+Android 2.0 keeps Fenix, Gecko, Sync, passwords and compatible extensions.
+CORE Glass is removed: opaque Midnight surfaces and restrained Acute blue accents
+surround native Android controls. Back stays visible; Forward follows page history;
+wide layouts include Refresh/Stop. More actions are grouped by purpose.
 
-The 1.1 release adds native x86_64 support alongside ARM64 while preserving the
-Acute Web by CORE identity, privacy defaults, and signed update path. Bug reports
-and reproducible device feedback are welcome through
-[GitHub Issues](https://github.com/iiankehn/acute-web-android/issues).
+The reviewed source targets Android 12+ with separate ARM64 and x86_64 packages.
+Dev uses `com.acuteweb.browser.dev`, the launcher label **Acute Dev**, and
+`2.0.0-dev.NUMBER` CI artifacts. Its release updater is disabled. Stable and Beta
+remain on their existing branches and profiles. See the [2.0 security review](docs/DEV_2_0_SECURITY_AUDIT.md)
+for validation evidence and the checks still required before accepting an APK.
 
 ## Licensing and attribution
 

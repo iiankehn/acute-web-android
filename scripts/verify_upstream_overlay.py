@@ -50,6 +50,7 @@ FENIX_KOTLIN = (
     "onboarding/OnboardingFragment.kt",
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
+    "components/Analytics.kt",
     "settings/about/AboutFragment.kt",
     "settings/CustomizationFragment.kt",
 )
@@ -61,6 +62,49 @@ COMPONENT_FILES = (
     "feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt",
     "feature/contextmenu/src/main/java/mozilla/components/feature/contextmenu/ContextMenuCandidate.kt",
 )
+
+
+def validate_output(source: Path, checkout: Path, channel: str) -> None:
+    """Validate security and viewport invariants on real transformed upstream files."""
+    import xml.etree.ElementTree as ET
+    app = checkout / "mobile/android/fenix/app"
+    gradle = (app / "build.gradle").read_text()
+    package = "com.acuteweb.browser.dev" if channel == "dev" else "com.acuteweb.browser"
+    assert f'applicationId "{package}"' in gradle
+    assert "minSdk 31" in gradle
+    assert "'TELEMETRY', 'true'" not in gradle
+    assert "'CRASH_REPORTING', 'true'" not in gradle
+    assert "AdjustPreinstallReferrerReceiver" not in (app / "src/main/AndroidManifest.xml").read_text()
+    manifest = ET.parse(app / "src/main/AndroidManifest.xml").getroot()
+    android = "{http://schemas.android.com/apk/res/android}"
+    application = manifest.find("application")
+    assert application.get(android + "allowBackup") == "false"
+    for provider in application.findall("provider"):
+        assert provider.get(android + "exported") == "false"
+        assert provider.get(android + "authorities", "").startswith("${applicationId}.")
+    for permission in manifest.findall("uses-permission") + manifest.findall("uses-permission-sdk-23"):
+        assert permission.get(android + "name") not in {
+            "com.adjust.preinstall.READ_PERMISSION", "com.google.android.gms.permission.AD_ID",
+            "android.permission.QUERY_ALL_PACKAGES", "android.permission.REQUEST_DELETE_PACKAGES",
+            "android.permission.REQUEST_INSTALL_PACKAGES",
+        }
+    code = app / "src/main/java/org/mozilla/fenix"
+    settings = (code / "utils/Settings.kt").read_text()
+    for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
+        assert f"var {name}: Boolean\n        get() = false" in settings
+    analytics = (code / "components/Analytics.kt").read_text()
+    assert "services = emptyList()," in analytics
+    assert "telemetryServices = emptyList()," in analytics
+    for relative in (
+        "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt",
+        "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt",
+        "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt",
+        "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt",
+        "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt",
+    ):
+        assert (source / relative).read_bytes() == (checkout / relative).read_bytes(), relative
+    for xml in app.rglob("*.xml"):
+        ET.parse(xml)
 
 
 def main() -> int:
@@ -98,6 +142,7 @@ def main() -> int:
             checkout = root / channel
             shutil.copytree(source, checkout)
             apply(checkout, channel=channel)
+            validate_output(source, checkout, channel)
             print(f"Complete {channel} overlay matches Firefox {ref}", flush=True)
     return 0
 

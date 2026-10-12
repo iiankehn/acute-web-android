@@ -10,6 +10,7 @@ from apply_overlay import apply, OverlayError  # noqa: E402
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
 android {
     defaultConfig {
+        minSdk config.minSdkVersion
         applicationId "org.mozilla"
     }
     def releaseTemplate = {
@@ -78,6 +79,11 @@ MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/androi
     <application
         android:label="@string/app_name">
         <activity android:name=".HomeActivity" android:resizeableActivity="true" />
+        <receiver
+            android:name="com.adjust.sdk.AdjustPreinstallReferrerReceiver"
+            android:exported="true">
+            <intent-filter><action android:name="com.attribution.SYSTEM_INSTALLER_REFERRER" /></intent-filter>
+        </receiver>
     </application>
 </manifest>
 '''
@@ -101,6 +107,28 @@ class Settings(private val appContext: Context) {
         stringPreference(
             appContext.getPreferenceKey(R.string.pref_key_crash_reporting_choice),
             default = CrashReportOption.Ask.toString(),
+        )
+
+    var isTelemetryEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_telemetry),
+            default = true,
+        )
+    var isDailyUsagePingEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_daily_usage_ping),
+            default = isTelemetryEnabled,
+            persistDefaultIfNotExists = true,
+        )
+    var isExperimentationEnabled by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_experimentation_v2),
+            default = isTelemetryEnabled,
+        )
+    var isRolloutsEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_rollouts),
+            default = { appContext.components.nimbus.sdk.rolloutParticipation },
         )
 
     var isMarketingTelemetryEnabled by
@@ -492,6 +520,16 @@ CUSTOMIZATION_FRAGMENT = '''class CustomizationFragment {
         setupRadioGroups()
         setupToolbarCategory()
     }
+    private fun setupToolbarLayout() {
+        layout.apply {
+            isVisible = isTallWindow() && !isWideWindow()
+        }
+    }
+    private fun updateToolbarShortcut() {
+        category.apply {
+            removeAll()
+        }
+    }
 }'''
 
 CORE = '''class Core {
@@ -647,6 +685,11 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
+        fixtures = Path(__file__).parent / "fixtures/firefox-157.0.1"
+        for relative in ("components/toolbar/BrowserToolbarMiddleware.kt", "components/menu/compose/MainMenu.kt", "components/Analytics.kt"):
+            destination = app / "src/main/java/org/mozilla/fenix" / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text((fixtures / Path(relative).name).read_text())
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
@@ -716,59 +759,59 @@ class OverlayTests(unittest.TestCase):
             compose_toolbar / "BrowserEditToolbar.kt",
         ):
             text = source.read_text()
-            self.assertIn("Brush.horizontalGradient", text)
-            self.assertIn("Color(0xC2383D46)", text)
-            self.assertIn("Color(0x997AC6EA)", text)
+            self.assertIn("MaterialTheme.colorScheme.surfaceContainerHighest", text)
+            self.assertIn(".border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)", text)
+            self.assertNotIn("Gradient", text)
             self.assertIn("import androidx.compose.foundation.border", text)
 
-    def test_composites_toolbar_over_live_gecko_content(self):
+    def test_preserves_upstream_viewport_and_toolbar_behavior(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
-        apply(root, channel="beta")
-        compose_toolbar = (
-            root
-            / "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt"
-        ).read_text()
-        browser_fragment = (
-            root
-            / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
-        ).read_text()
-        clipping_behavior = (
-            root
-            / "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt"
-        ).read_text()
-        toolbar_behavior = (
-            root
-            / "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt"
-        ).read_text()
-        self.assertIn("val backgroundColor = Color.Transparent", compose_toolbar)
-        self.assertIn("val acuteGlassTopOverlayHeight = 0", browser_fragment)
-        self.assertIn("import org.mozilla.fenix.utils.isLargeScreenSize", browser_fragment)
-        self.assertIn("!context.isLargeScreenSize()", browser_fragment)
-        self.assertIn(
-            "setDynamicToolbarMaxHeight(bottomToolbarHeight)",
-            browser_fragment,
-        )
-        self.assertNotIn(
-            "setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)",
-            browser_fragment,
-        )
-        self.assertIn("topToolbarHeight = topToolbarHeight", browser_fragment)
-        self.assertIn(
-            "if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight",
-            browser_fragment,
-        )
-        self.assertIn("engineViewParent.translationY = 0f", clipping_behavior)
-        self.assertIn("dynamicToolbarMaxHeight = bottomToolbarHeight", clipping_behavior)
-        self.assertIn(
-            "contentBottomClipping = (-recentBottomToolbarTranslation).roundToInt()",
-            clipping_behavior,
-        )
-        self.assertNotIn(
-            "recentTopToolbarTranslation - recentBottomToolbarTranslation",
-            clipping_behavior,
-        )
-        self.assertIn("toolbar.collapse()", toolbar_behavior)
+        apply(root, channel="dev")
+        sources = {
+            "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt": BROWSER_TOOLBAR,
+            "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt": BASE_BROWSER_FRAGMENT,
+            "mobile/android/android-components/components/compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt": COMPOSE_BROWSER_TOOLBAR,
+            "mobile/android/android-components/components/ui/widgets/src/main/java/mozilla/components/ui/widgets/behavior/EngineViewClippingBehavior.kt": ENGINE_VIEW_CLIPPING_BEHAVIOR,
+            "mobile/android/android-components/components/feature/toolbar/src/main/java/mozilla/components/feature/toolbar/ToolbarBehaviorController.kt": TOOLBAR_BEHAVIOR_CONTROLLER,
+        }
+        for path, original in sources.items():
+            self.assertEqual((root / path).read_text(), original, path)
+
+    def test_dev_package_privacy_and_native_commands(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="dev")
+        app = root / "mobile/android/fenix/app"
+        gradle = (app / "build.gradle").read_text()
+        self.assertIn('applicationId "com.acuteweb.browser.dev"', gradle)
+        self.assertIn("minSdk 31", gradle)
+        for path in app.glob("src/*/res/values/static_strings.xml"):
+            self.assertIn(">Acute Dev</string>", path.read_text())
+        code = app / "src/main/java/org/mozilla/fenix"
+        settings = (code / "utils/Settings.kt").read_text()
+        for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
+            self.assertIn(f"var {name}: Boolean\n        get() = false\n        set(value) = Unit", settings)
+        analytics = (code / "components/Analytics.kt").read_text()
+        self.assertIn("services = emptyList(),", analytics)
+        self.assertIn("telemetryServices = emptyList(),", analytics)
+        self.assertIn("private fun isSentryEnabled() = false", analytics)
+        middleware = (code / "components/toolbar/BrowserToolbarMiddleware.kt").read_text()
+        self.assertIn("ToolbarActionConfig(ToolbarAction.Back) { true }", middleware)
+        self.assertIn("ToolbarActionConfig(ToolbarAction.Forward) { browserStore.state.selectedTab?.content?.canGoForward == true }", middleware)
+        self.assertIn("ToolbarActionConfig(ToolbarAction.RefreshOrStop) { isWideScreen() }", middleware)
+        # Security/origin handlers and history observers must remain identical to upstream.
+        original = (Path(__file__).parent / "fixtures/firefox-157.0.1/BrowserToolbarMiddleware.kt").read_text()
+        for start, end in (("    internal fun buildAction(", "    private fun"), ("    private fun observePageNavigationStatus(", "    private fun observePageRefreshUpdates(")):
+            def section(text):
+                offset = text.index(start)
+                return text[offset:text.index(end, offset + len(start))]
+            self.assertEqual(section(middleware), section(original))
+        menu = (code / "components/menu/compose/MainMenu.kt").read_text()
+        for callback in ("onCustomizeReaderViewMenuClick", "onIPProtectionClick", "onIPProtectionNavigate", "onPasswordsMenuClick", "onExtensionsMenuClick", "onQuitMenuClick"):
+            self.assertIn("= " + callback, menu)
+        self.assertIn(".semantics { heading() }", menu)
+        self.assertIn("isVisible = false // Acute owns", (code / "settings/CustomizationFragment.kt").read_text())
 
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()
@@ -820,7 +863,7 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("android.permission.REQUEST_INSTALL_PACKAGES", manifest)
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
-        self.assertIn("appContext.isLargeScreenSize()", tablet_settings)
+        self.assertIn("var shouldUseExpandedToolbar: Boolean", tablet_settings)
         self.assertIn("isMarketingTelemetryEnabled: Boolean", tablet_settings)
         self.assertIn("get() = false", tablet_settings)
         self.assertIn("crashReportChoice: String", tablet_settings)
@@ -832,22 +875,17 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("shouldFollowDeviceTheme: Boolean", tablet_settings)
         night_colors = (app / "src/main/res/values-night/colors.xml").read_text()
         self.assertIn(
-            '<color name="fx_mobile_primary">@color/acute_glass_blue_soft</color>',
+            '<color name="fx_mobile_primary">@color/acute_native_blue_soft</color>',
             night_colors,
         )
         self.assertIn(
-            '<color name="fx_mobile_surface">@color/acute_glass_surface</color>',
+            '<color name="fx_mobile_surface">@color/acute_native_surface</color>',
             night_colors,
         )
         toolbar = (
             app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt"
         ).read_text()
-        self.assertIn("acuteCoreGlassModifier", toolbar)
-        self.assertIn("Brush.verticalGradient", toolbar)
-        self.assertIn("LocalConfiguration.current.smallestScreenWidthDp >= 600", toolbar)
-        self.assertIn("Color(0xD0193144)", toolbar)
-        self.assertIn("Color(0x667AC6EA)", toolbar)
-        self.assertEqual(toolbar.count("Column(modifier = acuteCoreGlassModifier)"), 2)
+        self.assertEqual(toolbar, BROWSER_TOOLBAR)
         customization = (app / "src/main/res/xml/customization_preferences.xml").read_text()
         self.assertNotIn("preferences_theme", customization)
         self.assertNotIn("pref_key_light_theme", customization)
