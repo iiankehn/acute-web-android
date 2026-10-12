@@ -1,3 +1,8 @@
+> **Native 2.0 development branch.** Acute is moving to an independent Android
+> application around GeckoView. The initial prototype is in [`native/`](native/).
+> See [migration baseline and preserved checkpoints](docs/NATIVE_MIGRATION.md).
+> The legacy implementation below remains available for recovery and comparison.
+
 # Acute Web for Android
 
 <p align="center">
@@ -27,6 +32,7 @@ for ARM64 and x86_64 phones, tablets, ChromeOS devices, and Android computers.
 |---|---|---|---|
 | Stable | [`main`](https://github.com/iiankehn/acute-web-android/tree/main) | [Signed stable APK](https://github.com/iiankehn/acute-web-android/releases/latest) | Tested releases intended for everyday use |
 | Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Feature development and release-candidate testing |
+| Dev | [`dev`](https://github.com/iiankehn/acute-web-android/tree/dev) | [Development build artifacts](https://github.com/iiankehn/acute-web-android/actions/workflows/native-foundation.yml) | Isolated native GeckoView rebuild; incomplete prototype |
 
 The branches use separate Android application IDs, so Stable and Beta can be
 installed together. The complete Acute source, build transformations, tests,

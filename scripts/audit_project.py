@@ -21,9 +21,14 @@ def fail(message: str) -> None:
 
 
 def tracked_files(*suffixes: str):
-    excluded = {".git", "__pycache__"}
+    excluded = {".git", "__pycache__", ".gradle", ".kotlin"}
+    # Native build outputs include binary lint XML and generated debug manifests.
+    # Exclude only these known output roots; continue auditing every source tree.
+    native_outputs = [ROOT / "native" / folder for folder in ("build", "app/build", "browser-core/build")]
     for path in ROOT.rglob("*"):
-        if path.is_file() and not excluded.intersection(path.parts):
+        if path.is_file() and not excluded.intersection(path.parts) and not any(
+            path.is_relative_to(output) for output in native_outputs
+        ):
             if not suffixes or path.suffix in suffixes:
                 yield path
 

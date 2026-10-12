@@ -25,6 +25,8 @@ env:
 
 jobs:
   audit:
+    # The independent Dev channel uses native-foundation.yml exclusively.
+    if: github.ref != 'refs/heads/dev'
     name: Audit Acute source and release controls
     runs-on: ubuntu-24.04
     timeout-minutes: 10

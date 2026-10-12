@@ -1,0 +1,45 @@
+name: Native GeckoView foundation
+on:
+  push:
+    branches: [dev]
+    paths: ['native/**', '.github/workflows/native-foundation.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/native-foundation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-foundation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Audit preserved and native source
+        run: make audit
+      - name: Install pinned Android platform
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Test, lint and compile the independent application
+        working-directory: native
+        run: ./gradlew --no-daemon --max-workers=2 :browser-core:test :app:lintDebug :app:assembleDebug
+      - name: Verify both native architectures
+        run: |
+          apk=native/app/build/outputs/apk/debug/app-debug.apk
+          for abi in arm64-v8a x86_64; do
+            unzip -Z1 "$apk" | grep -qx "lib/$abi/libxul.so"
+            unzip -Z1 "$apk" | grep -qx "lib/$abi/libmozglue.so"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: acute-native-foundation-preview
+          path: native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

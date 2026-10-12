@@ -16,6 +16,11 @@ branch = "beta"
 application_id = "com.acuteweb.browser.beta"
 release_pattern = "vMAJOR.MINOR.PATCH-beta.NUMBER"
 
+[channels.dev]
+branch = "dev"
+application_id = "com.acuteweb.browser.dev"
+release_pattern = "none (CI artifacts only during foundation development)"
+
 [upstream]
 repository = "https://github.com/mozilla-firefox/firefox.git"
 ref = "4452e9a17a29f762c5af6326f45c000dcf3117bb"

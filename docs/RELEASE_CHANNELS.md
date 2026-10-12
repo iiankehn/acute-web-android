@@ -45,3 +45,14 @@ Both channels use a reviewed, pinned commit from Mozilla's Stable source line.
 Acute does not automatically follow Beta or Nightly upstream code. The pinned
 revision changes only after review and compatibility testing, or when a browser-
 engine security update requires it.
+
+## Dev / experimental
+
+The `dev` branch hosts the independent native GeckoView implementation. It uses
+`com.acuteweb.browser.dev` and the label **Acute Dev**, alongside stable and beta.
+Builds are debug signed and distributed as GitHub Actions artifacts during
+foundation development. There is no automatic update path between channels and
+no dev release tag/publication flow yet. Stable/beta signing keys are not provided
+to dev compilation. CI artifacts can expire; source checkpoints remain in Git.
+Dev does not read or migrate existing stable/beta profiles. Feature parity,
+privacy audit and migration acceptance remain prerequisites for promotion.

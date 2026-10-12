@@ -9,3 +9,7 @@ local.properties
 __pycache__/
 *.pyc
 
+
+# Independent Android build outputs
+**/build/
+.kotlin/
