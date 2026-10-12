@@ -9,9 +9,10 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.orElse(1).get()
-        versionName = "2.0.0-dev.7"
+        versionName = "2.0.0-dev.8"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
+    sourceSets.getByName("main").assets.srcDir("../../overlay/assets")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

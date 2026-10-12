@@ -19,6 +19,7 @@ import org.mozilla.geckoview.GeckoView
 
 /** Native controls attach to process-owned sessions; Android bundles never receive browsing data. */
 class BrowserActivity : Activity() {
+    private lateinit var extensionsUi: ExtensionUi
     private lateinit var documents: DocumentUi
     private lateinit var downloadUi: DownloadUi
     private lateinit var library: LibraryUi
@@ -43,6 +44,7 @@ class BrowserActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         browser = (application as AcuteApplication).browser
+        extensionsUi = ExtensionUi(this, browser, (application as AcuteApplication).extensions, (application as AcuteApplication).runtime)
         library = LibraryUi(this, browser, (application as AcuteApplication).places)
         downloadUi = DownloadUi(this, browser, (application as AcuteApplication).downloads)
         documents = DocumentUi(this, browser, (application as AcuteApplication).downloads)
@@ -132,6 +134,7 @@ class BrowserActivity : Activity() {
         applyPrivacy()
         downloadUi.refresh()
         documents.refresh()
+        extensionsUi.refresh()
         if (browser.tabs.mode == BrowsingMode.PRIVATE) library.dismiss()
         val tab = browser.tabs.selected
         if (linkTab != tab?.id) { linkDialog?.dismiss(); linkDialog = null; linkTab = null }
@@ -203,6 +206,16 @@ class BrowserActivity : Activity() {
                 menu.add(R.string.save_bookmark).setOnMenuItemClickListener { library.bookmarkPage(); true }
                 menu.add(R.string.recent_bookmarks).setOnMenuItemClickListener { library.bookmarks(); true }
                 menu.add(R.string.recent_history).setOnMenuItemClickListener { library.history(); true }
+                menu.add(R.string.extensions_section).isEnabled = false
+                ExtensionManager.BUILT_INS.values.forEach { id ->
+                    val manager = (application as AcuteApplication).extensions
+                    val extension = manager.extensions.firstOrNull { it.id == id }
+                    menu.add(extension?.metaData?.name ?: id).apply {
+                        isEnabled = extension?.metaData?.enabled == true
+                        setOnMenuItemClickListener { manager.click(id); true }
+                    }
+                }
+                menu.add(R.string.manage_extensions).setOnMenuItemClickListener { extensionsUi.show(); true }
                 if (browser.needsRecovery) {
                     menu.add(R.string.saved_tabs_section).isEnabled = false
                     menu.add(R.string.reset_saved_tabs).setOnMenuItemClickListener { confirmResetSavedTabs(); true }
@@ -295,8 +308,8 @@ class BrowserActivity : Activity() {
         address.requestFocus(); address.selectAll()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(address, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
-    override fun onStart() { super.onStart(); downloadUi.start(); browser.linkHandler = ::showLinkActions; (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
-    override fun onStop() { documents.stop(); downloadUi.stop(); library.dismiss(); linkDialog?.dismiss(); linkDialog = null; browser.linkHandler = null; (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
+    override fun onStart() { super.onStart(); extensionsUi.start(); downloadUi.start(); browser.linkHandler = ::showLinkActions; (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
+    override fun onStop() { extensionsUi.stop(); documents.stop(); downloadUi.stop(); library.dismiss(); linkDialog?.dismiss(); linkDialog = null; browser.linkHandler = null; (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
     override fun onDestroy() {
         documents.destroy()
         if (attachedSession != null) gecko.releaseSession()

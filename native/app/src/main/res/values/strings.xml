@@ -74,4 +74,19 @@
     <string name="suspend_tab">Suspend tab</string>
     <string name="suspended_tab_label">%1$s · Suspended</string>
     <string name="suspend_unavailable">This tab could not be suspended safely. It remains open.</string>
+    <string name="extensions_section">Extensions</string>
+    <string name="manage_extensions">Manage extensions</string>
+    <string name="extensions_loading">Loading extensions…</string>
+    <string name="extension_open">Open panel</string>
+    <string name="extension_enable">Enable</string>
+    <string name="extension_disable">Disable</string>
+    <string name="extension_update">Check for update</string>
+    <string name="extension_options">Options</string>
+    <string name="extension_remove">Remove extension</string>
+    <string name="extension_remove_notice">Remove this extension and its locally saved data?</string>
+    <string name="extension_install">Install extension</string>
+    <string name="extension_install_notice">Enter the HTTPS address of a signed Firefox extension package. Gecko verifies it, then Acute asks you to review its access.</string>
+    <string name="extension_permissions">This extension requests:\n\n%1$s\n\nExtensions may read or transmit data within their granted access. Private browsing access and technical interaction data collection remain disabled.</string>
+    <string name="extension_allow">Allow access</string>
+    <string name="extension_no_action">This extension has no available panel.</string>
 </resources>

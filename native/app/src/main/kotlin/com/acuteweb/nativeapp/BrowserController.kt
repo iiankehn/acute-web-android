@@ -11,7 +11,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 /** Process-owned sessions survive Activity recreation. No Activity/View reference is retained after detach. */
-class BrowserController(context: Context, private val runtime: GeckoRuntime, private val archive: SessionArchive = SessionArchive(context.applicationContext), private val places: PlacesStore? = (context.applicationContext as? AcuteApplication)?.places, private val downloads: DownloadController? = (context.applicationContext as? AcuteApplication)?.downloads) {
+class BrowserController(context: Context, private val runtime: GeckoRuntime, private val archive: SessionArchive = SessionArchive(context.applicationContext), private val places: PlacesStore? = (context.applicationContext as? AcuteApplication)?.places, private val downloads: DownloadController? = (context.applicationContext as? AcuteApplication)?.downloads, private val extensions: ExtensionManager? = null) {
     var linkHandler: ((String, String) -> Unit)? = null
     val tabs = Tabs()
     var ready = false
@@ -31,6 +31,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     private val persistTask = Runnable { persistNow() }
 
     init {
+        extensions?.bind(this)
         io.execute {
             val result = runCatching { archive.read() }
             main.post {
@@ -81,13 +82,26 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
             linkContext = { uri -> if (tabs.selected?.id == tab.id) linkHandler?.invoke(tab.id, uri) },
         )
         engines[tab.id] = engine
+        extensions?.bindSession(tab, engine)
         return engine
     }
     private fun emit() {
         if (ready && listeners.isNotEmpty()) selectedEngine()
         val selected = tabs.selected?.id
         engines.forEach { (id, engine) -> engine.visibility(listeners.isNotEmpty() && id == selected) }
+        extensions?.selected(selected?.let { engines[it]?.session }, tabs.mode == BrowsingMode.NORMAL)
         listeners.toList().forEach { it() }
+    }
+    /** Extension tabs obey the same web boundary and tab cap. Gecko opens the returned child. */
+    fun extensionTab(uri: String?, active: Boolean): GeckoSession? {
+        checkThread()
+        if (!ready || tabs.mode != BrowsingMode.NORMAL || (uri != null && !NavigationPolicy.allowsOrBlank(uri))) return null
+        val previous = tabs.selected?.id
+        val tab = tabs.add(BrowsingMode.NORMAL) ?: return null
+        val engine = createEngine(tab)
+        if (!active && previous != null) tabs.select(previous)
+        main.post { emit(); scheduleSave() }
+        return engine.session
     }
     fun newTab(mode: BrowsingMode = tabs.mode): Boolean {
         checkThread(); if (!ready) return false
@@ -108,7 +122,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     fun close(id: String) {
         checkThread(); val removed = tabs.close(id) ?: return
         pendingSuspensions.remove(id)?.invoke()
-        engines.remove(id)?.close()
+        engines.remove(id)?.let { extensions?.forget(it.session); it.close() }
         if (removed.mode == BrowsingMode.PRIVATE && tabs.all.none { it.mode == BrowsingMode.PRIVATE }) {
             runtime.storageController.clearDataForSessionContext(privateContext)
             privateContext = UUID.randomUUID().toString()
@@ -162,7 +176,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
                     finish(false)
                 } else {
                     tabs.saveEngineState(id, state)
-                    engines.remove(id); engine.close()
+                    engines.remove(id); extensions?.forget(engine.session); engine.close()
                     finish(true); emit(); persistNow()
                 }
             }
