@@ -39,8 +39,10 @@ follow-up passed print/recovery checks but its new popup fixture timed out.
 Subsequent suspension acceptance exposed restoration timing, which the last
 pushed commit attempts to correct. Latest validation run at archive preparation:
 https://github.com/iiankehn/acute-web-android/actions/runs/38222318738
-Its final result must be checked before resuming; it was still running when this
-note was prepared. Do not infer acceptance from this archive commit.
+The run was still active during archive preparation and subsequently completed
+with a failure conclusion. Dev.6/Dev.7 runtime acceptance remains unfinished.
+Inspect that run's diagnostics before resuming; do not infer acceptance from this
+archive commit.
 
 Local project checks, the 45 Python tests, 10 extension tests and release/security
 audit passed before pausing. Full migration, workspaces, extension host parity,
@@ -59,3 +61,4 @@ Start by reading this note, NATIVE_MIGRATION.md and the latest run diagnostics.
 Repair and validate the archived WIP before choosing whether to resume the
 migration. The `dev` branch is reset to the stable source baseline for unrelated
 future experiments; the archived native history remains recoverable here.
+
