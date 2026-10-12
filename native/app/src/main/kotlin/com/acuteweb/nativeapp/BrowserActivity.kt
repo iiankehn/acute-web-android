@@ -19,6 +19,7 @@ import org.mozilla.geckoview.GeckoView
 
 /** Native controls attach to process-owned sessions; Android bundles never receive browsing data. */
 class BrowserActivity : Activity() {
+    private lateinit var downloadUi: DownloadUi
     private lateinit var library: LibraryUi
     private lateinit var browser: BrowserController
     private lateinit var gecko: GeckoView
@@ -42,6 +43,7 @@ class BrowserActivity : Activity() {
         super.onCreate(savedInstanceState)
         browser = (application as AcuteApplication).browser
         library = LibraryUi(this, browser, (application as AcuteApplication).places)
+        downloadUi = DownloadUi(this, browser, (application as AcuteApplication).downloads)
         applyPrivacy()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(17, 18, 20))
@@ -126,6 +128,7 @@ class BrowserActivity : Activity() {
             else Toast.makeText(this, R.string.tab_limit, Toast.LENGTH_SHORT).show()
         }
         applyPrivacy()
+        downloadUi.refresh()
         if (browser.tabs.mode == BrowsingMode.PRIVATE) library.dismiss()
         val tab = browser.tabs.selected
         if (linkTab != tab?.id) { linkDialog?.dismiss(); linkDialog = null; linkTab = null }
@@ -185,6 +188,7 @@ class BrowserActivity : Activity() {
             menu.add(R.string.close_tab).setOnMenuItemClickListener { browser.tabs.selected?.let { browser.close(it.id) }; true }
             menu.add(R.string.page_section).isEnabled = false
             menu.add(R.string.reload).setOnMenuItemClickListener { browser.selectedEngine()?.reload(); true }
+            menu.add(R.string.downloads_session).setOnMenuItemClickListener { downloadUi.show(); true }
             menu.add(R.string.edit_address).setOnMenuItemClickListener { focusAddress(); true }
             if (!private) {
                 menu.add(R.string.library_section).isEnabled = false
@@ -260,16 +264,21 @@ class BrowserActivity : Activity() {
     override fun onNewIntent(incoming: android.content.Intent) {
         super.onNewIntent(incoming); setIntent(incoming); receiveExternal(incoming); render()
     }
+    @Deprecated("Platform file picker callback")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == DownloadUi.CREATE_DOWNLOAD) downloadUi.result(resultCode, data)
+    }
     private fun focusAddress() {
         address.requestFocus(); address.selectAll()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(address, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
-    override fun onStart() { super.onStart(); browser.linkHandler = ::showLinkActions; (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
-    override fun onStop() { library.dismiss(); linkDialog?.dismiss(); linkDialog = null; browser.linkHandler = null; (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
+    override fun onStart() { super.onStart(); downloadUi.start(); browser.linkHandler = ::showLinkActions; (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
+    override fun onStop() { downloadUi.stop(); library.dismiss(); linkDialog?.dismiss(); linkDialog = null; browser.linkHandler = null; (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
     override fun onDestroy() {
         if (attachedSession != null) gecko.releaseSession()
         attachedSession = null
-        if (isFinishing && !isChangingConfigurations) browser.closePrivateTabs()
+        if (isFinishing && !isChangingConfigurations) { downloadUi.finish(); browser.closePrivateTabs() }
         super.onDestroy()
     }
     // Framework hierarchy saving is disabled on every browser view; no private URL/state enters this bundle.

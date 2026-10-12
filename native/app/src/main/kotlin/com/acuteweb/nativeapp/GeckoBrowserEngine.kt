@@ -19,6 +19,7 @@ class GeckoBrowserEngine(
     private val closeWindow: () -> Unit,
     private val history: PlacesStore? = null,
     private val linkContext: (String) -> Unit = {},
+    private val downloadResponse: ((BrowsingMode, WebResponse) -> Boolean)? = null,
 ) : BrowserEngine {
     val session = GeckoSession(GeckoSessionSettings.Builder().useTrackingProtection(true)
         .usePrivateMode(privateMode).contextId(if (privateMode) privateContext else null).build())
@@ -54,9 +55,12 @@ class GeckoBrowserEngine(
                 if (!disposed) element.linkUri?.takeIf { it.length <= 4096 && NavigationPolicy.allows(it) }?.let(linkContext)
             }
             override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
-                // Until the owned download flow is installed, ignored bodies must still release their connection.
-                runCatching { response.body?.close() }
-                update(state.copy(error = "Downloads are not available in this Dev build yet."))
+                if (!disposed && downloadResponse != null) {
+                    if (!downloadResponse.invoke(mode, response)) update(state.copy(error = "Download could not start. Another transfer may be active, or this response is unsupported."))
+                } else {
+                    runCatching { response.body?.close() }
+                    update(state.copy(error = "Download could not be started."))
+                }
             }
             override fun onCloseRequest(session: GeckoSession) { if (!disposed) closeWindow() }
             override fun onCrash(session: GeckoSession) { lostProcess() }

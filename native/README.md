@@ -4,7 +4,7 @@ Independent Android application on `dev`, with GeckoView providing rendering
 and native session state. Preserved Fenix code/checkpoints are documented in
 [the migration baseline](../docs/NATIVE_MIGRATION.md).
 
-Current batch: `2.0.0-dev.4`, normal/private tabs, encrypted normal-session
+Current batch: `2.0.0-dev.5`, normal/private tabs, encrypted normal-session
 restoration, rotation continuity, reload recovery and native tab controls.
 Private tabs are never written to the archive. Existing Stable/Beta profiles
 are not read or migrated.
@@ -46,3 +46,17 @@ link actions retain URL encoding and optionally remove known tracking names.
 Dev.4 adds validated Android HTTP/HTTPS link intake into fresh normal tabs;
 its Android acceptance and signing passed in CI run 38208036301 (13 runtime tests
 and both force-stop stages).
+
+Dev.5 adds authenticated Gecko response-stream downloads using Android's
+Create Document picker. Choose Save on the download prompt, then choose a file.
+Downloads this session shows progress; tap an active transfer to cancel or a
+completed one to open it. One transfer is accepted at a time, with a 2 GB limit
+and a two-minute picker deadline. Private saves explicitly warn that the file
+will remain on disk. Closing all private tabs cancels private transfers and
+clears their in-memory records, while preserving files explicitly exported.
+
+Transfer metadata is process memory only. Process death interrupts downloads;
+background completion/resume is not guaranteed. Failed/cancelled transfers can
+leave partial selected files; Acute does not delete user-selected documents.
+No new storage/notification permissions or persistent URI grants are added.
+Dev.5 Android acceptance is pending CI.

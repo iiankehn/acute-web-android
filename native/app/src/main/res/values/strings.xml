@@ -44,4 +44,19 @@
     <string name="link_label">Web link</string>
     <string name="link_copied">Link copied</string>
     <string name="share_unavailable">No app could open the share sheet</string>
+    <string name="downloads_session">Downloads this session</string>
+    <string name="downloads_empty">No downloads this session</string>
+    <string name="download_notice">Choose where to save this file. Downloads are limited to 2 GB. The file picker expires after two minutes.</string>
+    <string name="private_download_notice">Files saved from private browsing remain outside the private session after tabs close. Your chosen storage provider may keep or sync them. Limit: 2 GB; picker expires after two minutes.</string>
+    <string name="download_picker_missing">No file picker could be opened</string>
+    <string name="download_interrupted">Download interrupted. The selected file may be empty or incomplete.</string>
+    <string name="download_waiting">Tap to choose a destination</string>
+    <string name="download_choosing">Choosing destination — tap to cancel</string>
+    <string name="download_saving">Saving: %1$d bytes — tap to cancel</string>
+    <string name="download_cancelling">Cancelling…</string>
+    <string name="download_complete">Saved: %1$d bytes — tap to open</string>
+    <string name="download_failed">Could not finish saving. The selected file may be incomplete.</string>
+    <string name="download_cancelled">Cancelled. A selected file may be incomplete.</string>
+    <string name="open_download">Open saved file</string>
+    <string name="download_open_failed">The saved file could not be opened</string>
 </resources>

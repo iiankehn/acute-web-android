@@ -11,7 +11,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 /** Process-owned sessions survive Activity recreation. No Activity/View reference is retained after detach. */
-class BrowserController(context: Context, private val runtime: GeckoRuntime, private val archive: SessionArchive = SessionArchive(context.applicationContext), private val places: PlacesStore? = (context.applicationContext as? AcuteApplication)?.places) {
+class BrowserController(context: Context, private val runtime: GeckoRuntime, private val archive: SessionArchive = SessionArchive(context.applicationContext), private val places: PlacesStore? = (context.applicationContext as? AcuteApplication)?.places, private val downloads: DownloadController? = (context.applicationContext as? AcuteApplication)?.downloads) {
     var linkHandler: ((String, String) -> Unit)? = null
     val tabs = Tabs()
     var ready = false
@@ -72,6 +72,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
             },
             closeWindow = { close(tab.id) },
             history = places,
+            downloadResponse = downloads?.let { manager -> { mode, response -> manager.receive(mode, response) } },
             linkContext = { uri -> if (tabs.selected?.id == tab.id) linkHandler?.invoke(tab.id, uri) },
         )
         engines[tab.id] = engine
@@ -105,13 +106,14 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
         if (removed.mode == BrowsingMode.PRIVATE && tabs.all.none { it.mode == BrowsingMode.PRIVATE }) {
             runtime.storageController.clearDataForSessionContext(privateContext)
             privateContext = UUID.randomUUID().toString()
+            downloads?.forgetPrivate()
             tabs.switchMode(BrowsingMode.NORMAL)
         }
         if (tabs.selected == null) tabs.add(tabs.mode)
         emit(); if (removed.mode == BrowsingMode.NORMAL) persistNow()
     }
     fun closePrivateTabs() {
-        checkThread(); val ids = tabs.all.filter { it.mode == BrowsingMode.PRIVATE }.map { it.id }
+        checkThread(); downloads?.forgetPrivate(); val ids = tabs.all.filter { it.mode == BrowsingMode.PRIVATE }.map { it.id }
         ids.forEach { engines.remove(it)?.close(); tabs.close(it) }
         if (ids.isNotEmpty()) {
             runtime.storageController.clearDataForSessionContext(privateContext)

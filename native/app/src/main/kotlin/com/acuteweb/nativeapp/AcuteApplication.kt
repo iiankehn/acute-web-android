@@ -7,6 +7,7 @@ import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 
 class AcuteApplication : Application() {
+    val downloads: DownloadController by lazy { DownloadController(this) }
     val places: PlacesStore by lazy { PlacesStore(this) }
     val browser: BrowserController by lazy { BrowserController(this, runtime) }
     // Exactly one runtime per process; no activity context retained.

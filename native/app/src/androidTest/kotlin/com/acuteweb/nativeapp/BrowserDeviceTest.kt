@@ -36,6 +36,8 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
     private val server = ServerSocket(port, 50, InetAddress.getByName("127.0.0.1"))
     private val running = AtomicBoolean(true)
     val port get() = server.localPort
+    val downloadRequests = java.util.concurrent.atomic.AtomicInteger(0)
+    val downloadBytes = ByteArray(65536) { (it % 251).toByte() }
     private val worker = Thread {
         while (running.get()) {
             try {
@@ -44,7 +46,19 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
                     val reader = client.getInputStream().bufferedReader()
                     val line = reader.readLine() ?: return@use
                     val path = line.split(' ').getOrNull(1) ?: "/"
-                    while (!reader.readLine().isNullOrEmpty()) { }
+                    val headersIn = mutableListOf<String>()
+                    while (true) { val header = reader.readLine(); if (header.isNullOrEmpty()) break; headersIn.add(header) }
+                    if (path.startsWith("/download-auth")) {
+                        downloadRequests.incrementAndGet()
+                        val authenticated = headersIn.any { it.startsWith("Cookie:", true) && it.contains("marker=normal") }
+                        val bytes = if (authenticated) downloadBytes else "Not authenticated".toByteArray()
+                        val status = if (authenticated) "200 OK" else "403 Forbidden"
+                        val mime = if (authenticated) "application/octet-stream" else "text/html"
+                        val disposition = if (authenticated) "Content-Disposition: attachment; filename=authenticated.bin\r\n" else ""
+                        val headers = "HTTP/1.1 $status\r\nContent-Type: $mime\r\n${disposition}Content-Length: ${bytes.size}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"
+                        client.getOutputStream().write(headers.toByteArray(Charsets.US_ASCII)); client.getOutputStream().write(bytes)
+                        return@use
+                    }
                     val token = path.substringAfter("token=", "fixture")
                     val marker = when { path.startsWith("/normal-set") -> "normal"; path.startsWith("/private-set") -> "private"; else -> null }
                     val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>Offline fixture</body></html>"
@@ -59,11 +73,11 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
     fun uri(path: String, token: String = UUID.randomUUID().toString()) = URI("http", null, "127.0.0.1", port, path, "token=$token", null).toASCIIString()
     override fun close() { running.set(false); server.close(); worker.join(1000) }
 }
-internal class SessionDriver(private: Boolean = false, context: String? = null, initial: PageState = PageState(), history: PlacesStore? = null) : AutoCloseable {
+internal class SessionDriver(private: Boolean = false, context: String? = null, initial: PageState = PageState(), history: PlacesStore? = null, downloadResponse: ((BrowsingMode, org.mozilla.geckoview.WebResponse) -> Boolean)? = null) : AutoCloseable {
     lateinit var engine: GeckoBrowserEngine
     val page = AtomicReference(initial)
     val snapshot = AtomicReference<String?>(null)
-    init { onMain { engine = GeckoBrowserEngine(app.runtime, private, context, initial, { page.set(it) }, { snapshot.set(it) }, { null }, { }, history) } }
+    init { onMain { engine = GeckoBrowserEngine(app.runtime, private, context, initial, { page.set(it) }, { snapshot.set(it) }, { null }, { }, history, downloadResponse = downloadResponse) } }
     fun open(state: String? = null) { onMain { engine.open(state); engine.visibility(true) } }
     fun load(uri: String, token: String): String {
         onMain { engine.navigate(uri) }

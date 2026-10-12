@@ -341,3 +341,48 @@ UI/input/privacy checks and Stable/Beta migration remain outstanding.
 Original main, beta, feature/2.0-foundation and all three pre-native checkpoint
 refs were rechecked and still match the preserved hashes above. The tested Dev
 candidate does not modify those sources or installed Stable/Beta profiles.
+
+## Download batch — 2.0.0-dev.5
+
+The owned flow consumes Gecko ContentDelegate.onExternalResponse's existing
+InputStream, preserving the authenticated browser request without refetching
+it through another HTTP client. Gecko's pinned stream source was inspected:
+its underlying channel remains suspended until reads resume it. The app uses
+Android ACTION_CREATE_DOCUMENT, CATEGORY_OPENABLE and ContentResolver's
+cancellable descriptor API; no broad storage or notification permission is
+introduced. The system picker creates a new document rather than overwriting
+an existing document, as documented in Android's Storage Access Framework:
+https://developer.android.com/training/data-storage/shared/documents-files
+
+`DownloadPolicy` supplies bounded filename/MIME validation and fixed-buffer
+stream copying, cancellation, declared-length/truncation checks and a 2 GiB
+limit. Encoded responses do not use encoded Content-Length as a decoded-byte
+length. `DownloadController` owns one stream/picker/transfer at a time, off-main
+file I/O, throttled progress, resource closure, a two-minute pending deadline,
+and at most 20 records per browsing mode. Picker ownership survives Activity
+recreation in process memory and prevents an expired/cancelled picker result
+from being applied to another request. Closing the Activity abandons its picker;
+closing the last private tab cancels private transfers and removes their records.
+
+Native UI asks for Save before launching the picker, warns before exporting a
+private file, and presents mode-filtered session downloads with cancel/open
+controls. Private prompts/lists enable FLAG_SECURE. Download filenames, URIs,
+metadata and bytes are never added to session archives, Android bundles, Places
+or backups. The explicitly chosen output document persists outside the profile,
+even after private-window close. Partial documents are retained on failure or
+cancellation; existing user documents are never automatically deleted.
+
+This is a foreground/session transfer flow, not an Android DownloadManager or
+foreground-service implementation. Process death loses transfer metadata and
+interrupts active writes; there is no resumable or guaranteed background
+completion claim. Blob/data downloads, HTTP range resume, dashboard persistence
+and long-term download indexing remain future work. Only supported HTTP(S),
+status-200 responses with bodies enter this flow. No public beta is published.
+
+Core tests cover filename/MIME validation, bounded memory/reads, stream closure,
+cancellation/write failure and truncated/oversized responses. Android fixtures
+use unique app-owned MediaStore destinations on the disposable emulator. Tests
+cover actual cookie-authenticated Gecko bytes with exactly one HTTP request,
+stale-picker rejection, truncated/unwritable destinations, explicit private
+export preservation, active private-transfer cancellation, and private prompt
+consent/rotation/close lifecycle. Android acceptance/signing remains pending.
