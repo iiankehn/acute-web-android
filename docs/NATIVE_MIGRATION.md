@@ -131,3 +131,77 @@ libxul and libmozglue in both ABIs. The existing 45 Python regression tests,
 10 extension behavioral tests, project checks and security/release audit passed.
 On-device launch, native UI acceptance, network audit and migration testing
 remain outstanding. These results do not certify a public beta.
+
+## Session/privacy batch — 2.0.0-dev.2
+
+The user confirmed a successful physical-device launch of the foundation on
+2026-10-12 UTC (2026-10-11 local). CI run 38199131060 passed before that check.
+This records launch acceptance, not certification of the subsequent features.
+
+Implementation now adds normal/private tab selection, bounded tab creation
+(32 normal, 16 private), lazy restored sessions, background deactivation,
+process-owned sessions across Activity recreation, and reload recovery after
+Gecko content-process crash/kill. Gecko's own `SessionState` supplies navigation
+history and restorable document state; Acute does not implement another history
+engine. New-window navigation inherits its parent mode and rejects background
+requests and non-gesture popup loads. Gecko receives an unopened child session
+as required by the pinned API.
+
+Normal tab snapshots use Kotlin Serialization JSON 1.11.0, authenticated AES-GCM
+with a non-exportable Android Keystore key, and Android AtomicFile replacement
+in noBackupFilesDir. File I/O is serialized off the main thread. A failed read
+keeps the existing archive intact and disables replacement; failed writes retain
+the previous committed archive and can retry. Input/version/size/duplicate-ID
+validation is fail-closed. Unsupported/oversized Gecko snapshots fall back to
+loading the recorded web URL. Saved state is bounded to 256 Ki characters per
+tab and 12 MiB per archive. Abrupt termination before the next durable write
+can lose the newest unsaved change; no synchronous-force-stop guarantee is made.
+
+Private tab metadata and Gecko state stay in process memory. Private sessions
+use Gecko private mode and a separate randomly generated session context; all
+private tabs in one window share that context. Closing the last private tab
+clears it and the next private window receives a fresh context. Closing the app
+closes private tabs; ordinary backgrounding/rotation preserves the live private
+window. Android bundles and backups never receive browser view state. Private
+windows/dialogs enable FLAG_SECURE. Switching tabs discards the old Gecko
+surface/autofill hierarchy; protection stays until a normal frame is drawn.
+This is private browsing, not an anonymity or zero-network promise.
+
+Native UI adds tab count/chooser, clear private-mode labeling, grouped page/tab/
+privacy menu actions, large-window tab capsules at 600dp, and Ctrl+L/T/W/Tab and
+Ctrl+Shift+P. The launcher is singleTask: multi-window *resizing* is supported,
+but independent simultaneous Acute windows are deferred.
+
+### Component decision
+
+The browser-state 157.0 Maven POM was inspected. Its transitive graph includes
+concept-fetch/awesomebar/engine/storage, lib-state, support modules, Compose and
+coroutines. For this limited integration, importing it would expand the app's
+state/dependency surface without replacing Gecko's supported state persistence.
+This batch therefore reuses Gecko/Android primitives and the maintained Kotlin
+serializer. Android Components storage, Sync, extensions and download libraries
+remain candidates for their corresponding feature services; they are not
+rejected wholesale.
+
+### Acceptance coverage
+
+Core tests exercise normal/private selection, private-data exclusion, closed-tab
+restoration, snapshot bounds, stale-document invalidation, authenticated
+encryption, fresh nonces and tamper/wrong-key rejection. Android instrumentation
+uses a local offline fixture with the actual Gecko engine, Android Keystore and
+AtomicFile. It checks normal/private cookies, private-window context isolation,
+Gecko history restoration, rotation/session identity and screenshot protection.
+Two additional instrumentation stages are separated by `am force-stop` to
+verify restoration in a newly started app process. These test runs are gates in
+the Dev workflow, not claims of passing before execution.
+
+Stable/Beta profile migration, bookmarks/history services, downloads, passwords,
+Sync, extensions and workspaces remain outstanding. This batch does not import
+or modify stable/beta data stores or archive checkpoints.
+
+Local batch validation: 14 core tests, 45 preserved Python tests and 10
+extension tests passed; application and instrumentation APKs compiled, lint
+reported no errors, and both ELF/ABI packages were checked. A reproduced stale
+instrumentation symbol-cache collision was removed by clean compilation; the
+small native project disables Kotlin incremental compilation for reliability.
+Android runtime/process-death acceptance is still awaiting CI execution.

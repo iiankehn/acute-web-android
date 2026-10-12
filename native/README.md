@@ -1,22 +1,26 @@
-# Acute native GeckoView foundation
+# Acute native GeckoView — Dev
 
-Development prototype on `dev`. The preserved Fenix
-implementation remains in the repository. See [migration baseline](../docs/NATIVE_MIGRATION.md)
-for source checkpoints, parity requirements, risks and subsequent work.
+Independent Android application on `dev`, with GeckoView providing rendering
+and native session state. Preserved Fenix code/checkpoints are documented in
+[the migration baseline](../docs/NATIVE_MIGRATION.md).
 
-Build with Java 17 and Android SDK 37 (Build Tools 36.0.0):
+Current batch: `2.0.0-dev.2`, normal/private tabs, encrypted normal-session
+restoration, rotation continuity, reload recovery and native tab controls.
+Private tabs are never written to the archive. Existing Stable/Beta profiles
+are not read or migrated.
+
+Build with Java 17 and SDK 37.0 / Build Tools 36.0.0:
 
 ```sh
 cd native
-./gradlew :browser-core:test :app:lintDebug :app:assembleDebug
+./gradlew :browser-core:test :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
 ```
 
-The preview uses a separate app ID and debug signer. It provides one web session,
-search/navigation and an independent native toolbar. Existing tabs, profiles,
-passwords, Sync, extensions and downloads are not migrated in this slice.
-The GitHub native-foundation workflow produces a development APK; it does not
-publish or sign a production release. Physical-device testing is required.
+On a disposable Android 12+ emulator, `./run-device-tests.sh` runs actual Gecko
+privacy/restoration tests and a process-death acceptance sequence. The native
+workflow runs them on Android 12 x86_64 before uploading the candidate. Physical
+ARM64 and Waydroid/adaptive input acceptance remain required.
 
-CI debug keys are ephemeral: successive artifacts are not guaranteed to install
-over one another. CI uses the workflow run number as its version code. A persistent isolated dev signer
-is required before ongoing device testing; never uninstall Stable/Beta for Dev.
+Prototype package: `com.acuteweb.browser.dev`. Production release publication
+and Stable/Beta migration remain disabled. Signing continuity for Dev upgrades
+is a separate channel gate; never uninstall Stable/Beta for a Dev preview.

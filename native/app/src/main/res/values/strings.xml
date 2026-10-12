@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">Acute Dev</string>
+    <string name="address_hint">Search or address</string>
+    <string name="back">Back</string>
+    <string name="forward">Forward</string>
+    <string name="menu">Menu</string>
+    <string name="tab_count">%1$d</string>
+    <string name="open_tabs">Open tabs: %1$d</string>
+    <string name="new_tab">New tab</string>
+    <string name="new_private_tab">New private tab</string>
+    <string name="private_tabs">Private tabs</string>
+    <string name="normal_tabs">Normal tabs</string>
+    <string name="close_tab">Close tab</string>
+    <string name="close_private_tabs">Close all private tabs</string>
+    <string name="page_section">Page</string>
+    <string name="tabs_section">Tabs</string>
+    <string name="reload">Reload</string>
+    <string name="edit_address">Edit address</string>
+    <string name="privacy_section">Privacy</string>
+    <string name="private_hint">Private tabs stay in memory and close when Acute exits.</string>
+    <string name="private_title">Acute · Private browsing</string>
+    <string name="normal_hint">Search or enter a web address</string>
+    <string name="restoring_tabs">Restoring tabs…</string>
+    <string name="invalid_address">Enter a web address or search text</string>
+    <string name="tab_limit">The tab limit has been reached. Close a tab to open another.</string>
+</resources>

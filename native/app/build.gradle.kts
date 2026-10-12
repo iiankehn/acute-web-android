@@ -5,10 +5,11 @@ android {
     defaultConfig {
         // Deliberately cannot replace stable/beta profiles during migration development.
         applicationId = "com.acuteweb.browser.dev"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 31
         targetSdk = 35
         versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.orElse(1).get()
-        versionName = "2.0.0-dev.1"
+        versionName = "2.0.0-dev.2"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     compileOptions {
@@ -18,6 +19,10 @@ android {
     buildTypes { release { isMinifyEnabled = false } }
 }
 dependencies {
+    implementation("androidx.core:core-ktx:1.19.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     implementation(project(":browser-core"))
     implementation("org.mozilla.geckoview:geckoview:157.0.20261005135250")
 }
