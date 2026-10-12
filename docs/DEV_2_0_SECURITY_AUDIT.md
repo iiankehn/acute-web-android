@@ -55,8 +55,10 @@ OkHttp 5.5.0, Sentry 8.55.0 and Adjust 5.8.0 in `gradle/libs.versions.toml`.
 The Fenix Gradle wrapper pins Gradle 9.7.1 with a SHA-256 checksum and URL validation.
 Acute adds no Python package dependency. Its local Midnight Pages extension has no remote
 service request and skips private pages. GitHub Actions remain pinned to full commit hashes.
-No separate transitive Maven/Rust CVE scan has completed; dependency-resolution/build outputs
-and merged manifests are part of the remaining binary acceptance review.
+A follow-up inventory scan completed 709 OSV version queries and found three vulnerability records
+and three maintenance notices. See [dependency findings](DEV_2_0_DEPENDENCY_FINDINGS.md).
+Release acceptance is blocked pending triage/remediation. Resolved-transitive Maven coverage and
+actual APK merged-manifest review remain pending.
 
 ## Validation and remaining acceptance gates
 

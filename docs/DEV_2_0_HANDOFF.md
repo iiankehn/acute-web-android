@@ -1,3 +1,17 @@
+# Follow-up audit checkpoint
+
+Build 88 at `d7d8afb` is in progress for ARM64/x86_64. Source validation passed.
+The next security audit found three vulnerability records and three maintenance notices across
+709 version queries. See `DEV_2_0_DEPENDENCY_FINDINGS.md`; do not call security acceptance complete.
+58 local regression tests pass, including the dependency scanner and compiled-manifest validator.
+These follow-up tools are preserved on `security/android-2.0-acceptance` for review; they are not
+merged into Dev or wired into Build 88. The acceptance hold does not assert a remote Acute exploit.
+
+Next: inspect Build 88, review actual merged manifests, resolve native artifact/call-path findings,
+and integrate the reviewed acceptance tools. Stable/Beta and the archived migration are unchanged.
+
+---
+
 # Android 2.0 reviewed-source handoff
 
 Repository: `iiankehn/acute-web-android`. Review branch:
