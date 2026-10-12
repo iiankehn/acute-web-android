@@ -76,6 +76,10 @@ class GeckoBrowserEngine(
             override fun onKill(session: GeckoSession) { lostProcess() }
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
+            override fun onPageStart(session: GeckoSession, url: String) { update(state.copy(loading = true, error = null)) }
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+                update(state.copy(loading = false, error = if (success) null else state.error ?: "Page could not be loaded."))
+            }
             override fun onSessionStateChange(session: GeckoSession, sessionState: GeckoSession.SessionState) {
                 if (disposed) return
                 savedState = sessionState.toString()
@@ -122,7 +126,7 @@ class GeckoBrowserEngine(
     }
     private fun lostProcess() {
         active = false
-        update(state.copy(canGoBack = false, canGoForward = false, error = "This tab stopped. Reload to restore it."))
+        update(state.copy(canGoBack = false, canGoForward = false, loading = false, error = "This tab stopped. Reload to restore it."))
     }
     private fun ensureOpen() {
         if (!session.isOpen) { session.open(runtime); restoreOrLoad() }
@@ -152,7 +156,7 @@ class GeckoBrowserEngine(
     override fun navigate(uri: String) {
         require(NavigationPolicy.allows(uri)); ensureOpen()
         savedState = null; snapshot(null)
-        update(state.copy(uri = uri, error = null, canGoForward = false))
+        update(state.copy(uri = uri, error = null, canGoForward = false, loading = true))
         session.loadUri(uri)
     }
     override fun back() { if (session.isOpen && state.canGoBack) session.goBack() }

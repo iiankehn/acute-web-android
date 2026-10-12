@@ -157,7 +157,7 @@ class BrowserDeviceTest {
                 for (mode in listOf(BrowsingMode.NORMAL, BrowsingMode.PRIVATE)) {
                     val token = UUID.randomUUID().toString()
                     onMain { app.browser.newTab(mode); app.browser.navigate(site.uri("/popup", token)) }
-                    eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true } }
+                    eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true && app.browser.tabs.selected?.page?.loading == false } }
                     val originalCount = fromMain { app.browser.tabs.visible.size }
                     val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
                     lateinit var point: FloatArray
@@ -171,9 +171,11 @@ class BrowserDeviceTest {
                         val location = IntArray(2); view.getLocationOnScreen(location)
                         point = floatArrayOf(location[0] + view.width / 2f, location[1] + 60 * activity.resources.displayMetrics.density)
                     }
+                    automation.waitForIdle(500, 5000)
                     val now = android.os.SystemClock.uptimeMillis()
                     for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
                         val event = android.view.MotionEvent.obtain(now, android.os.SystemClock.uptimeMillis(), action, point[0], point[1], 0)
+                        event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
                         try { assertTrue(automation.injectInputEvent(event, true)) } finally { event.recycle() }
                     }
                     eventually { fromMain { app.browser.tabs.visible.size == originalCount + 1 && app.browser.tabs.selected?.page?.title?.startsWith("popupdone:") == true } }

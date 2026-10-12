@@ -16,4 +16,5 @@ data class PageState(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val error: String? = null,
+    val loading: Boolean = false,
 )
