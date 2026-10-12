@@ -314,3 +314,10 @@ open duplicate tabs. Unsupported schemes/credentials and oversized links are
 rejected, and the existing tab limit applies. Android acceptance tests deliver
 an actual VIEW Intent while private mode is active, check the normal session
 boundary, and verify rotation does not duplicate the link.
+
+The initial Dev.4 Android run passed link delivery/private isolation, but
+ActivityScenario could not follow the resumed Activity after the NEW_TASK
+handoff and timed out on recreation. The test now launches the real app task,
+observes Android lifecycle transitions directly, requires singleTask to reuse
+the same Activity, and checks recreation against the newly resumed Activity.
+The privacy and duplicate-tab assertions remain intact.

@@ -151,11 +151,21 @@ class BrowserDeviceTest {
         }
     }
     @Test fun externalLinkCreatesNormalTabWithoutReusingPrivateSession() {
+        fun resumed(): BrowserActivity? = fromMain {
+            androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
+                .filterIsInstance<BrowserActivity>().singleOrNull()
+        }
         TestSite().use { site ->
-            ActivityScenario.launch(BrowserActivity::class.java).use { scenario ->
-                eventually { fromMain { app.browser.ready } }
+            // Use the real app task. ActivityScenario's bootstrap task cannot track a NEW_TASK handoff.
+            app.startActivity(android.content.Intent(app, BrowserActivity::class.java).apply {
+                action = android.content.Intent.ACTION_MAIN; addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            try {
+                eventually { resumed() != null && fromMain { app.browser.ready } }
+                val originalActivity = resumed()!!
                 lateinit var privateSession: GeckoSession
-                scenario.onActivity {
+                onMain {
                     app.browser.newTab(BrowsingMode.PRIVATE)
                     privateSession = app.browser.selectedEngine()!!.session
                 }
@@ -164,7 +174,8 @@ class BrowserDeviceTest {
                 app.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(uri)).apply {
                     setClass(app, BrowserActivity::class.java); addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 })
-                eventually { fromMain { app.browser.tabs.mode == BrowsingMode.NORMAL && app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true } }
+                eventually { resumed() != null && fromMain { app.browser.tabs.mode == BrowsingMode.NORMAL && app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true } }
+                assertSame("singleTask must reuse the existing app Activity", originalActivity, resumed())
                 onMain {
                     assertNotSame(privateSession, app.browser.selectedEngine()!!.session)
                     assertFalse(app.browser.selectedEngine()!!.session.settings.usePrivateMode)
@@ -173,9 +184,18 @@ class BrowserDeviceTest {
                 }
                 val count = fromMain { app.browser.tabs.all.size }
                 val selected = fromMain { app.browser.tabs.selected!!.id }
-                scenario.recreate()
+                onMain { originalActivity.recreate() }
+                eventually { resumed()?.let { it !== originalActivity } == true }
                 assertEquals(count, fromMain { app.browser.tabs.all.size })
                 assertEquals(selected, fromMain { app.browser.tabs.selected!!.id })
+            } finally {
+                onMain {
+                    val monitor = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                    listOf(androidx.test.runner.lifecycle.Stage.RESUMED, androidx.test.runner.lifecycle.Stage.PAUSED,
+                        androidx.test.runner.lifecycle.Stage.STARTED, androidx.test.runner.lifecycle.Stage.STOPPED)
+                        .flatMap { monitor.getActivitiesInStage(it) }.filterIsInstance<BrowserActivity>()
+                        .distinct().forEach { it.finish() }
+                }
             }
         }
     }
