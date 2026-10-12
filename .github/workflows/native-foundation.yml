@@ -26,7 +26,16 @@ jobs:
       - name: Audit preserved and native source
         run: make audit
       - name: Install pinned Android platform
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+        run: |
+          sdk_manager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdk_manager" || {
+            echo "Android SDK manager missing at $sdk_manager"
+            exit 1
+          }
+          printf 'y\n%.0s' {1..100} | "$sdk_manager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null
+          "$sdk_manager" --sdk_root="$ANDROID_HOME" 'platforms;android-37.0' 'build-tools;36.0.0'
+          test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
       - name: Test, lint and compile the independent application
         working-directory: native
         run: ./gradlew --no-daemon --max-workers=2 :browser-core:test :app:lintDebug :app:assembleDebug
