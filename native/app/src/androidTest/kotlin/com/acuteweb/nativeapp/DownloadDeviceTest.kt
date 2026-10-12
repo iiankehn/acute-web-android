@@ -57,8 +57,10 @@ class DownloadDeviceTest {
     }
     @Test fun cancelledPickerCannotWriteItsResultToANewerRequest() {
         val manager = DownloadController(app); val uri = destination()
+        val original = byteArrayOf(11, 12, 13)
         val first = TrackedBody(byteArrayOf(1)); val refused = TrackedBody(byteArrayOf(2)); val next = TrackedBody(byteArrayOf(3))
         try {
+            app.contentResolver.openOutputStream(uri)!!.use { it.write(original) }
             onMain {
                 assertTrue(manager.receive(BrowsingMode.NORMAL, response(first)))
                 val id = manager.offer!!.id; assertTrue(manager.choose(id)); manager.cancel(id)
@@ -68,7 +70,7 @@ class DownloadDeviceTest {
                 assertFalse(manager.finishPicker(uri))
                 assertTrue(manager.receive(BrowsingMode.NORMAL, response(next)))
             }
-            assertArrayEquals(byteArrayOf(), contents(uri))
+            assertArrayEquals(original, contents(uri))
         } finally { onMain { manager.shutdown() }; app.contentResolver.delete(uri, null, null) }
         assertTrue(next.closed.get())
     }
