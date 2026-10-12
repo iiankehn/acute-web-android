@@ -477,6 +477,15 @@ android {
 
     text = replace_once(text, "        minSdk config.minSdkVersion", "        minSdk 31", "Android 12 minimum SDK")
 
+    # Artifact mozconfigs may enable debugging even for the release Gradle variant.
+    # Acute's signed candidates must not inherit those development-only overrides.
+    debug_override = """        if (gradle.hasProperty("localProperties.debuggable") ||
+            gradle.mozconfig.substs.MOZ_ANDROID_DEBUGGABLE) {
+            debuggable true
+        }
+"""
+    text = replace_once(text, debug_override, "        debuggable false\n", "non-debuggable release template")
+
     # Acute must not share Firefox's Linux UID or data sandbox.
     text = re.sub(
         r'^\s*"sharedUserId": "org\.mozilla\.firefox\.sharedID",\n',

@@ -5,7 +5,6 @@ This is source compatibility validation, not an Android compilation or device te
 Only the files consumed by the overlay are downloaded; no Gecko build is started.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 import shutil
@@ -72,6 +71,9 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     package = "com.acuteweb.browser.dev" if channel == "dev" else "com.acuteweb.browser"
     assert f'applicationId "{package}"' in gradle
     assert "minSdk 31" in gradle
+    release_template = gradle.split("def releaseTemplate = {", 1)[1].split("    buildTypes {", 1)[0]
+    assert "debuggable false" in release_template
+    assert "MOZ_ANDROID_DEBUGGABLE" not in release_template
     assert "'TELEMETRY', 'true'" not in gradle
     assert "'CRASH_REPORTING', 'true'" not in gradle
     assert "AdjustPreinstallReferrerReceiver" not in (app / "src/main/AndroidManifest.xml").read_text()
@@ -110,6 +112,27 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         ET.parse(xml)
 
 
+def fetch_source(source: Path, repository: str, ref: str, paths: list[str]) -> None:
+    """Fetch one immutable sparse Git snapshot instead of many raw-file requests."""
+    if not re.fullmatch(r"[0-9a-f]{40}", ref):
+        raise ValueError("Upstream validation requires an immutable Firefox commit")
+    subprocess.run(["git", "init", "--quiet", str(source)], check=True)
+    def git(*arguments, **kwargs):
+        return subprocess.run(["git", "-C", str(source), *arguments], check=True, timeout=300, **kwargs)
+    git("remote", "add", "origin", repository)
+    git("config", "core.sparseCheckout", "true")
+    sparse = source / ".git/info/sparse-checkout"
+    sparse.write_text("".join("/" + path + "\n" for path in paths))
+    git("fetch", "--quiet", "--depth=1", "--filter=blob:none", "origin", ref)
+    fetched = git("rev-parse", "FETCH_HEAD", capture_output=True, text=True).stdout.strip()
+    if fetched != ref:
+        raise ValueError("Fetched Firefox commit does not match the immutable pin")
+    git("checkout", "--quiet", "--detach", "FETCH_HEAD")
+    missing = [path for path in paths if not (source / path).is_file()]
+    if missing:
+        raise ValueError("Sparse upstream snapshot is incomplete: " + ", ".join(missing))
+
+
 def main() -> int:
     config = tomllib.loads((ROOT / "acute-android.toml").read_text())
     ref = config["upstream"]["ref"]
@@ -129,21 +152,10 @@ def main() -> int:
         root = Path(directory)
         source = root / "source"
 
-        def fetch(path: str) -> None:
-            destination = source / path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            url = f"https://raw.githubusercontent.com/mozilla-firefox/firefox/{ref}/{path}"
-            subprocess.run(
-                ["curl", "--fail", "--silent", "--show-error", "--location",
-                 "--retry", "2", "--max-time", "60", url, "--output", str(destination)],
-                check=True,
-            )
-
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            list(pool.map(fetch, paths))
+        fetch_source(source, config["upstream"]["repository"], ref, paths)
         for channel in ("stable", "beta", "dev"):
             checkout = root / channel
-            shutil.copytree(source, checkout)
+            shutil.copytree(source, checkout, ignore=shutil.ignore_patterns(".git"))
             apply(checkout, channel=channel)
             validate_output(source, checkout, channel)
             print(f"Complete {channel} overlay matches Firefox {ref}", flush=True)

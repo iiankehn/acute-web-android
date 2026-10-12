@@ -15,6 +15,10 @@ android {
     }
     def releaseTemplate = {
         signingConfig = signingConfigs.debug
+        if (gradle.hasProperty("localProperties.debuggable") ||
+            gradle.mozconfig.substs.MOZ_ANDROID_DEBUGGABLE) {
+            debuggable true
+        }
     }
     buildTypes {
         debug {
@@ -822,6 +826,18 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("import org.mozilla.fenix.browser.BrowserFragmentDirections", HOME_ACTIVITY)
         self.assertEqual(source.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n"), 1)
         self.assertEqual(source.count("BrowserFragmentDirections.actionGlobalHome("), 2)
+
+    def test_release_template_does_not_inherit_artifact_debug_override(self):
+        for channel in ("stable", "beta", "dev"):
+            with self.subTest(channel=channel):
+                temp, root = self.make_checkout()
+                self.addCleanup(temp.cleanup)
+                apply(root, channel=channel)
+                gradle = (root / "mobile/android/fenix/app/build.gradle").read_text()
+                template = gradle.split("def releaseTemplate = {", 1)[1].split("    buildTypes {", 1)[0]
+                self.assertIn("debuggable false", template)
+                self.assertNotIn("MOZ_ANDROID_DEBUGGABLE", template)
+                self.assertNotIn("debuggable true", template)
 
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()
