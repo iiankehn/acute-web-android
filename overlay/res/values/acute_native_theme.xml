@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Opaque Android chrome; product blue remains a restrained accent. -->
+    <color name="acute_native_canvas">#FF101216</color>
+    <color name="acute_native_surface">#FF1B1E24</color>
+    <color name="acute_native_surface_low">#FF15181D</color>
+    <color name="acute_native_surface_high">#FF282D35</color>
+    <color name="acute_native_surface_selected">#FF253E52</color>
+    <color name="acute_native_outline">#FF596572</color>
+    <color name="acute_native_text">#FFF4F8FB</color>
+    <color name="acute_native_text_muted">#FFB8C3CC</color>
+    <color name="acute_native_blue">#FF0072BC</color>
+    <color name="acute_native_blue_soft">#FF8ABDDD</color>
+    <color name="acute_native_blue_container">#FF223B50</color>
+</resources>

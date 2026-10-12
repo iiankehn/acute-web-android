@@ -38,6 +38,8 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
 
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
+        // Dev is delivered as isolated CI artifacts, never redirected into Stable/Beta releases.
+        if (app.packageName.endsWith(".dev")) return true
         app.registerActivityLifecycleCallbacks(this)
         requestUpdateCheck()
         return true
@@ -64,6 +66,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         var connection: HttpURLConnection? = null
         try {
             connection = URL(RELEASE_API).openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = false
             connection.connectTimeout = 10_000
             connection.readTimeout = 15_000
             connection.setRequestProperty("Accept", "application/vnd.github+json")
@@ -118,7 +121,9 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                 val trustedDownload =
                     uri.scheme == "https" &&
                         uri.host == "github.com" &&
-                        uri.path == expectedPath &&
+                        uri.encodedPath == expectedPath &&
+                        uri.userInfo == null && uri.query == null && uri.fragment == null &&
+                        uri.port in setOf(-1, 443) &&
                         assetSize in 1..MAX_APK_BYTES
                 if (trustedDownload && name == expectedAsset) {
                     apkUrl = candidate
@@ -129,7 +134,8 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             val pageUri = Uri.parse(pageUrl)
             val expectedPagePath = "/iiankehn/acute-web-android/releases/tag/v$version"
             if (pageUri.scheme != "https" || pageUri.host != "github.com" ||
-                pageUri.path != expectedPagePath) {
+                pageUri.encodedPath != expectedPagePath || pageUri.userInfo != null ||
+                pageUri.query != null || pageUri.fragment != null || pageUri.port !in setOf(-1, 443)) {
                 throw IllegalStateException("Release page URL is not trusted")
             }
             // A release can become visible before its workflow finishes uploading assets.

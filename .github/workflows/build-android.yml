@@ -6,10 +6,11 @@ on:
       firefox_ref:
         description: Audited Mozilla Firefox commit (manual test builds only)
         required: true
-        default: 4452e9a17a29f762c5af6326f45c000dcf3117bb
+        default: 0c469c2352451630bc69fc328c9f0c589c6c534d
   push:
     branches:
       - beta
+      - dev
     tags:
       - "v*"
 
@@ -21,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PINNED_FIREFOX_REF: 4452e9a17a29f762c5af6326f45c000dcf3117bb
+  PINNED_FIREFOX_REF: 0c469c2352451630bc69fc328c9f0c589c6c534d
 
 jobs:
   audit:
@@ -91,23 +92,32 @@ jobs:
             else
               firefox_ref="$PINNED_FIREFOX_REF"
             fi
-            if [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
+            if [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+              echo "task=fenix:assembleRelease" >> "$GITHUB_OUTPUT"
+              echo "kind=release" >> "$GITHUB_OUTPUT"
+              echo "version=2.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "package=com.acuteweb.browser.dev" >> "$GITHUB_OUTPUT"
+              echo "channel=dev" >> "$GITHUB_OUTPUT"
+              echo "gradle_flags=-PlocalProperties.disableDebugSigning=true" >> "$GITHUB_OUTPUT"
+            elif [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
               echo "task=fenix:assembleBeta" >> "$GITHUB_OUTPUT"
               echo "kind=beta" >> "$GITHUB_OUTPUT"
               # Keep branch builds parseable by the GitHub updater. The
               # monotonically increasing ACUTE_BUILD_NUMBER still permits
               # install-over updates between Beta artifacts.
-              echo "version=1.1.0-beta.1" >> "$GITHUB_OUTPUT"
+              echo "version=2.0.0-beta.1" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
               echo "task=fenix:assembleDebug" >> "$GITHUB_OUTPUT"
               echo "kind=debug" >> "$GITHUB_OUTPUT"
-              echo "version=1.1.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+              echo "version=2.0.0-debug.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi
-            echo "gradle_flags=" >> "$GITHUB_OUTPUT"
+            if [[ "$GITHUB_REF" != "refs/heads/dev" ]]; then
+              echo "gradle_flags=" >> "$GITHUB_OUTPUT"
+            fi
             echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
           fi
 
@@ -244,6 +254,10 @@ jobs:
           mkdir -p dist
           apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/$BUILD_KIND/*universal*.apk" -print -quit)"
           test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$build_tools/aapt2" dump badging "$apk" > "$RUNNER_TEMP/acute-badging.txt"
+          grep -F "package: name='${{ needs.metadata.outputs.package }}' " "$RUNNER_TEMP/acute-badging.txt"
+          if [[ "$BUILD_KIND" != debug ]]; then ! grep -q '^application-debuggable' "$RUNNER_TEMP/acute-badging.txt"; fi
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libmozglue.so"
           unzip -Z1 "$apk" | grep -qx "lib/$ABI/libxul.so"
           python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"
@@ -265,7 +279,7 @@ jobs:
       always() &&
       github.event_name == 'push' &&
       needs.build.result == 'success' &&
-      (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/beta')
+      (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/dev')
     needs: [metadata, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -295,6 +309,7 @@ jobs:
           ACUTE_KEY_PASSWORD: ${{ secrets.ACUTE_KEY_PASSWORD }}
           ABI: ${{ matrix.abi }}
           VERSION: ${{ needs.metadata.outputs.version }}
+          EXPECTED_PACKAGE: ${{ needs.metadata.outputs.package }}
         run: |
           test -n "$ACUTE_KEYSTORE_B64"
           test -n "$ACUTE_KEYSTORE_PASSWORD"
@@ -306,8 +321,12 @@ jobs:
           test -x "$build_tools/aapt2"
           printf '%s' "$ACUTE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/acute-web-release.jks"
           chmod 600 "$RUNNER_TEMP/acute-web-release.jks"
+          trap 'rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"' EXIT
           mkdir -p dist
           unsigned_apk="$(find unsigned -name '*-unsigned.apk' -print -quit)"
+          "$build_tools/aapt2" dump badging "$unsigned_apk" > "$RUNNER_TEMP/acute-unsigned-badging.txt"
+          grep -F "package: name='$EXPECTED_PACKAGE' " "$RUNNER_TEMP/acute-unsigned-badging.txt"
+          ! grep -q '^application-debuggable' "$RUNNER_TEMP/acute-unsigned-badging.txt"
           "$build_tools/zipalign" -f -p 4 "$unsigned_apk" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" sign \
             --ks "$RUNNER_TEMP/acute-web-release.jks" \

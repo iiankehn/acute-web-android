@@ -45,8 +45,9 @@ def validate_configuration() -> None:
     config = tomllib.loads((ROOT / "acute-android.toml").read_text(encoding="utf-8"))
     stable = config["channels"]["stable"]["application_id"]
     beta = config["channels"]["beta"]["application_id"]
-    if stable == beta:
-        fail("Stable and Beta application IDs must remain distinct")
+    dev = config["channels"]["dev"]["application_id"]
+    if len({stable, beta, dev}) != 3:
+        fail("Stable, Beta and Dev application IDs must remain distinct")
 
     workflow = (WORKFLOWS / "build-android.yml").read_text(encoding="utf-8")
     website = (ROOT / "docs/index.html").read_text(encoding="utf-8")
@@ -100,8 +101,13 @@ def validate_security_invariants() -> None:
     for marker in required:
         if marker not in overlay:
             fail(f"missing Android isolation invariant: {marker}")
-    if 'uri.scheme == "https"' not in updater or 'uri.host == "github.com"' not in updater:
-        fail("updater download origin is not constrained to HTTPS GitHub URLs")
+    for invariant in ('uri.scheme == "https"', 'uri.host == "github.com"', 'uri.encodedPath == expectedPath', 'uri.userInfo == null', 'uri.query == null', 'uri.fragment == null', 'connection.instanceFollowRedirects = false', 'app.packageName.endsWith(".dev")'):
+        if invariant not in updater:
+            fail(f"missing updater security boundary: {invariant}")
+    if 'package=com.acuteweb.browser.dev' not in workflow or 'channel=dev' not in workflow:
+        fail("Dev APK pipeline is not isolated")
+    if "trap 'rm -f" not in workflow:
+        fail("temporary signing material lacks failure-path cleanup")
 
     forbidden_flags = ("android:debuggable=\"true\"", "android:testOnly=\"true\"",
                        "android:usesCleartextTraffic=\"true\"")

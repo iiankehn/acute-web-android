@@ -1,0 +1,7 @@
+<resources>
+    <string name="acute_menu_navigation">Navigation</string>
+    <string name="acute_menu_page">Page</string>
+    <string name="acute_menu_library">Library</string>
+    <string name="acute_menu_extensions">Extensions</string>
+    <string name="acute_menu_settings">Settings and account</string>
+</resources>

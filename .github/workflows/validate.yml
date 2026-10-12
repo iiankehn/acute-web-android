@@ -2,6 +2,8 @@ name: Validate overlay
 
 on:
   pull_request:
+  push:
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -18,3 +20,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: make audit
+      - run: make upstream-check

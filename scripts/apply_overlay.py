@@ -36,33 +36,33 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
 
 
 MIDNIGHT_COLOR_OVERRIDES = {
-    "fx_mobile_primary": "@color/acute_glass_blue_soft",
-    "fx_mobile_on_primary": "@color/acute_glass_canvas",
-    "fx_mobile_primary_container": "@color/acute_glass_blue_container",
-    "fx_mobile_on_primary_container": "@color/acute_glass_text",
-    "fx_mobile_secondary": "@color/acute_glass_text_muted",
-    "fx_mobile_on_secondary": "@color/acute_glass_canvas",
-    "fx_mobile_secondary_container": "@color/acute_glass_surface_high",
-    "fx_mobile_on_secondary_container": "@color/acute_glass_text",
-    "fx_mobile_tertiary": "@color/acute_glass_blue_soft",
-    "fx_mobile_on_tertiary": "@color/acute_glass_canvas",
-    "fx_mobile_tertiary_container": "@color/acute_glass_blue_container",
-    "fx_mobile_on_tertiary_container": "@color/acute_glass_text",
-    "fx_mobile_background": "@color/acute_glass_canvas",
-    "fx_mobile_on_background": "@color/acute_glass_text",
-    "fx_mobile_surface": "@color/acute_glass_surface",
-    "fx_mobile_on_surface": "@color/acute_glass_text",
-    "fx_mobile_surface_variant": "@color/acute_glass_surface_high",
-    "fx_mobile_on_surface_variant": "@color/acute_glass_text_muted",
-    "fx_mobile_surface_bright": "@color/acute_glass_surface_high",
-    "fx_mobile_surface_dim": "@color/acute_glass_canvas",
-    "fx_mobile_surface_container": "@color/acute_glass_surface",
-    "fx_mobile_surface_container_high": "@color/acute_glass_surface_high",
-    "fx_mobile_surface_container_highest": "@color/acute_glass_surface_high",
-    "fx_mobile_surface_container_low": "@color/acute_glass_surface_low",
-    "fx_mobile_surface_container_lowest": "@color/acute_glass_canvas",
-    "fx_mobile_surface_container_selected": "@color/acute_glass_surface_selected",
-    "fx_mobile_outline": "@color/acute_glass_outline",
+    "fx_mobile_primary": "@color/acute_native_blue_soft",
+    "fx_mobile_on_primary": "@color/acute_native_canvas",
+    "fx_mobile_primary_container": "@color/acute_native_blue_container",
+    "fx_mobile_on_primary_container": "@color/acute_native_text",
+    "fx_mobile_secondary": "@color/acute_native_text_muted",
+    "fx_mobile_on_secondary": "@color/acute_native_canvas",
+    "fx_mobile_secondary_container": "@color/acute_native_surface_high",
+    "fx_mobile_on_secondary_container": "@color/acute_native_text",
+    "fx_mobile_tertiary": "@color/acute_native_blue_soft",
+    "fx_mobile_on_tertiary": "@color/acute_native_canvas",
+    "fx_mobile_tertiary_container": "@color/acute_native_blue_container",
+    "fx_mobile_on_tertiary_container": "@color/acute_native_text",
+    "fx_mobile_background": "@color/acute_native_canvas",
+    "fx_mobile_on_background": "@color/acute_native_text",
+    "fx_mobile_surface": "@color/acute_native_surface",
+    "fx_mobile_on_surface": "@color/acute_native_text",
+    "fx_mobile_surface_variant": "@color/acute_native_surface_high",
+    "fx_mobile_on_surface_variant": "@color/acute_native_text_muted",
+    "fx_mobile_surface_bright": "@color/acute_native_surface_high",
+    "fx_mobile_surface_dim": "@color/acute_native_canvas",
+    "fx_mobile_surface_container": "@color/acute_native_surface",
+    "fx_mobile_surface_container_high": "@color/acute_native_surface_high",
+    "fx_mobile_surface_container_highest": "@color/acute_native_surface_high",
+    "fx_mobile_surface_container_low": "@color/acute_native_surface_low",
+    "fx_mobile_surface_container_lowest": "@color/acute_native_canvas",
+    "fx_mobile_surface_container_selected": "@color/acute_native_surface_selected",
+    "fx_mobile_outline": "@color/acute_native_outline",
 }
 
 
@@ -84,277 +84,179 @@ def patch_midnight_palette(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def patch_core_glass_toolbar(path: Path) -> None:
-    """Give the browser toolbar a visibly layered CORE Glass treatment."""
+def patch_native_address_bar(display_path: Path, edit_path: Path) -> None:
+    """Opaque Material capsules retain the upstream origin, security and editing behavior."""
+    for path in (display_path, edit_path):
+        text = path.read_text(encoding="utf-8")
+        text = replace_once(text, "import androidx.compose.foundation.background\n",
+                            "import androidx.compose.foundation.background\nimport androidx.compose.foundation.border\n",
+                            "native address border import")
+        anchor = "                                shape = CircleShape,\n                            )\n" if path == display_path else "                        .background(color = MaterialTheme.colorScheme.surfaceContainerHighest),\n"
+        replacement = anchor + "                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)\n" if path == display_path else "                        .background(color = MaterialTheme.colorScheme.surfaceContainerHighest)\n                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),\n"
+        text = replace_once(text, anchor, replacement, "opaque native address capsule")
+        path.write_text(text, encoding="utf-8")
+
+
+def patch_native_navigation(path: Path) -> None:
+    """Keep navigation in the address row using maintained Fenix actions and history state."""
     text = path.read_text(encoding="utf-8")
-    text = replace_once(
-        text,
-        "import androidx.compose.foundation.background\n",
-        "import androidx.compose.foundation.background\n"
-        "import androidx.compose.ui.draw.drawWithContent\n",
-        "toolbar glass draw import",
-    )
-    text = replace_once(
-        text,
-        "import androidx.compose.ui.graphics.Color\n",
-        "import androidx.compose.ui.geometry.Offset\n"
-        "import androidx.compose.ui.graphics.Brush\n"
-        "import androidx.compose.ui.graphics.Color\n",
-        "toolbar glass graphics imports",
-    )
-    text = replace_once(
-        text,
-        "import androidx.compose.ui.Modifier\n",
-        "import androidx.compose.ui.Modifier\n"
-        "import androidx.compose.ui.platform.LocalConfiguration\n",
-        "toolbar large-screen configuration import",
-    )
-    theme_open = "                    MaterialTheme(colorScheme = colorScheme) {\n"
-    glass_open = '''                    MaterialTheme(colorScheme = colorScheme) {
-                        // CORE Glass uses a translucent charcoal stack over a subtle
-                        // signature-blue glow. The child surfaces retain their own alpha,
-                        // so the address field and selected tabs read as separate layers.
-                        val acuteLargeScreen =
-                            LocalConfiguration.current.smallestScreenWidthDp >= 600
-                        val acuteGlassColors =
-                            if (acuteLargeScreen) {
-                                listOf(
-                                    Color(0xD0193144),
-                                    Color(0xC0102434),
-                                    Color(0xB8071926),
-                                )
-                            } else {
-                                listOf(
-                                    Color(0xA6121820),
-                                    Color(0x990B1117),
-                                    Color(0x8C07121A),
-                                )
-                            }
-                        val acuteCoreGlassModifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .wrapContentHeight()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = acuteGlassColors
-                                    )
-                                )
-                                .drawWithContent {
-                                    drawContent()
-                                    drawLine(
-                                        color = Color(0x667AC6EA),
-                                        start = Offset(0f, size.height - 1f),
-                                        end = Offset(size.width, size.height - 1f),
-                                        strokeWidth = 1f,
-                                    )
-                                }
-'''
-    text = replace_once(text, theme_open, glass_open, "toolbar glass theme wrapper")
-    column = "Column(modifier = Modifier.fillMaxWidth().wrapContentHeight())"
-    count = text.count(column)
-    if count != 2:
-        raise OverlayError(f"Expected two browser toolbar columns; found {count}")
-    text = text.replace(column, "Column(modifier = acuteCoreGlassModifier)")
+    start = text.index("    private fun buildStartBrowserActions(): List<Action> {")
+    end = text.index("    /**", start)
+    text = text[:start] + """    private fun buildStartBrowserActions(): List<Action> {
+        return listOf(
+                ToolbarActionConfig(ToolbarAction.Back) { true },
+                ToolbarActionConfig(ToolbarAction.Forward) { browserStore.state.selectedTab?.content?.canGoForward == true },
+                ToolbarActionConfig(ToolbarAction.RefreshOrStop) { isWideScreen() },
+            )
+            .filter { config -> config.isVisible() }
+            .map { config -> buildAction(config.action, Source.AddressBar.BrowserStart) }
+    }
+
+""" + text[end:]
+    start = text.index("    private suspend fun buildEndBrowserActions(): List<Action> {")
+    end = text.index("    /**", start)
+    text = text[:start] + """    private suspend fun buildEndBrowserActions(): List<Action> {
+        return listOf(ToolbarAction.TabCounter, ToolbarAction.Menu).map { action ->
+            buildAction(toolbarAction = action, source = Source.AddressBar.BrowserEnd)
+        }
+    }
+
+""" + text[end:]
+    start = text.index("    private suspend fun buildNavigationActions(): List<Action> {")
+    end = text.index("    private suspend fun updateNavigationActions", start)
+    text = text[:start] + """    // Acute uses one navigation row; the inherited secondary navbar is not rendered.
+    private suspend fun buildNavigationActions(): List<Action> = emptyList()
+
+""" + text[end:]
     path.write_text(text, encoding="utf-8")
 
 
-def patch_core_glass_compositor(
-    toolbar_path: Path,
-    browser_fragment_path: Path,
-    clipping_behavior_path: Path,
-    toolbar_behavior_path: Path,
-) -> None:
-    """Render Gecko below phone glass while keeping large-screen chrome fixed."""
-    toolbar = toolbar_path.read_text(encoding="utf-8")
-    toolbar = replace_once(
-        toolbar,
-        "    val backgroundColor = MaterialTheme.colorScheme.surface\n",
-        "    // CORE Glass is composited over Gecko content by Fenix.\n"
-        "    val backgroundColor = Color.Transparent\n",
-        "transparent browser toolbar surface",
-    )
-    toolbar_path.write_text(toolbar, encoding="utf-8")
-
-    fragment = browser_fragment_path.read_text(encoding="utf-8")
-    fragment = replace_once(
-        fragment,
-        "import org.mozilla.fenix.utils.allowUndo\n",
-        "import org.mozilla.fenix.utils.allowUndo\n"
-        "import org.mozilla.fenix.utils.isLargeScreenSize\n",
-        "large-screen toolbar import",
-    )
-    original = '''        if (isToolbarDynamic(context) && webAppToolbarShouldBeVisible) {
-            getEngineView().setDynamicToolbarMaxHeight(topToolbarHeight + bottomToolbarHeight)
-
-            (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
-                EngineViewClippingBehavior(
-                    context = context,
-                    attrs = null,
-                    engineViewParent = getSwipeRefreshLayout(),
-                    topToolbarHeight = topToolbarHeight,
-                    bottomToolbarHeight = bottomToolbarHeight,
+def patch_native_menu(path: Path) -> None:
+    """Group existing commands without replacing their permission, storage or session handlers."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "import androidx.compose.material3.MaterialTheme\n",
+                        "import androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Text\n",
+                        "native menu heading import")
+    start = text.index("    MenuFrame(", text.index("fun MainMenu("))
+    end = text.index("\n@Composable\nprivate fun QuitMenuGroup", start)
+    text = text[:start] + """    MenuFrame(
+        contentModifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+        scrollState = scrollState,
+        header = {},
+        footer = {},
+    ) {
+        if (accessPoint != MenuAccessPoint.Home) {
+            AcuteMenuHeading(R.string.acute_menu_navigation)
+            MenuGroup {
+                MenuNavigation(
+                    isSiteLoading = isSiteLoading,
+                    isExtensionsExpanded = isExtensionsExpanded,
+                    isMoreMenuExpanded = isMoreMenuExpanded,
+                    onBackButtonClick = onBackButtonClick,
+                    onForwardButtonClick = onForwardButtonClick,
+                    onRefreshButtonClick = onRefreshButtonClick,
+                    onStopButtonClick = onStopButtonClick,
+                    onShareButtonClick = onShareButtonClick,
+                    goBackState = if (canGoBack) MenuItemState.ENABLED else MenuItemState.DISABLED,
+                    goForwardState = if (canGoForward) MenuItemState.ENABLED else MenuItemState.DISABLED,
                 )
-        } else {
-'''
-    replacement = '''        // CORE Glass requires live page pixels below the top toolbar. Keeping the
-        // Gecko viewport at y=0 also lets the translucent Compose layers blend with
-        // the page instead of an opaque parent surface. Because the top toolbar is
-        // overlaid, only a bottom toolbar may reduce the web content viewport.
-        val acuteGlassTopOverlayHeight = 0
-
-        if (isToolbarDynamic(context) && !context.isLargeScreenSize() && webAppToolbarShouldBeVisible) {
-            getEngineView().setDynamicToolbarMaxHeight(bottomToolbarHeight)
-
-            (getSwipeRefreshLayout().layoutParams as CoordinatorLayout.LayoutParams).behavior =
-                EngineViewClippingBehavior(
-                    context = context,
-                    attrs = null,
-                    engineViewParent = getSwipeRefreshLayout(),
-                    topToolbarHeight = topToolbarHeight,
-                    bottomToolbarHeight = bottomToolbarHeight,
+            }
+        }
+        if (accessPoint == MenuAccessPoint.Browser) {
+            AcuteMenuHeading(R.string.acute_menu_page)
+            ToolsAndActionsMenuGroup(
+                isBookmarked = isBookmarked,
+                isDesktopMode = isDesktopMode,
+                isPdf = isPdf,
+                isExtensionsProcessDisabled = isExtensionsProcessDisabled,
+                isExtensionsExpanded = isExtensionsExpanded,
+                isMoreMenuHighlighted = isMoreMenuHighlighted,
+                moreMenuExpanded = isMoreMenuExpanded,
+                webExtensionMenuCount = webExtensionMenuCount,
+                isAllWebExtensionsDisabled = isAllWebExtensionsDisabled,
+                onExtensionsMenuClick = onExtensionsMenuClick,
+                onBookmarkPageMenuClick = onBookmarkPageMenuClick,
+                onEditBookmarkButtonClick = onEditBookmarkButtonClick,
+                onSwitchToDesktopSiteMenuClick = onSwitchToDesktopSiteMenuClick,
+                onFindInPageMenuClick = onFindInPageMenuClick,
+                onMoreMenuClick = onMoreMenuClick,
+                extensionsMenuItemDescription = extensionsMenuItemDescription,
+                moreSettingsSubmenu = moreSettingsSubmenu,
+                extensionSubmenu = extensionSubmenu,
+            )
+        }
+        AcuteMenuHeading(R.string.acute_menu_library)
+        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
+        if (accessPoint == MenuAccessPoint.Home || accessPoint == MenuAccessPoint.Browser) {
+            AcuteMenuHeading(R.string.acute_menu_extensions)
+            MenuGroup {
+                ExtensionsMenuItem(
+                    inCustomTab = false,
+                    isExtensionsProcessDisabled = isExtensionsProcessDisabled,
+                    isExtensionsExpanded = isExtensionsExpanded,
+                    isAllWebExtensionsDisabled = isAllWebExtensionsDisabled,
+                    webExtensionMenuCount = webExtensionMenuCount,
+                    extensionsMenuItemDescription = extensionsMenuItemDescription,
+                    onExtensionsMenuClick = onExtensionsMenuClick,
+                    extensionSubmenu = extensionSubmenu,
                 )
-        } else {
-'''
-    fragment = replace_once(fragment, original, replacement, "Gecko toolbar overlay geometry")
-    fragment = replace_once(
-        fragment,
-        "            swipeRefreshParams.topMargin = topToolbarHeight\n",
-        "            // Laptop/tablet chrome remains visible and reserves layout space.\n"
-        "            // Phones retain the page-backed CORE Glass overlay.\n"
-        "            swipeRefreshParams.topMargin =\n"
-        "                if (context.isLargeScreenSize()) topToolbarHeight else acuteGlassTopOverlayHeight\n",
-        "adaptive Gecko toolbar margin",
-    )
-    browser_fragment_path.write_text(fragment, encoding="utf-8")
+            }
+        }
+        AcuteMenuHeading(R.string.acute_menu_settings)
+        MenuGroup {
+            MozillaAccountMenuItem(account = account, accountState = accountState, onClick = onMozillaAccountButtonClick)
+            if (accessPoint == MenuAccessPoint.Home) {
+                MenuItem(
+                    label = stringResource(R.string.browser_menu_customize_homepage),
+                    beforeIconPainter = painterResource(iconsR.drawable.mozac_ic_home_24),
+                    onClick = onCustomizeHomepageButtonClick,
+                )
+            }
+            MenuItem(
+                label = stringResource(R.string.browser_menu_settings),
+                beforeIconPainter = painterResource(iconsR.drawable.mozac_ic_settings_24),
+                onClick = onSettingsButtonClick,
+            )
+        }
+        if (showQuitMenu) QuitMenuGroup(onQuitMenuClick = onQuitMenuClick)
+    }
+}
 
-    clipping = clipping_behavior_path.read_text(encoding="utf-8")
-    clipping = replace_once(
-        clipping,
-        "                engineViewParent.translationY = recentTopToolbarTranslation + topToolbarHeight\n",
-        "                // CORE Glass keeps live page pixels below the translucent toolbar.\n"
-        "                // The toolbar still receives the real height for nested-scroll behavior.\n"
-        "                engineViewParent.translationY = 0f\n",
-        "glass engine overlay translation",
+@Composable
+private fun AcuteMenuHeading(label: Int) {
+    Text(
+        text = stringResource(label),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 8.dp),
     )
-    clipping = replace_once(
-        clipping,
-        "    private val dynamicToolbarMaxHeight = topToolbarHeight + bottomToolbarHeight\n",
-        "    // The translucent top toolbar overlays Gecko and must not shrink CSS viewport units.\n"
-        "    private val dynamicToolbarMaxHeight = bottomToolbarHeight\n",
-        "glass dynamic viewport height",
-    )
-    clipping = replace_once(
-        clipping,
-        "            val contentBottomClipping = (recentTopToolbarTranslation - recentBottomToolbarTranslation).roundToInt()\n",
-        "            // Top-toolbar movement is visual-only for CORE Glass. Only the bottom\n"
-        "            // toolbar changes the web content viewport and vertical clipping.\n"
-        "            val contentBottomClipping = (-recentBottomToolbarTranslation).roundToInt()\n",
-        "glass viewport clipping",
-    )
-    clipping_behavior_path.write_text(clipping, encoding="utf-8")
+}
+""" + text[end:]
+    # Put extension access in its dedicated group, retaining the existing submenu implementation.
+    start = text.index("private fun ToolsAndActionsMenuGroup(")
+    end = text.index("@Composable\nprivate fun MoreMenuButtonGroup", start)
+    section = text[start:end]
+    match = """        ExtensionsMenuItem(
+            inCustomTab = false,
+            isExtensionsProcessDisabled = isExtensionsProcessDisabled,
+            isExtensionsExpanded = isExtensionsExpanded,
+            isAllWebExtensionsDisabled = isAllWebExtensionsDisabled,
+            webExtensionMenuCount = webExtensionMenuCount,
+            extensionsMenuItemDescription = extensionsMenuItemDescription,
+            onExtensionsMenuClick = onExtensionsMenuClick,
+            extensionSubmenu = extensionSubmenu,
+        )
 
-    toolbar_behavior = toolbar_behavior_path.read_text(encoding="utf-8")
-    toolbar_behavior = replace_once(
-        toolbar_behavior,
-        '''                        } else if (!state.content.loading) {
-                            enableScrolling()
-                        }
-''',
-        '''                        } else if (!state.content.loading) {
-                            enableScrolling()
-                            // Acute reveals the top of each page after loading. Scrolling
-                            // upward restores the toolbar through the standard behavior.
-                            toolbar.collapse()
-                        }
-''',
-        "collapse glass toolbar after page load",
-    )
-    toolbar_behavior_path.write_text(toolbar_behavior, encoding="utf-8")
-
-
-def patch_core_glass_address_bar(display_path: Path, edit_path: Path) -> None:
-    """Style the address pill itself instead of relying on ambient theme colors."""
-    display = display_path.read_text(encoding="utf-8")
-    display = replace_once(
-        display,
-        "import androidx.compose.foundation.background\n",
-        "import androidx.compose.foundation.background\nimport androidx.compose.foundation.border\n",
-        "display address bar border import",
-    )
-    display = replace_once(
-        display,
-        "import androidx.compose.ui.graphics.Color\n",
-        "import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n",
-        "display address bar brush import",
-    )
-    display_fill = '''                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                shape = CircleShape,
-                            )
-'''
-    glass_fill = '''                            .background(
-                                brush =
-                                    Brush.horizontalGradient(
-                                        colors =
-                                            listOf(
-                                                Color(0xC2383D46),
-                                                Color(0xA8263A4A),
-                                                Color(0xB82A3038),
-                                            )
-                                    ),
-                                shape = CircleShape,
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush =
-                                    Brush.horizontalGradient(
-                                        colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
-                                    ),
-                                shape = CircleShape,
-                            )
-'''
-    display = replace_once(display, display_fill, glass_fill, "display address bar fill")
-    display_path.write_text(display, encoding="utf-8")
-
-    edit = edit_path.read_text(encoding="utf-8")
-    edit = replace_once(
-        edit,
-        "import androidx.compose.foundation.background\n",
-        "import androidx.compose.foundation.background\nimport androidx.compose.foundation.border\n",
-        "edit address bar border import",
-    )
-    edit = replace_once(
-        edit,
-        "import androidx.compose.ui.graphics.Color\n",
-        "import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n",
-        "edit address bar brush import",
-    )
-    edit_fill = '''                        .clip(shape = CircleShape)
-                        .background(color = MaterialTheme.colorScheme.surfaceContainerHighest),
-'''
-    edit_glass_fill = '''                        .clip(shape = CircleShape)
-                        .background(
-                            brush =
-                                Brush.horizontalGradient(
-                                    colors =
-                                        listOf(
-                                            Color(0xC2383D46),
-                                            Color(0xA8263A4A),
-                                            Color(0xB82A3038),
-                                        )
-                                )
-                        )
-                        .border(
-                            width = 1.dp,
-                            brush =
-                                Brush.horizontalGradient(
-                                    colors = listOf(Color(0x997AC6EA), Color(0x337AC6EA))
-                                ),
-                            shape = CircleShape,
-                        ),
-'''
-    edit = replace_once(edit, edit_fill, edit_glass_fill, "edit address bar fill")
-    edit_path.write_text(edit, encoding="utf-8")
+"""
+    section = replace_once(section, match, "", "page-group extension duplication")
+    text = text[:start] + section + text[end:]
+    path.write_text(text, encoding="utf-8")
 
 
 def replace_product_branding(xml: str) -> str:
@@ -518,14 +420,14 @@ def patch_app_labels(fenix: Path, channel: str) -> None:
     )
     for path in static_files:
         text = path.read_text(encoding="utf-8")
-        label = "Acute Beta" if channel == "beta" and "/beta/" in path.as_posix() else "Acute Web"
+        label = "Acute Dev" if channel == "dev" else "Acute Beta" if channel == "beta" and "/beta/" in path.as_posix() else "Acute Web"
         updated, count = app_name.subn(rf"\1{label}\3", text, count=1)
         if count != 1:
             raise OverlayError(f"Could not locate app_name in {path}")
         path.write_text(updated, encoding="utf-8")
 
 
-def patch_gradle(path: Path) -> None:
+def patch_gradle(path: Path, channel: str = "stable") -> None:
     text = path.read_text(encoding="utf-8")
     text = replace_once(text, "\nandroid {\n", '''
 // A single Gecko artifact build supplies only one complete native ABI.
@@ -547,6 +449,10 @@ android {
     text = replace_once(text, 'applicationIdSuffix ".firefox"',
                         '// Acute Web uses the base application ID for releases.',
                         "release application suffix")
+
+    if channel == "dev":
+        text = replace_once(text, 'applicationId "com.acuteweb.browser"',
+                            'applicationId "com.acuteweb.browser.dev"', "isolated Dev package")
 
     # Acute must not share Firefox's Linux UID or data sandbox.
     text = re.sub(
@@ -743,13 +649,18 @@ def patch_tablet_defaults(path: Path) -> None:
     """Make Fenix's large-screen UI deterministic for Acute tablet installs."""
     text = path.read_text(encoding="utf-8")
     expanded_old = "            default = { FxNimbus.features.defaultExpandedToolbar.value().enabled },\n"
-    expanded_new = """            // Acute Web: show the desktop-like expanded toolbar on physical tablets.
-            default = {
-                appContext.isLargeScreenSize() ||
-                    FxNimbus.features.defaultExpandedToolbar.value().enabled
-            },
+    expanded_block = """    var shouldUseExpandedToolbar by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_toolbar_expanded),
+            default = { FxNimbus.features.defaultExpandedToolbar.value().enabled },
+            persistDefaultIfNotExists = true,
+        )
 """
-    text = replace_once(text, expanded_old, expanded_new, "expanded-toolbar default")
+    text = replace_once(text, expanded_block, """    // Acute 2.0 uses a single native navigation row on every window size.
+    var shouldUseExpandedToolbar: Boolean
+        get() = false
+        set(value) = Unit
+""", "single-row toolbar policy")
 
     tab_strip_old = """            default =
                 FxNimbus.features.tabStrip.value().enabled &&
@@ -1200,6 +1111,16 @@ def patch_branding_ui(fenix: Path) -> None:
         "        // Acute's browser UI is permanently rendered with the Midnight theme.\n",
         "customization theme bindings",
     )
+    customization_text = replace_once(
+        customization_text, "            isVisible = isTallWindow() && !isWideWindow()\n",
+        "            isVisible = false // Acute owns the fixed single-row layout.\n",
+        "fixed native toolbar layout setting",
+    )
+    customization_text = replace_once(
+        customization_text, "        category.apply {\n            removeAll()\n",
+        "        category.apply {\n            isVisible = false // Primary actions have stable positions.\n            removeAll()\n",
+        "fixed native toolbar shortcut setting",
+    )
     customization.write_text(customization_text, encoding="utf-8")
 
 
@@ -1458,7 +1379,7 @@ def copy_overlay(fenix: Path, channel: str) -> None:
 
 
 def apply(checkout: Path, channel: str = "stable") -> None:
-    if channel not in {"stable", "beta"}:
+    if channel not in {"stable", "beta", "dev"}:
         raise OverlayError(f"Unsupported Acute channel: {channel}")
     checkout = checkout.resolve()
     if not (checkout / "mach").is_file():
@@ -1482,6 +1403,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     display_toolbar = compose_toolbar / "ui/FullDisplayToolbar.kt"
     edit_toolbar = compose_toolbar / "BrowserEditToolbar.kt"
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
+    toolbar_middleware = fenix / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarMiddleware.kt"
+    main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
     clipping_behavior = (
         checkout
@@ -1500,7 +1423,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1511,21 +1434,16 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     if (checkout / MARKER).exists():
         raise OverlayError("Overlay is already applied; start from a clean Firefox checkout")
 
-    patch_gradle(gradle)
+    patch_gradle(gradle, channel)
     validate_tablet_upstream(manifest, desktop_mode)
     patch_manifest(manifest)
     patch_tablet_defaults(settings)
     patch_desktop_shortcuts(home_activity)
     patch_dark_theme_default(settings)
     patch_midnight_palette(night_colors)
-    patch_core_glass_toolbar(browser_toolbar)
-    patch_core_glass_address_bar(display_toolbar, edit_toolbar)
-    patch_core_glass_compositor(
-        toolbar_surface,
-        browser_fragment,
-        clipping_behavior,
-        toolbar_behavior,
-    )
+    patch_native_address_bar(display_toolbar, edit_toolbar)
+    patch_native_navigation(toolbar_middleware)
+    patch_native_menu(main_menu)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)
@@ -1552,7 +1470,7 @@ def main() -> int:
     parser.add_argument("firefox_checkout", type=Path)
     parser.add_argument(
         "--channel",
-        choices=("stable", "beta"),
+        choices=("stable", "beta", "dev"),
         default="stable",
         help="Acute release channel to configure (default: stable)",
     )

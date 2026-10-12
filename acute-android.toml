@@ -4,7 +4,7 @@ application_id = "com.acuteweb.browser"
 repository = "iiankehn/acute-web-android"
 
 [release]
-candidate = "1.1.0-beta.1"
+candidate = "2.0.0-beta.1"
 
 [channels.stable]
 branch = "main"
@@ -16,9 +16,14 @@ branch = "beta"
 application_id = "com.acuteweb.browser.beta"
 release_pattern = "vMAJOR.MINOR.PATCH-beta.NUMBER"
 
+[channels.dev]
+branch = "dev"
+application_id = "com.acuteweb.browser.dev"
+release_pattern = "CI artifacts only; 2.0.0-dev.NUMBER"
+
 [upstream]
 repository = "https://github.com/mozilla-firefox/firefox.git"
-ref = "4452e9a17a29f762c5af6326f45c000dcf3117bb"
+ref = "0c469c2352451630bc69fc328c9f0c589c6c534d"
 
 [updates]
 api = "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
