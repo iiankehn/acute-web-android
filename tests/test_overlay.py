@@ -62,7 +62,7 @@ android.defaultConfig.with {
 }
 '''
 
-MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <!-- Needed to get distribution information from partners.
     This is NOT required for the adjust plugin. -->
     <uses-permission android:name="com.adjust.preinstall.READ_PERMISSION"/>
@@ -882,11 +882,15 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("ACUTE_VERSION_NAME", gradle)
         self.assertIn("GitHubUpdateProvider", manifest)
         self.assertIn("android.hardware.touchscreen", manifest)
-        self.assertNotIn("com.adjust.preinstall.READ_PERMISSION", manifest)
-        self.assertNotIn("com.google.android.gms.permission.AD_ID", manifest)
-        self.assertNotIn("android.permission.QUERY_ALL_PACKAGES", manifest)
-        self.assertNotIn("android.permission.REQUEST_DELETE_PACKAGES", manifest)
-        self.assertNotIn("android.permission.REQUEST_INSTALL_PACKAGES", manifest)
+        import xml.etree.ElementTree as ET
+        xml = ET.fromstring(manifest)
+        android = "{http://schemas.android.com/apk/res/android}"
+        tools = "{http://schemas.android.com/tools}"
+        for permission in ("com.adjust.preinstall.READ_PERMISSION", "com.google.android.gms.permission.AD_ID", "android.permission.QUERY_ALL_PACKAGES", "android.permission.REQUEST_DELETE_PACKAGES", "android.permission.REQUEST_INSTALL_PACKAGES"):
+            for tag in ("uses-permission", "uses-permission-sdk-23"):
+                markers = [node for node in xml.findall(tag) if node.get(android + "name") == permission]
+                self.assertEqual(len(markers), 1)
+                self.assertEqual(markers[0].get(tools + "node"), "remove")
         tablet_settings = (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("Acute Web: tablets always start with the top tab strip", tablet_settings)
         self.assertIn("var shouldUseExpandedToolbar: Boolean", tablet_settings)

@@ -37,6 +37,20 @@ and is not a certification that every transitive upstream dependency is vulnerab
 - Fixed an undefined workflow variable in the audit gate and replaced obsolete Glass test expectations.
   Actual metadata shell execution tests cover Dev/Beta/release routing and malformed inputs.
 
+## Build 90 APK evidence and corrective checks
+
+Both architectures compiled and passed vital lint. Verification falsely rejected the minimum SDK:
+new AAPT2 emits `minSdkVersion:'31'`, while the workflow expected `sdkVersion:'31'`.
+Saved Build 90 badging excerpts now serve as regression fixtures. The verifier accepts both labels,
+requires actual API 31, and rejects absent/conflicting SDK, wrong package/version, debug release
+APKs, mixed architectures and forbidden permissions from either manifest permission tag.
+
+The real APKs also contained `AD_ID`, `QUERY_ALL_PACKAGES` and `REQUEST_INSTALL_PACKAGES` even
+though the main source manifest removed them. Dependency manifests reintroduced these declarations.
+The overlay now adds explicit `tools:node="remove"` markers for both permission tag forms and the
+unused Adjust receiver. This is verified against real upstream source and must also pass the compiled
+APK permission gate before signing. Actual post-fix APK acceptance remains pending.
+
 ## Upstream and dependencies
 
 The immutable Firefox Android 157.0.1 release source is

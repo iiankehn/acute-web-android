@@ -76,7 +76,6 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert "MOZ_ANDROID_DEBUGGABLE" not in release_template
     assert "'TELEMETRY', 'true'" not in gradle
     assert "'CRASH_REPORTING', 'true'" not in gradle
-    assert "AdjustPreinstallReferrerReceiver" not in (app / "src/main/AndroidManifest.xml").read_text()
     manifest = ET.parse(app / "src/main/AndroidManifest.xml").getroot()
     android = "{http://schemas.android.com/apk/res/android}"
     application = manifest.find("application")
@@ -84,12 +83,14 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     for provider in application.findall("provider"):
         assert provider.get(android + "exported") == "false"
         assert provider.get(android + "authorities", "").startswith("${applicationId}.")
-    for permission in manifest.findall("uses-permission") + manifest.findall("uses-permission-sdk-23"):
-        assert permission.get(android + "name") not in {
-            "com.adjust.preinstall.READ_PERMISSION", "com.google.android.gms.permission.AD_ID",
-            "android.permission.QUERY_ALL_PACKAGES", "android.permission.REQUEST_DELETE_PACKAGES",
-            "android.permission.REQUEST_INSTALL_PACKAGES",
-        }
+    from verify_apk_badging import DENIED_PERMISSIONS
+    tools = "{http://schemas.android.com/tools}"
+    for tag in ("uses-permission", "uses-permission-sdk-23"):
+        for name in DENIED_PERMISSIONS:
+            markers = [p for p in manifest.findall(tag) if p.get(android + "name") == name]
+            assert len(markers) == 1 and markers[0].get(tools + "node") == "remove"
+    receiver = [r for r in application.findall("receiver") if r.get(android + "name") == "com.adjust.sdk.AdjustPreinstallReferrerReceiver"]
+    assert len(receiver) == 1 and receiver[0].get(tools + "node") == "remove"
     code = app / "src/main/java/org/mozilla/fenix"
     home = (code / "HomeActivity.kt").read_text()
     assert "import org.mozilla.fenix.browser.BrowserFragmentDirections\n" in home

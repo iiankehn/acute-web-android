@@ -686,6 +686,12 @@ def patch_manifest(path: Path) -> None:
     for permission in removed_permissions:
         if permission in text:
             raise OverlayError(f"Could not remove inherited permission: {permission}")
+    # Explicit merger removals also suppress declarations contributed by dependency AARs.
+    removal_markers = "    <!-- Acute: block unwanted permissions from dependency manifests. -->\n"
+    for permission in removed_permissions:
+        for tag in ("uses-permission", "uses-permission-sdk-23"):
+            removal_markers += f'    <{tag} android:name="{permission}" tools:node="remove" />\n'
+    text = replace_once(text, "    <application\n", removal_markers + "\n    <application\n", "permission merger-removal markers")
     chromeos_feature = """    <!-- Acute Web: support keyboard/mouse-first ChromeOS and tablet devices. -->
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -702,6 +708,7 @@ def patch_manifest(path: Path) -> None:
             android:exported="false"
             android:initOrder="100" />
 """
+    provider += '        <receiver android:name="com.adjust.sdk.AdjustPreinstallReferrerReceiver" tools:node="remove" />\n'
     text = replace_once(text, "    </application>", provider + "    </application>",
                         "application closing tag")
     path.write_text(text, encoding="utf-8")

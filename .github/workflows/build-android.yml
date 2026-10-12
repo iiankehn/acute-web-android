@@ -199,16 +199,21 @@ jobs:
       - name: Apply Acute Web overlay
         run: python3 acute-overlay/scripts/apply_overlay.py firefox --channel "${{ needs.metadata.outputs.channel }}"
 
-      - name: Verify privacy flags and minimized permissions
+      - name: Verify privacy flags and permission merger policy
         run: |
-          gradle=firefox/mobile/android/fenix/app/build.gradle
-          manifest=firefox/mobile/android/fenix/app/src/main/AndroidManifest.xml
-          ! grep -E "TELEMETRY['\", ]+true|CRASH_REPORTING['\", ]+true" "$gradle"
-          ! grep -q 'com.adjust.preinstall.READ_PERMISSION' "$manifest"
-          ! grep -q 'com.google.android.gms.permission.AD_ID' "$manifest"
-          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' "$manifest"
-          ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' "$manifest"
-          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$manifest"
+          python3 - <<'PYVERIFY'
+          import pathlib, sys, xml.etree.ElementTree as ET
+          sys.path.insert(0, 'acute-overlay/scripts')
+          from verify_apk_badging import DENIED_PERMISSIONS
+          gradle = pathlib.Path('firefox/mobile/android/fenix/app/build.gradle').read_text()
+          assert "'TELEMETRY', 'true'" not in gradle
+          assert "'CRASH_REPORTING', 'true'" not in gradle
+          root = ET.parse('firefox/mobile/android/fenix/app/src/main/AndroidManifest.xml').getroot()
+          for tag in ('uses-permission', 'uses-permission-sdk-23'):
+              for name in DENIED_PERMISSIONS:
+                  nodes = [n for n in root.findall(tag) if n.get('{http://schemas.android.com/apk/res/android}name') == name]
+                  assert len(nodes) == 1 and nodes[0].get('{http://schemas.android.com/tools}node') == 'remove'
+          PYVERIFY
 
       - name: Build APK without release credentials
         working-directory: firefox
@@ -238,12 +243,10 @@ jobs:
           test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
           build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$build_tools/aapt2" dump badging "$apk" | tee "$RUNNER_TEMP/acute-badging.txt"
-          grep -F "package: name='${{ needs.metadata.outputs.package }}' " "$RUNNER_TEMP/acute-badging.txt" || { echo "::error::APK package does not match the selected channel"; exit 1; }
-          grep -qx "sdkVersion:'31'" "$RUNNER_TEMP/acute-badging.txt" || { echo "::error::APK minimum SDK is not Android 12 (31)"; exit 1; }
-          if [[ "$BUILD_KIND" != debug ]] && grep -q '^application-debuggable' "$RUNNER_TEMP/acute-badging.txt"; then
-            echo "::error::Release-variant APK is debuggable; refusing signing"
-            exit 1
-          fi
+          debug_policy=()
+          if [[ "$BUILD_KIND" == debug ]]; then debug_policy+=(--allow-debug); fi
+          python3 acute-overlay/scripts/verify_apk_badging.py "$RUNNER_TEMP/acute-badging.txt" \
+            "${{ needs.metadata.outputs.package }}" "$VERSION" "$ABI" "${debug_policy[@]}"
           unzip -Z1 "$apk" > "$RUNNER_TEMP/acute-apk-entries.txt"
           grep -qx "lib/$ABI/libmozglue.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko glue library"; exit 1; }
           grep -qx "lib/$ABI/libxul.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko engine library"; exit 1; }
