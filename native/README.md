@@ -4,7 +4,7 @@ Independent Android application on `dev`, with GeckoView providing rendering
 and native session state. Preserved Fenix code/checkpoints are documented in
 [the migration baseline](../docs/NATIVE_MIGRATION.md).
 
-Current batch: `2.0.0-dev.2`, normal/private tabs, encrypted normal-session
+Current batch: `2.0.0-dev.3`, normal/private tabs, encrypted normal-session
 restoration, rotation continuity, reload recovery and native tab controls.
 Private tabs are never written to the archive. Existing Stable/Beta profiles
 are not read or migrated.
@@ -31,3 +31,10 @@ checked against v0.2.0. Initial debug previews require a one-time **Dev-only**
 reinstall to switch signers; this removes the Dev test profile. Later signed
 candidates can update in place. Use `acute-dev-signed`, not the debug artifact,
 for that channel. No public release is published by the native workflow.
+
+Dev.3 adds Mozilla Places-backed normal history and bookmarks. The Library menu
+shows the 100 latest bookmarks/visits; tap to open and hold for edit/delete.
+Saving a bookmarked URL updates its title without creating another duplicate.
+Private mode hides the normal library, never records visits and never queries
+normal visited-link status. Places uses its maintained schema in this Dev
+profile only; it is app-private, not encrypted by this integration.

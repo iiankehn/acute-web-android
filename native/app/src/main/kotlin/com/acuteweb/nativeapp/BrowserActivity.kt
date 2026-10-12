@@ -19,6 +19,7 @@ import org.mozilla.geckoview.GeckoView
 
 /** Native controls attach to process-owned sessions; Android bundles never receive browsing data. */
 class BrowserActivity : Activity() {
+    private lateinit var library: LibraryUi
     private lateinit var browser: BrowserController
     private lateinit var gecko: GeckoView
     private lateinit var geckoHost: FrameLayout
@@ -37,6 +38,7 @@ class BrowserActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         browser = (application as AcuteApplication).browser
+        library = LibraryUi(this, browser, (application as AcuteApplication).places)
         applyPrivacy()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(17, 18, 20))
@@ -113,6 +115,7 @@ class BrowserActivity : Activity() {
     private fun render() {
         if (!::gecko.isInitialized) return
         applyPrivacy()
+        if (browser.tabs.mode == BrowsingMode.PRIVATE) library.dismiss()
         val tab = browser.tabs.selected
         val engine = if (browser.ready) browser.selectedEngine() else null
         if (engine?.session !== attachedSession) {
@@ -136,7 +139,7 @@ class BrowserActivity : Activity() {
         tabCount.contentDescription = getString(R.string.open_tabs, browser.tabs.visible.size)
         val private = browser.tabs.mode == BrowsingMode.PRIVATE
         status.text = if (!browser.ready) getString(R.string.restoring_tabs)
-            else tab?.page?.error ?: (if (private) getString(R.string.private_hint) else browser.storageError ?: getString(R.string.normal_hint))
+            else tab?.page?.error ?: (if (private) getString(R.string.private_hint) else browser.storageError ?: (if ((application as AcuteApplication).places.hasError) getString(R.string.library_error) else getString(R.string.normal_hint)))
         title = if (private) getString(R.string.private_title) else getString(R.string.app_name)
         if (!private) geckoHost.doOnPreDraw { host -> host.post {
             // Keep protection until the private surface has been removed and the normal frame drawn.
@@ -171,6 +174,12 @@ class BrowserActivity : Activity() {
             menu.add(R.string.page_section).isEnabled = false
             menu.add(R.string.reload).setOnMenuItemClickListener { browser.selectedEngine()?.reload(); true }
             menu.add(R.string.edit_address).setOnMenuItemClickListener { focusAddress(); true }
+            if (!private) {
+                menu.add(R.string.library_section).isEnabled = false
+                menu.add(R.string.save_bookmark).setOnMenuItemClickListener { library.bookmarkPage(); true }
+                menu.add(R.string.recent_bookmarks).setOnMenuItemClickListener { library.bookmarks(); true }
+                menu.add(R.string.recent_history).setOnMenuItemClickListener { library.history(); true }
+            }
             if (private) {
                 menu.add(R.string.privacy_section).isEnabled = false
                 menu.add(R.string.close_private_tabs).setOnMenuItemClickListener { browser.closePrivateTabs(); true }
@@ -204,8 +213,8 @@ class BrowserActivity : Activity() {
         address.requestFocus(); address.selectAll()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(address, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
-    override fun onStart() { super.onStart(); browser.attach(observer) }
-    override fun onStop() { browser.detach(observer); super.onStop() }
+    override fun onStart() { super.onStart(); (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
+    override fun onStop() { library.dismiss(); (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
     override fun onDestroy() {
         if (attachedSession != null) gecko.releaseSession()
         attachedSession = null

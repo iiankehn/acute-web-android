@@ -9,7 +9,7 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.orElse(1).get()
-        versionName = "2.0.0-dev.2"
+        versionName = "2.0.0-dev.3"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     compileOptions {
@@ -25,4 +25,18 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     implementation(project(":browser-core"))
     implementation("org.mozilla.geckoview:geckoview:157.0.20261005135250")
+}
+
+// Places' maintained native binding is used directly; Glean/Sync initialization is not part of Dev.
+configurations.configureEach { exclude(group = "org.mozilla.telemetry") }
+dependencies { implementation("org.mozilla.appservices:places:157.0.1") }
+
+val verifyDevDependencies by tasks.registering {
+    doLast {
+        val modules = configurations.getByName("debugRuntimeClasspath").incoming.resolutionResult.allComponents
+            .mapNotNull { it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+        check(modules.none { it.group == "org.mozilla.telemetry" || it.group.startsWith("com.adjust") }) {
+            "Telemetry artifacts are forbidden in the Dev runtime"
+        }
+    }
 }

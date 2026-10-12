@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 package com.acuteweb.nativeapp
 
+import com.acuteweb.core.BrowsingMode
 import com.acuteweb.core.BrowserEngine
 import com.acuteweb.core.NavigationPolicy
 import com.acuteweb.core.PageState
@@ -9,13 +10,14 @@ import org.mozilla.geckoview.*
 /** Gecko session lifecycle/state belongs here, outside product selection/storage policy. */
 class GeckoBrowserEngine(
     private val runtime: GeckoRuntime,
-    privateMode: Boolean,
+    private val privateMode: Boolean,
     privateContext: String?,
     initial: PageState,
     private val changed: (PageState) -> Unit,
     private val snapshot: (String?) -> Unit,
     private val newWindow: (String) -> GeckoSession?,
     private val closeWindow: () -> Unit,
+    private val history: PlacesStore? = null,
 ) : BrowserEngine {
     val session = GeckoSession(GeckoSessionSettings.Builder().useTrackingProtection(true)
         .usePrivateMode(privateMode).contextId(if (privateMode) privateContext else null).build())
@@ -43,7 +45,10 @@ class GeckoBrowserEngine(
             }
         }
         session.contentDelegate = object : GeckoSession.ContentDelegate {
-            override fun onTitleChange(session: GeckoSession, title: String?) { update(state.copy(title = title ?: "Acute")) }
+            override fun onTitleChange(session: GeckoSession, title: String?) {
+                if (!disposed && title != null) history?.updateTitle(mode, state.uri, title)
+                update(state.copy(title = title ?: "Acute"))
+            }
             override fun onCloseRequest(session: GeckoSession) { if (!disposed) closeWindow() }
             override fun onCrash(session: GeckoSession) { lostProcess() }
             override fun onKill(session: GeckoSession) { lostProcess() }
@@ -53,6 +58,24 @@ class GeckoBrowserEngine(
                 if (disposed) return
                 savedState = sessionState.toString()
                 snapshot(savedState)
+            }
+        }
+        session.historyDelegate = object : GeckoSession.HistoryDelegate {
+            override fun onVisited(session: GeckoSession, url: String, lastVisitedURL: String?, flags: Int): GeckoResult<Boolean> {
+                val result = GeckoResult<Boolean>()
+                if (disposed || history == null || flags and GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL == 0 ||
+                    flags and GeckoSession.HistoryDelegate.VISIT_UNRECOVERABLE_ERROR != 0) return GeckoResult.fromValue(false)
+                history.recordVisit(mode, url,
+                    redirect = flags and (GeckoSession.HistoryDelegate.VISIT_REDIRECT_TEMPORARY or GeckoSession.HistoryDelegate.VISIT_REDIRECT_PERMANENT) != 0,
+                    permanent = flags and (GeckoSession.HistoryDelegate.VISIT_REDIRECT_PERMANENT or GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE_PERMANENT) != 0,
+                    source = flags and (GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE or GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE_PERMANENT) != 0) { result.complete(it.getOrDefault(false)) }
+                return result
+            }
+            override fun getVisited(session: GeckoSession, urls: Array<out String>): GeckoResult<BooleanArray> {
+                if (disposed || history == null) return GeckoResult.fromValue(BooleanArray(urls.size))
+                val result = GeckoResult<BooleanArray>()
+                history.visited(mode, urls.toList()) { result.complete(it.getOrDefault(BooleanArray(urls.size))) }
+                return result
             }
         }
         session.permissionDelegate = object : GeckoSession.PermissionDelegate {
@@ -66,6 +89,7 @@ class GeckoBrowserEngine(
         session.open(runtime); session.setActive(false); active = false
         restoreOrLoad()
     }
+    private val mode get() = if (privateMode) BrowsingMode.PRIVATE else BrowsingMode.NORMAL
     private fun restoreOrLoad() {
         val restored = runCatching { savedState?.let(GeckoSession.SessionState::fromString) }.getOrNull()
         if (restored != null && runCatching { session.restoreState(restored) }.isSuccess) return
@@ -101,7 +125,7 @@ class GeckoBrowserEngine(
     override fun close() {
         disposed = true
         session.navigationDelegate = null; session.contentDelegate = null
-        session.progressDelegate = null; session.permissionDelegate = null
+        session.progressDelegate = null; session.permissionDelegate = null; session.historyDelegate = null
         if (session.isOpen) session.close()
     }
 }

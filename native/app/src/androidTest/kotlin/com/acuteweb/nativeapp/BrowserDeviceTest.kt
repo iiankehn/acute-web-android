@@ -59,11 +59,11 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
     fun uri(path: String, token: String = UUID.randomUUID().toString()) = URI("http", null, "127.0.0.1", port, path, "token=$token", null).toASCIIString()
     override fun close() { running.set(false); server.close(); worker.join(1000) }
 }
-internal class SessionDriver(private: Boolean = false, context: String? = null, initial: PageState = PageState()) : AutoCloseable {
+internal class SessionDriver(private: Boolean = false, context: String? = null, initial: PageState = PageState(), history: PlacesStore? = null) : AutoCloseable {
     lateinit var engine: GeckoBrowserEngine
     val page = AtomicReference(initial)
     val snapshot = AtomicReference<String?>(null)
-    init { onMain { engine = GeckoBrowserEngine(app.runtime, private, context, initial, { page.set(it) }, { snapshot.set(it) }, { null }, { }) } }
+    init { onMain { engine = GeckoBrowserEngine(app.runtime, private, context, initial, { page.set(it) }, { snapshot.set(it) }, { null }, { }, history) } }
     fun open(state: String? = null) { onMain { engine.open(state); engine.visibility(true) } }
     fun load(uri: String, token: String): String {
         onMain { engine.navigate(uri) }

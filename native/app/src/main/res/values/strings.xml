@@ -23,4 +23,18 @@
     <string name="restoring_tabs">Restoring tabs…</string>
     <string name="invalid_address">Enter a web address or search text</string>
     <string name="tab_limit">The tab limit has been reached. Close a tab to open another.</string>
+    <string name="library_section">Library</string>
+    <string name="save_bookmark">Save bookmark</string>
+    <string name="bookmark_title">Title</string>
+    <string name="bookmark_saved">Bookmark saved</string>
+    <string name="recent_bookmarks">Recent bookmarks (up to 100)</string>
+    <string name="recent_history">Recent history (up to 100 visits)</string>
+    <string name="library_empty">Nothing saved yet</string>
+    <string name="library_error">The library could not be read or saved. Existing data has been kept.</string>
+    <string name="save">Save</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+    <string name="delete_history_page">Delete all visits to this page?</string>
+    <string name="clear_history">Clear browsing history</string>
+    <string name="clear_history_description">Delete normal browsing history from this Dev profile? Bookmarks and open tabs stay.</string>
 </resources>

@@ -230,3 +230,46 @@ The merged APK also contains Gecko's normal network-state, wake-lock and audio
 settings permissions and AndroidX's app-local signature permission. It is not an
 INTERNET-only merged manifest. None are runtime camera, microphone, location or
 storage grants. The signing gate rejects any unexpected permission change.
+
+## Library batch — 2.0.0-dev.3
+
+The browser-storage-sync 157.0 source and Maven dependency graph were inspected.
+It wraps Application Services Places, adds account/sync concepts, WorkManager,
+remote tabs and autocomplete concepts. The narrow local integration uses
+`org.mozilla.appservices:places:157.0.1` and its public generated native binding
+directly, behind `PlacesStore`. It retains Mozilla's Rust database schema and
+CRUD/visit APIs; no replacement SQLite schema or custom history engine is built.
+The exact pin and native acceptance tests are the upgrade contract for this
+boundary. Full-megazord and JNA are its native dependencies, packaged for both
+supported ABIs. Glean's Android artifacts are explicitly excluded from Gradle
+configurations; neither Glean, account nor Sync initialization is performed.
+The native megazord still contains other crates, so this is not a claim that
+every telemetry-related symbol has been removed from native binaries.
+
+Normal top-level successful Gecko visits are persisted through HistoryDelegate,
+including redirect flags; title updates use Places observations. Normal visited
+link queries run off-main. Private mode is rejected at the storage boundary:
+no visits/titles/bookmarks are written and visited-link queries return all false
+without opening the database. The native Library menu is hidden in private
+mode and any open library dialog closes on a private-mode transition.
+
+Native controls support bookmark save/upsert/title and URL edit/delete, opening
+bookmarks/history, per-URL visit deletion and clearing normal history while
+retaining bookmarks and open tabs. Lists explicitly show the most recent 100;
+folder management, full-library search/pagination and richer accessibility/UI
+polish remain later parity work. Writes disable the Save button until completion;
+failures retain the editor and show a storage error. Background history failures
+also surface in the normal-mode status.
+
+Places lives at Dev noBackupFilesDir/places.sqlite; SQLite manages transactions
+and its schema. The store is app-private and excluded from backups, but is not
+encrypted by this batch. It never opens an existing Stable/Beta profile. Failure
+to open a database prevents subsequent writes without deleting/recreating it.
+Stable/Beta transactional import and existing schema/Sync metadata mapping remain
+unverified and are not enabled.
+
+New Android tests cover bookmark CRUD/upsert/stable IDs after reopening, private
+write/query rejection, history clearing without bookmark loss, corrupted-file
+preservation and actual Gecko normal/private visit callbacks. Force-stop stages
+also check normal Places history/bookmarks after process replacement. Runtime
+acceptance for this batch is pending the next CI run.
