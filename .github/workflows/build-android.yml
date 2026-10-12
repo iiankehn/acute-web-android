@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref == 'refs/heads/dev' }}
 
 env:
   PINNED_FIREFOX_REF: 0c469c2352451630bc69fc328c9f0c589c6c534d
@@ -237,16 +237,31 @@ jobs:
           apk="$(find firefox -type f -path "*/fenix/app/outputs/apk/$BUILD_KIND/*universal*.apk" -print -quit)"
           test -n "$apk" || { echo "APK not found"; find firefox -type f -name '*.apk' -print; exit 1; }
           build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
-          "$build_tools/aapt2" dump badging "$apk" > "$RUNNER_TEMP/acute-badging.txt"
-          grep -F "package: name='${{ needs.metadata.outputs.package }}' " "$RUNNER_TEMP/acute-badging.txt"
-          grep -qx "sdkVersion:'31'" "$RUNNER_TEMP/acute-badging.txt"
-          if [[ "$BUILD_KIND" != debug ]]; then ! grep -q '^application-debuggable' "$RUNNER_TEMP/acute-badging.txt"; fi
-          unzip -Z1 "$apk" | grep -qx "lib/$ABI/libmozglue.so"
-          unzip -Z1 "$apk" | grep -qx "lib/$ABI/libxul.so"
+          "$build_tools/aapt2" dump badging "$apk" | tee "$RUNNER_TEMP/acute-badging.txt"
+          grep -F "package: name='${{ needs.metadata.outputs.package }}' " "$RUNNER_TEMP/acute-badging.txt" || { echo "::error::APK package does not match the selected channel"; exit 1; }
+          grep -qx "sdkVersion:'31'" "$RUNNER_TEMP/acute-badging.txt" || { echo "::error::APK minimum SDK is not Android 12 (31)"; exit 1; }
+          if [[ "$BUILD_KIND" != debug ]] && grep -q '^application-debuggable' "$RUNNER_TEMP/acute-badging.txt"; then
+            echo "::error::Release-variant APK is debuggable; refusing signing"
+            exit 1
+          fi
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/acute-apk-entries.txt"
+          grep -qx "lib/$ABI/libmozglue.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko glue library"; exit 1; }
+          grep -qx "lib/$ABI/libxul.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko engine library"; exit 1; }
           python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"
           cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
           printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \
             "$VERSION" "$ABI" "$FIREFOX_REF" "$GITHUB_SHA" > "dist/build-inputs-${ABI}.txt"
+
+      - name: Preserve failed APK verification evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: acute-verification-failure-${{ needs.metadata.outputs.version }}-${{ matrix.abi }}
+          path: |
+            ${{ runner.temp }}/acute-badging.txt
+            ${{ runner.temp }}/acute-apk-entries.txt
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload unsigned build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

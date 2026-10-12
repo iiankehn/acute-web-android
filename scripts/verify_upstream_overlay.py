@@ -72,6 +72,9 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     package = "com.acuteweb.browser.dev" if channel == "dev" else "com.acuteweb.browser"
     assert f'applicationId "{package}"' in gradle
     assert "minSdk 31" in gradle
+    release_template = gradle.split("def releaseTemplate = {", 1)[1].split("    buildTypes {", 1)[0]
+    assert "debuggable false" in release_template
+    assert "MOZ_ANDROID_DEBUGGABLE" not in release_template
     assert "'TELEMETRY', 'true'" not in gradle
     assert "'CRASH_REPORTING', 'true'" not in gradle
     assert "AdjustPreinstallReferrerReceiver" not in (app / "src/main/AndroidManifest.xml").read_text()
