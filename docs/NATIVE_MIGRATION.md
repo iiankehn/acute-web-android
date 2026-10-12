@@ -385,4 +385,25 @@ use unique app-owned MediaStore destinations on the disposable emulator. Tests
 cover actual cookie-authenticated Gecko bytes with exactly one HTTP request,
 stale-picker rejection, truncated/unwritable destinations, explicit private
 export preservation, active private-transfer cancellation, and private prompt
-consent/rotation/close lifecycle. Android acceptance/signing remains pending.
+consent/rotation/close lifecycle.
+
+## Accepted Dev.5 checkpoint
+
+CI run 38213421174 passed build and isolated signing jobs for commit
+803704104d590228957bfafe3bbfae9497dc4724. All 22 core tests, 19 Android runtime
+tests, both cross-process force-stop stages, 45 preserved Python tests and
+10 extension tests passed. Lint, dependency exclusion, both native architectures,
+the permission boundary and certificate continuity passed. Signed artifact:
+https://github.com/iiankehn/acute-web-android/actions/runs/38213421174/artifacts/11731385134
+
+The first runtime run exposed a fixture error: inserting a MediaStore entry
+does not create its bytes until a writer opens it. The stale-picker test now
+writes known original bytes before rejecting the stale result and verifies those
+bytes remain unchanged. All assertions and other download tests passed in the
+full rerun. No production logic changed for this fixture correction.
+
+This acceptance uses actual Gecko authenticated responses, real scoped-storage
+IPC and native prompt lifecycle on Android 12 x86_64. It does not certify a
+physical device's system file-picker/provider flow, ARM64, Waydroid, resumable
+background transfers or Stable/Beta migration. The source checkpoints and
+original application profiles remain untouched.

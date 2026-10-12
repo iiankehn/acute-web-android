@@ -59,4 +59,7 @@ Transfer metadata is process memory only. Process death interrupts downloads;
 background completion/resume is not guaranteed. Failed/cancelled transfers can
 leave partial selected files; Acute does not delete user-selected documents.
 No new storage/notification permissions or persistent URI grants are added.
-Dev.5 Android acceptance is pending CI.
+Dev.5 acceptance and signing passed in CI run 38213421174: 22 core tests,
+19 Android runtime tests and both force-stop stages. The signed candidate is
+available in that run's `acute-dev-signed` artifact. Physical file-picker,
+ARM64 and Waydroid acceptance remain outstanding.
