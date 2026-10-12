@@ -18,6 +18,7 @@ class GeckoBrowserEngine(
     private val newWindow: (String) -> GeckoSession?,
     private val closeWindow: () -> Unit,
     private val history: PlacesStore? = null,
+    private val linkContext: (String) -> Unit = {},
 ) : BrowserEngine {
     val session = GeckoSession(GeckoSessionSettings.Builder().useTrackingProtection(true)
         .usePrivateMode(privateMode).contextId(if (privateMode) privateContext else null).build())
@@ -48,6 +49,14 @@ class GeckoBrowserEngine(
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 if (!disposed && title != null) history?.updateTitle(mode, state.uri, title)
                 update(state.copy(title = title ?: "Acute"))
+            }
+            override fun onContextMenu(session: GeckoSession, screenX: Int, screenY: Int, element: GeckoSession.ContentDelegate.ContextElement) {
+                if (!disposed) element.linkUri?.takeIf { it.length <= 4096 && NavigationPolicy.allows(it) }?.let(linkContext)
+            }
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                // Until the owned download flow is installed, ignored bodies must still release their connection.
+                runCatching { response.body?.close() }
+                update(state.copy(error = "Downloads are not available in this Dev build yet."))
             }
             override fun onCloseRequest(session: GeckoSession) { if (!disposed) closeWindow() }
             override fun onCrash(session: GeckoSession) { lostProcess() }

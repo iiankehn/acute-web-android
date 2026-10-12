@@ -2,6 +2,7 @@
 package com.acuteweb.nativeapp
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import android.os.Handler
 import android.os.Looper
 import com.acuteweb.core.BrowsingMode
@@ -34,6 +35,20 @@ class PlacesStore(context: Context, name: String = "places.sqlite") {
         openingError?.let { throw it }
         connection?.let { return it }
         try {
+            // Places automatically recreates corrupt databases. Check the existing file first,
+            // using READONLY and a no-op corruption handler (Android's default deletes files).
+            if (file.exists()) {
+                require(file.length() >= 100) { "Existing Places file is incomplete" }
+                SQLiteDatabase.openDatabase(file.canonicalPath, null,
+                    SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
+                    { _ -> }).use { inspection ->
+                    inspection.rawQuery("PRAGMA quick_check", null).use { rows ->
+                        check(rows.moveToFirst() && rows.getString(0) == "ok" && !rows.moveToNext()) {
+                            "Existing Places database failed its integrity check"
+                        }
+                    }
+                }
+            }
             val opened = placesApiNew(file.canonicalPath)
             api = opened
             return opened.newConnection(ConnectionType.READ_WRITE).also { connection = it }

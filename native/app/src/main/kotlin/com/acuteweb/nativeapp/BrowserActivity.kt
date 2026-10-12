@@ -31,6 +31,8 @@ class BrowserActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var tabStrip: LinearLayout
     private lateinit var tabScroll: HorizontalScrollView
+    private var linkDialog: AlertDialog? = null
+    private var linkTab: String? = null
     private var attachedSession: GeckoSession? = null
     private var renderedTab: String? = null
     private val observer: () -> Unit = { render() }
@@ -117,6 +119,7 @@ class BrowserActivity : Activity() {
         applyPrivacy()
         if (browser.tabs.mode == BrowsingMode.PRIVATE) library.dismiss()
         val tab = browser.tabs.selected
+        if (linkTab != tab?.id) { linkDialog?.dismiss(); linkDialog = null; linkTab = null }
         val engine = if (browser.ready) browser.selectedEngine() else null
         if (engine?.session !== attachedSession) {
             if (attachedSession != null) gecko.releaseSession()
@@ -209,12 +212,43 @@ class BrowserActivity : Activity() {
         }
         dialog.show()
     }
+    private fun showLinkActions(tabId: String, uri: String) {
+        if (browser.tabs.selected?.id != tabId || isFinishing) return
+        linkDialog?.dismiss(); linkTab = tabId
+        val private = browser.tabs.mode == BrowsingMode.PRIVATE
+        val clean = com.acuteweb.core.LinkPolicy.clean(uri)
+        val labels = mutableListOf(getString(R.string.open_link_tab), getString(R.string.copy_link), getString(R.string.share_link))
+        if (clean != null) labels.add(getString(R.string.copy_clean_link))
+        val dialog = AlertDialog.Builder(this).setTitle(uri).setItems(labels.toTypedArray()) { _, action ->
+            if (browser.tabs.selected?.id != tabId || browser.tabs.mode != (if (private) BrowsingMode.PRIVATE else BrowsingMode.NORMAL)) return@setItems
+            when (action) {
+                0 -> if (browser.newTab()) browser.navigate(uri) else Toast.makeText(this, R.string.tab_limit, Toast.LENGTH_SHORT).show()
+                1, 3 -> {
+                    val clip = android.content.ClipData.newPlainText(getString(R.string.link_label), if (action == 3) clean ?: uri else uri)
+                    if (private && Build.VERSION.SDK_INT >= 33) clip.description.extras = android.os.PersistableBundle().apply {
+                        putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                    }
+                    (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(clip)
+                    Toast.makeText(this, R.string.link_copied, Toast.LENGTH_SHORT).show()
+                }
+                2 -> {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, uri)
+                    }
+                    runCatching { startActivity(android.content.Intent.createChooser(intent, getString(R.string.share_link))) }
+                        .onFailure { Toast.makeText(this, R.string.share_unavailable, Toast.LENGTH_SHORT).show() }
+                }
+            }
+        }.create()
+        if (private) dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        linkDialog = dialog; dialog.show()
+    }
     private fun focusAddress() {
         address.requestFocus(); address.selectAll()
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(address, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
-    override fun onStart() { super.onStart(); (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
-    override fun onStop() { library.dismiss(); (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
+    override fun onStart() { super.onStart(); browser.linkHandler = ::showLinkActions; (application as AcuteApplication).places.attach(observer); browser.attach(observer) }
+    override fun onStop() { library.dismiss(); linkDialog?.dismiss(); linkDialog = null; browser.linkHandler = null; (application as AcuteApplication).places.detach(observer); browser.detach(observer); super.onStop() }
     override fun onDestroy() {
         if (attachedSession != null) gecko.releaseSession()
         attachedSession = null

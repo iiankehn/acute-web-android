@@ -273,3 +273,26 @@ write/query rejection, history clearing without bookmark loss, corrupted-file
 preservation and actual Gecko normal/private visit callbacks. Force-stop stages
 also check normal Places history/bookmarks after process replacement. Runtime
 acceptance for this batch is pending the next CI run.
+
+### Corruption gate found by runtime acceptance
+
+Run 38205229678 passed compilation, lint, dependency exclusion and all four
+native ABI entries, but failed the corruption-preservation test: Places'
+constructor automatically recreated a damaged database instead of throwing.
+The adapter now inspects existing files read-only with SQLite `quick_check`
+before handing them to Places, with an explicit no-op Android corruption
+handler to avoid the platform's default file deletion. Failed inspection keeps
+the original file and blocks later writes. This is an integrity inspection,
+not a replacement schema or storage engine. Its compatibility with this pinned
+Places schema is exercised by database reopen and process-death tests.
+
+The follow-up also ports the existing conservative clean-link policy and native
+link context actions (open in current-mode tab, copy, share, optional clean copy).
+Normal library dialogs and link dialogs are dismissed when their owning tab or
+Activity changes. Private dialogs enable screenshot protection; Android 13+
+clipboard entries from private mode suppress previews. Copy/share are explicit
+user exports to Android's clipboard/share sheet, with no background request.
+Downloads remain pending feature work; an ignored Gecko external response now
+closes its body stream and reports unsupported download handling rather than
+leaking the connection. New tests cover URL byte preservation, link scheme
+validation and external stream closure.

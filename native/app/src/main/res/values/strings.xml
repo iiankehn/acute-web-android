@@ -37,4 +37,11 @@
     <string name="delete_history_page">Delete all visits to this page?</string>
     <string name="clear_history">Clear browsing history</string>
     <string name="clear_history_description">Delete normal browsing history from this Dev profile? Bookmarks and open tabs stay.</string>
+    <string name="open_link_tab">Open link in new tab</string>
+    <string name="copy_link">Copy link</string>
+    <string name="share_link">Share link</string>
+    <string name="copy_clean_link">Copy clean link</string>
+    <string name="link_label">Web link</string>
+    <string name="link_copied">Link copied</string>
+    <string name="share_unavailable">No app could open the share sheet</string>
 </resources>

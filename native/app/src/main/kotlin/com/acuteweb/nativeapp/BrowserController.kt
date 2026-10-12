@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 
 /** Process-owned sessions survive Activity recreation. No Activity/View reference is retained after detach. */
 class BrowserController(context: Context, private val runtime: GeckoRuntime, private val archive: SessionArchive = SessionArchive(context.applicationContext), private val places: PlacesStore? = (context.applicationContext as? AcuteApplication)?.places) {
+    var linkHandler: ((String, String) -> Unit)? = null
     val tabs = Tabs()
     var ready = false
         private set
@@ -71,6 +72,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
             },
             closeWindow = { close(tab.id) },
             history = places,
+            linkContext = { uri -> if (tabs.selected?.id == tab.id) linkHandler?.invoke(tab.id, uri) },
         )
         engines[tab.id] = engine
         return engine

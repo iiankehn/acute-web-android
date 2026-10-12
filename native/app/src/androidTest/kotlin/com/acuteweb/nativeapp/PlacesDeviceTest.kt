@@ -70,6 +70,22 @@ class PlacesDeviceTest {
             assertArrayEquals(damaged, file.readBytes())
         } finally { storage<Unit> { places.close(it) } }
     }
+    @Test fun corruptTreeWithValidSqliteHeaderCannotBeSilentlyReset() {
+        val name = "corrupt-tree-${UUID.randomUUID()}.sqlite"
+        var places = PlacesStore(app, name)
+        storage<String> { places.saveBookmark(BrowsingMode.NORMAL, "https://example.com/keep", "Keep", it) }
+        storage<Unit> { places.close(it) }
+        val file = File(app.noBackupFilesDir, name)
+        val damaged = file.readBytes()
+        assertTrue(damaged.size > 100)
+        damaged[100] = 0 // Invalid first b-tree page type; the SQLite magic header stays intact.
+        file.writeBytes(damaged)
+        places = PlacesStore(app, name)
+        try {
+            assertTrue(storageResult<List<PlacesStore.Bookmark>> { places.bookmarks(it) }.isFailure)
+            assertArrayEquals(damaged, file.readBytes())
+        } finally { storage<Unit> { places.close(it) } }
+    }
     @Test fun actualGeckoVisitsPersistOnlyNormalPages() {
         val places = PlacesStore(app, "gecko-history-${UUID.randomUUID()}.sqlite")
         try {
