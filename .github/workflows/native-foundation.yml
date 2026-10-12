@@ -23,6 +23,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            native/**/*.gradle.kts
+            native/gradle/wrapper/gradle-wrapper.properties
       - name: Audit preserved and native source
         run: make audit
       - name: Install pinned Android platform

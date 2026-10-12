@@ -37,7 +37,7 @@ class SuspensionDeviceTest {
                 assertFalse(fromMain { original.isOpen })
                 eventually { runCatching { SessionArchive(app).read().tabs.any { tab -> tab.id == id && tab.engineState?.contains(second) == true } }.getOrDefault(false) }
                 onMain { app.browser.select(id); assertNotSame(original, app.browser.selectedEngine()!!.session) }
-                eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(second + ":") == true && app.browser.tabs.selected?.page?.canGoBack == true } }
+                eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(second + ":") == true && app.browser.tabs.selected?.page?.canGoBack == true && app.browser.tabs.selected?.page?.loading == false } }
                 onMain { app.browser.selectedEngine()!!.back() }
                 eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(first + ":") == true } }
             }

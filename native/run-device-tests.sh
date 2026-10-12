@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
+collect_failure() {
+  local result=$?
+  if [ "$result" -ne 0 ]; then
+    mkdir -p app/build/reports/androidTests/diagnostics
+    adb logcat -d -v threadtime > app/build/reports/androidTests/diagnostics/logcat.txt || true
+    adb exec-out run-as com.acuteweb.browser.dev cat cache/popup-failure.png > app/build/reports/androidTests/diagnostics/popup-failure.png || true
+  fi
+  return "$result"
+}
+trap collect_failure EXIT
 ./gradlew --no-daemon --max-workers=2 :app:connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.notClass=com.acuteweb.nativeapp.ProcessDeathDeviceTest
 # Gradle removes instrumentation packages after connected tests. Install fresh

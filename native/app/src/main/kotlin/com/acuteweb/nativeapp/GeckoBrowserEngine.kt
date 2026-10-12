@@ -119,6 +119,7 @@ class GeckoBrowserEngine(
     }
     private val mode get() = if (privateMode) BrowsingMode.PRIVATE else BrowsingMode.NORMAL
     private fun restoreOrLoad() {
+        if (savedState != null || NavigationPolicy.allows(state.uri)) update(state.copy(canGoBack = false, canGoForward = false, loading = true))
         val restored = runCatching { savedState?.let(GeckoSession.SessionState::fromString) }.getOrNull()
         if (restored != null && runCatching { session.restoreState(restored) }.isSuccess) return
         if (savedState != null) { savedState = null; snapshot(null) }

@@ -24,10 +24,10 @@ internal fun <T> fromMain(block: () -> T): T {
     onMain { result.set(block()) }
     return result.get()
 }
-internal fun eventually(condition: () -> Boolean) {
+internal fun eventually(description: () -> String = { "Timed out waiting for browser state" }, condition: () -> Boolean) {
     val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
     while (System.nanoTime() < deadline) { if (condition()) return; Thread.sleep(50) }
-    assertTrue("Timed out waiting for browser state", condition())
+    assertTrue(description(), condition())
 }
 internal val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as AcuteApplication
 
@@ -61,7 +61,7 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
                     }
                     val token = path.substringAfter("token=", "fixture")
                     val marker = when { path.startsWith("/normal-set") -> "normal"; path.startsWith("/private-set") -> "private"; else -> null }
-                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else if (path.startsWith("/popup")) "<meta name=viewport content=\"width=device-width,initial-scale=1\"><button style=\"position:fixed;top:0;left:0;width:100%;height:160px\" onclick=\"const child=window.open(\'\',\'_blank\');if(child)child.location=\'/read?token=popupdone\';\">Open test popup</button>" else "Offline fixture"
+                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else if (path.startsWith("/popup")) "<meta name=viewport content=\"width=device-width,initial-scale=1\"><button style=\"position:fixed;top:0;left:0;width:100%;height:160px\" onclick=\"document.title='popup-clicked';const child=window.open(\'\',\'_blank\');if(!child)document.title='popup-blocked';if(child)child.location=\'/read?token=popupdone\';\">Open test popup</button>" else "Offline fixture"
                     val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>$content</body></html>"
                     val bytes = body.toByteArray(Charsets.UTF_8)
                     val cookie = if (marker != null) "Set-Cookie: marker=$marker; Path=/; SameSite=Lax\r\n" else ""
@@ -178,7 +178,17 @@ class BrowserDeviceTest {
                         event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
                         try { assertTrue(automation.injectInputEvent(event, true)) } finally { event.recycle() }
                     }
-                    eventually { fromMain { app.browser.tabs.visible.size == originalCount + 1 && app.browser.tabs.selected?.page?.title?.startsWith("popupdone:") == true } }
+                    try {
+                        eventually(description = { fromMain { "Popup did not navigate: mode=$mode count=${app.browser.tabs.visible.size}/$originalCount tabs=${app.browser.tabs.visible.map { it.page }}" } }) {
+                            fromMain { app.browser.tabs.visible.size == originalCount + 1 && app.browser.tabs.selected?.page?.title?.startsWith("popupdone:") == true }
+                        }
+                    } catch (error: AssertionError) {
+                        automation.takeScreenshot()?.let { image ->
+                            File(app.cacheDir, "popup-failure.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                            image.recycle()
+                        }
+                        throw error
+                    }
                     assertEquals(mode, fromMain { app.browser.tabs.selected!!.mode })
                     if (mode == BrowsingMode.PRIVATE) assertFalse(fromMain { app.browser.tabs.normalSnapshot().tabs.any { it.id == app.browser.tabs.selected!!.id } })
                     onMain { app.browser.close(app.browser.tabs.selected!!.id) }
