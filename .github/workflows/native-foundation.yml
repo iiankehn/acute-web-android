@@ -38,7 +38,7 @@ jobs:
           test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
       - name: Test, lint and compile the independent application
         working-directory: native
-        run: ./gradlew --no-daemon --max-workers=2 :browser-core:test :app:lintDebug :app:assembleDebug
+        run: ./gradlew --no-daemon --max-workers=2 :browser-core:test :app:lintDebug :app:assembleDebug :app:assembleRelease
       - name: Verify both native architectures
         run: |
           apk=native/app/build/outputs/apk/debug/app-debug.apk
@@ -74,3 +74,105 @@ jobs:
           path: native/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Upload tested unsigned Dev candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: acute-dev-unsigned
+          path: native/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  sign-dev:
+    name: Sign isolated Dev channel
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && github.repository == 'iiankehn/acute-web-android'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release-signing
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: acute-dev-unsigned
+          path: unsigned
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned signing tools
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "build-tools;36.0.0"'
+      - name: Validate channel and permission boundary before signing
+        run: |
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          test -x "$build_tools/aapt2"
+          "$build_tools/aapt2" dump badging unsigned/app-release-unsigned.apk > "$RUNNER_TEMP/dev-badging.txt"
+          grep -q "^package: name='com.acuteweb.browser.dev' versionCode='${GITHUB_RUN_NUMBER}' " "$RUNNER_TEMP/dev-badging.txt"
+          grep -q "^minSdkVersion:'31'$" "$RUNNER_TEMP/dev-badging.txt"
+          ! grep -q '^application-debuggable' "$RUNNER_TEMP/dev-badging.txt"
+          "$build_tools/aapt2" dump permissions unsigned/app-release-unsigned.apk > "$RUNNER_TEMP/dev-permissions.txt"
+          python3 - <<'PYCODE'
+          import re
+          from pathlib import Path
+          import os
+          allowed = {
+              'android.permission.INTERNET',
+              'android.permission.ACCESS_NETWORK_STATE',
+              'android.permission.WAKE_LOCK',
+              'android.permission.MODIFY_AUDIO_SETTINGS',
+              'com.acuteweb.browser.dev.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+          }
+          text = Path(os.environ['RUNNER_TEMP'], 'dev-permissions.txt').read_text()
+          actual = set(re.findall(r"uses-permission: name='([^']+)'", text))
+          assert actual == allowed, f'Dev permissions changed: {actual ^ allowed}'
+          PYCODE
+      - name: Sign with existing isolated credentials
+        env:
+          ACUTE_KEYSTORE_B64: ${{ secrets.ACUTE_KEYSTORE_B64 }}
+          ACUTE_KEYSTORE_PASSWORD: ${{ secrets.ACUTE_KEYSTORE_PASSWORD }}
+          ACUTE_KEY_ALIAS: ${{ secrets.ACUTE_KEY_ALIAS }}
+          ACUTE_KEY_PASSWORD: ${{ secrets.ACUTE_KEY_PASSWORD }}
+        run: |
+          test -n "$ACUTE_KEYSTORE_B64"
+          test -n "$ACUTE_KEYSTORE_PASSWORD"
+          test -n "$ACUTE_KEY_ALIAS"
+          test -n "$ACUTE_KEY_PASSWORD"
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          trap 'rm -f "$RUNNER_TEMP/acute-dev-signing.jks" "$RUNNER_TEMP/dev-aligned.apk"' EXIT
+          umask 077
+          printf '%s' "$ACUTE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/acute-dev-signing.jks"
+          mkdir -p dist
+          "$build_tools/zipalign" -f -p 4 unsigned/app-release-unsigned.apk "$RUNNER_TEMP/dev-aligned.apk"
+          "$build_tools/apksigner" sign \
+            --ks "$RUNNER_TEMP/acute-dev-signing.jks" \
+            --ks-key-alias "$ACUTE_KEY_ALIAS" \
+            --ks-pass env:ACUTE_KEYSTORE_PASSWORD \
+            --key-pass env:ACUTE_KEY_PASSWORD \
+            --out dist/acute-dev.apk "$RUNNER_TEMP/dev-aligned.apk"
+          "$build_tools/apksigner" verify --verbose --print-certs dist/acute-dev.apk > dist/signing-certificate.txt
+          cp "$RUNNER_TEMP/dev-permissions.txt" dist/manifest-permissions.txt
+      - name: Verify certificate continuity with trusted release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          mkdir -p previous
+          gh release download v0.2.0 --pattern '*.apk' --dir previous
+          previous_apk="$(find previous -name '*.apk' -print -quit)"
+          certificate_digest() {
+            "$build_tools/apksigner" verify --verbose --print-certs "$1" \
+              | sed -n -E 's/^.*certificate SHA-256 digest: ([0-9a-fA-F]{64})$/\1/p' \
+              | head -1
+          }
+          previous_digest="$(certificate_digest "$previous_apk")"
+          current_digest="$(certificate_digest dist/acute-dev.apk)"
+          test -n "$previous_digest"
+          test "$previous_digest" = "$current_digest"
+          printf 'Verified Dev signer: %s\n' "$current_digest"
+          sha256sum dist/acute-dev.apk > dist/acute-dev.apk.sha256
+      - name: Upload signed Dev candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: acute-dev-signed
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

@@ -67,16 +67,17 @@ Firefox artifact builds per ABI, with a separate signing job and signer checks.
 This first slice provides navigation/search, back/forward/reload, engine status,
 validated URL-only recreation, window/IME insets and native accessible controls.
 Permissions are denied until the app-owned permission flow is implemented.
-Privileged schemes and external intent navigation are denied; new windows are
-not yet supported. No telemetry or crash-upload SDK/handler is integrated.
+Privileged schemes and external intent navigation are denied. New windows
+are supported by the subsequent session batch described below. No telemetry or crash-upload SDK/handler is integrated.
 Gecko network defaults, Safe Browsing, remote settings and extension traffic
 still need an explicit privacy/network audit; no zero-network claim is made.
 CORE Glass here is an opaque neutral capsule foundation; translucency and
 adaptive component polish are still pending. No single-tab prototype behavior
 is counted as tab/session feature parity.
 
-Prototype package is `com.acuteweb.browser.dev`, debug signed, with
-backup disabled. It cannot update stable or beta, and does not read their data.
+Prototype package is `com.acuteweb.browser.dev`, with backup disabled.
+Local/PR previews are debug signed; accepted Dev pushes use the existing isolated
+release-signing job, without publishing a GitHub release. It cannot update stable or beta, and does not read their data.
 This is deliberate while migration is unproven. Final stable/beta packages and
 production signing identity must be retained at promotion. Reuse the existing
 isolated signing flow; do not introduce release secrets into prototype CI.
@@ -129,8 +130,8 @@ reported 0 errors and 5 warnings (target/tool versions, launcher shape and local
 ARM64 and x86_64 libraries; ELF class and machine identifiers were verified for
 libxul and libmozglue in both ABIs. The existing 45 Python regression tests,
 10 extension behavioral tests, project checks and security/release audit passed.
-On-device launch, native UI acceptance, network audit and migration testing
-remain outstanding. These results do not certify a public beta.
+Physical-device foundation launch was subsequently confirmed by the user.
+Broader native UI acceptance, network audit and migration testing remain outstanding. These results do not certify a public beta.
 
 ## Session/privacy batch — 2.0.0-dev.2
 
@@ -204,4 +205,28 @@ extension tests passed; application and instrumentation APKs compiled, lint
 reported no errors, and both ELF/ABI packages were checked. A reproduced stale
 instrumentation symbol-cache collision was removed by clean compilation; the
 small native project disables Kotlin incremental compilation for reliability.
-Android runtime/process-death acceptance is still awaiting CI execution.
+Android runtime/process-death acceptance passed in CI run 38203694137:
+all five Android tests plus both force-stop stages succeeded. The initial
+process-death harness failed because Gradle uninstalled the test APKs; explicit
+reinstallation fixed the harness, followed by a full successful rerun.
+
+## Dev signing continuity
+
+Accepted pushes now build an unsigned release variant and pass it to an isolated
+signing job. Only that job receives the existing `release-signing` environment
+credentials; PRs/manual runs do not sign. The job validates the separate Dev
+package ID, build version code, non-debuggable variant and exact merged
+permission allowlist before signing, then compares the certificate with v0.2.0
+before uploading. There is no release publishing job in this workflow.
+
+The initial dev.1/dev.2 debug previews cannot be updated by the production signer.
+Switching requires uninstalling **Acute Dev only**, losing its test profile, then
+installing the signed Dev candidate. Stable/Beta must remain installed and their
+data is untouched. Subsequent signed Dev builds retain their signer and monotonic
+workflow version codes. Real installed-profile upgrade/Keystore acceptance still
+requires device testing; certificate checks alone do not establish data parity.
+
+The merged APK also contains Gecko's normal network-state, wake-lock and audio
+settings permissions and AndroidX's app-local signature permission. It is not an
+INTERNET-only merged manifest. None are runtime camera, microphone, location or
+storage grants. The signing gate rejects any unexpected permission change.

@@ -45,7 +45,12 @@ Create a protected GitHub Actions environment named `release-signing` and add:
 
 Only the isolated signing job may access these values. Upstream source,
 pull-request code, and the main compilation job must not receive them. Manual
-workflow runs create debug-signed artifacts and never publish a release.
+workflow runs create debug-signed artifacts and never publish a release. The
+independent native workflow also signs accepted `dev` pushes in an isolated job
+using this existing environment. Its separate package `com.acuteweb.browser.dev`
+cannot replace Stable/Beta; signed Dev artifacts are not public releases.
+The initial debug Dev preview requires a one-time Dev-only reinstall to switch
+certificates. Subsequent Dev candidates keep the established certificate.
 
 ## Verification
 

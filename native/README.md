@@ -24,3 +24,10 @@ ARM64 and Waydroid/adaptive input acceptance remain required.
 Prototype package: `com.acuteweb.browser.dev`. Production release publication
 and Stable/Beta migration remain disabled. Signing continuity for Dev upgrades
 is a separate channel gate; never uninstall Stable/Beta for a Dev preview.
+
+CI session/privacy acceptance passed in run 38203694137 (five runtime tests and
+two force-stop stages). Signed Dev push artifacts use the existing certificate,
+checked against v0.2.0. Initial debug previews require a one-time **Dev-only**
+reinstall to switch signers; this removes the Dev test profile. Later signed
+candidates can update in place. Use `acute-dev-signed`, not the debug artifact,
+for that channel. No public release is published by the native workflow.
