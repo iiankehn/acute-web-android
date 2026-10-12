@@ -44,12 +44,12 @@ class GeckoBrowserEngine(
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) { update(state.copy(canGoBack = canGoBack)) }
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) { update(state.copy(canGoForward = canGoForward)) }
             override fun onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest): GeckoResult<AllowOrDeny> {
-                val permitted = NavigationPolicy.allows(request.uri) &&
+                val permitted = NavigationPolicy.allowsOrBlank(request.uri) &&
                     (request.target != GeckoSession.NavigationDelegate.TARGET_WINDOW_NEW || request.hasUserGesture)
                 return GeckoResult.fromValue(if (permitted) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
             }
             override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession>? =
-                if (!disposed && NavigationPolicy.allows(uri)) newWindow(uri)?.let { GeckoResult.fromValue(it) } else null
+                if (!disposed && NavigationPolicy.allowsOrBlank(uri)) newWindow(uri)?.let { GeckoResult.fromValue(it) } else null
             override fun onLoadError(session: GeckoSession, uri: String?, error: WebRequestError): GeckoResult<String>? {
                 update(state.copy(error = "Page could not be loaded. Check the address or connection.")); return null
             }

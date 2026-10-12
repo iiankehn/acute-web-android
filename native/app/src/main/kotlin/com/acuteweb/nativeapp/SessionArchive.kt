@@ -52,7 +52,11 @@ class SessionArchive(context: Context, name: String = "normal-tabs-v1.enc") {
     fun write(snapshot: SavedTabs) {
         val bytes = codec.encode(snapshot)
         val output = file.startWrite()
-        try { output.write(bytes); file.finishWrite(output) }
+        try {
+            output.write(bytes); file.finishWrite(output)
+            // AtomicFile logs a failed rename rather than throwing; do not report a failed commit as recovery.
+            check(file.baseFile.isFile && !File(file.baseFile.path + ".new").exists()) { "Archive replacement failed" }
+        }
         catch (error: Exception) { file.failWrite(output); throw error }
     }
 }

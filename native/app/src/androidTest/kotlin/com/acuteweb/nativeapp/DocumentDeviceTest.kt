@@ -127,8 +127,14 @@ class DocumentDeviceTest {
                 scenario.onActivity { it.getSystemService(PrintManager::class.java).print("Acute fixture", adapter, null) }
                 val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
                 eventually { automation.rootInActiveWindow?.packageName?.toString() == "com.android.printspooler" }
-                automation.injectInputEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK), true)
-                automation.injectInputEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK), true)
+                // Back can dismiss the keyboard or an expanded print option before the print Activity.
+                // Wait for each UI transition and leave the actual spooler; do not call onFinish ourselves.
+                repeat(4) {
+                    if (automation.rootInActiveWindow?.packageName?.toString() == "com.android.printspooler") {
+                        automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+                        automation.waitForIdle(500, 5000)
+                    }
+                }
                 eventually { adapter.closed && !adapter.file.exists() }
             }
         } finally { onMain { adapter.onFinish() } }

@@ -200,6 +200,10 @@ class BrowserActivity : Activity() {
                 menu.add(R.string.save_bookmark).setOnMenuItemClickListener { library.bookmarkPage(); true }
                 menu.add(R.string.recent_bookmarks).setOnMenuItemClickListener { library.bookmarks(); true }
                 menu.add(R.string.recent_history).setOnMenuItemClickListener { library.history(); true }
+                if (browser.needsRecovery) {
+                    menu.add(R.string.saved_tabs_section).isEnabled = false
+                    menu.add(R.string.reset_saved_tabs).setOnMenuItemClickListener { confirmResetSavedTabs(); true }
+                }
             }
             if (private) {
                 menu.add(R.string.privacy_section).isEnabled = false
@@ -207,6 +211,11 @@ class BrowserActivity : Activity() {
             }
             show()
         }
+    }
+    private fun confirmResetSavedTabs() {
+        AlertDialog.Builder(this).setTitle(R.string.reset_saved_tabs).setMessage(R.string.reset_saved_tabs_message)
+            .setPositiveButton(R.string.reset_saved_tabs_confirm) { _, _ -> browser.resetSavedTabs() }
+            .setNegativeButton(android.R.string.cancel, null).show()
     }
     private fun showTabs() {
         val private = browser.tabs.mode == BrowsingMode.PRIVATE

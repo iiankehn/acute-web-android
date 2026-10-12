@@ -23,6 +23,10 @@
     <string name="restoring_tabs">Restoring tabs…</string>
     <string name="invalid_address">Enter a web address or search text</string>
     <string name="tab_limit">The tab limit has been reached. Close a tab to open another.</string>
+    <string name="saved_tabs_section">Saved tabs</string>
+    <string name="reset_saved_tabs">Reset unreadable saved tabs</string>
+    <string name="reset_saved_tabs_confirm">Delete and reset</string>
+    <string name="reset_saved_tabs_message">Your saved tabs can\'t be read. Resetting permanently deletes them and lets Acute save your open tabs again. This can\'t be undone.</string>
     <string name="library_section">Library</string>
     <string name="save_bookmark">Save bookmark</string>
     <string name="bookmark_title">Title</string>

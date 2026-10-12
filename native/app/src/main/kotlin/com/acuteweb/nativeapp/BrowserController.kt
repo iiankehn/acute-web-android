@@ -24,6 +24,9 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     private val engines = linkedMapOf<String, GeckoBrowserEngine>()
     private var privateContext = UUID.randomUUID().toString()
     private var canPersist = true
+    private var resetting = false
+    /** True while an unreadable saved-tabs archive is being preserved untouched; see [resetSavedTabs]. */
+    val needsRecovery: Boolean get() = !canPersist
     private val persistTask = Runnable { persistNow() }
 
     init {
@@ -32,7 +35,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
             main.post {
                 result.onSuccess { tabs.restore(it) }.onFailure {
                     canPersist = false
-                    storageError = "Saved tabs could not be restored. The original data has been kept."
+                    storageError = "Saved tabs could not be restored. The original data is kept until you reset it from the menu."
                 }
                 if (tabs.selected == null) tabs.add(BrowsingMode.NORMAL)
                 ready = true; emit()
@@ -63,7 +66,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
             },
             newWindow = { uri ->
                 // Gecko requires an unopened session. Attach the view only after Gecko opens it.
-                if (tabs.selected?.id != tab.id || !NavigationPolicy.allows(uri)) null
+                if (tabs.selected?.id != tab.id || !NavigationPolicy.allowsOrBlank(uri)) null
                 else tabs.add(tab.mode)?.let { created ->
                     val child = createEngine(created)
                     main.post { emit(); if (created.mode == BrowsingMode.NORMAL) scheduleSave() }
@@ -131,6 +134,24 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     private fun scheduleSave() {
         if (!ready || !canPersist) return
         main.removeCallbacks(persistTask); main.postDelayed(persistTask, 400)
+    }
+    /** Replace only after confirmation; AtomicFile keeps the unreadable archive if the new write fails. */
+    fun resetSavedTabs() {
+        checkThread(); if (!ready || canPersist || resetting) return
+        resetting = true
+        val saved = tabs.normalSnapshot()
+        io.execute {
+            val result = runCatching { archive.write(saved) }
+            main.post {
+                resetting = false
+                if (result.isSuccess) {
+                    canPersist = true; storageError = null
+                    // Capture any browsing changes made while the replacement was being written.
+                    persistNow()
+                } else storageError = "Saved tabs could not be reset. The original data has been kept."
+                listeners.toList().forEach { it() }
+            }
+        }
     }
     fun persistNow() {
         checkThread(); main.removeCallbacks(persistTask)

@@ -61,7 +61,7 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
                     }
                     val token = path.substringAfter("token=", "fixture")
                     val marker = when { path.startsWith("/normal-set") -> "normal"; path.startsWith("/private-set") -> "private"; else -> null }
-                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else "Offline fixture"
+                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else if (path.startsWith("/popup")) "<button onclick=\"const child=window.open(\'\',\'_blank\');if(child)child.location=\'/read?token=popupdone\';\">Open test popup</button>" else "Offline fixture"
                     val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>$content</body></html>"
                     val bytes = body.toByteArray(Charsets.UTF_8)
                     val cookie = if (marker != null) "Set-Cookie: marker=$marker; Path=/; SameSite=Lax\r\n" else ""
@@ -115,6 +115,61 @@ class BrowserDeviceTest {
         onMain { browser.newTab(); browser.persistNow() }
         assertArrayEquals(damaged, file.readBytes())
         file.delete()
+    }
+    @Test fun explicitResetRecoversUnreadableArchive() {
+        val name = "reset-${UUID.randomUUID()}.enc"
+        val archive = SessionArchive(app, name)
+        archive.write(SavedTabs("previous", listOf(SavedTab("previous", "https://example.com/old", "Old", null))))
+        val file = File(app.noBackupFilesDir, name)
+        file.writeBytes(file.readBytes().apply { this[lastIndex] = (this[lastIndex].toInt() xor 1).toByte() })
+        lateinit var browser: BrowserController
+        onMain { browser = BrowserController(app, app.runtime, archive) }
+        eventually { fromMain { browser.ready } }
+        assertTrue(fromMain { browser.needsRecovery })
+        onMain { browser.resetSavedTabs() }
+        eventually { fromMain { !browser.needsRecovery && browser.storageError == null } }
+        eventually { runCatching { archive.read().tabs.size == 1 && archive.read().tabs[0].id != "previous" }.getOrDefault(false) }
+        file.delete()
+    }
+    @Test fun failedResetKeepsRecoveryAvailableAndCanBeRetried() {
+        val name = "reset-failure-${UUID.randomUUID()}.enc"
+        val file = File(app.noBackupFilesDir, name).apply { mkdir() }
+        val marker = File(file, "preserved").apply { writeText("untouched") }
+        val archive = SessionArchive(app, name)
+        lateinit var browser: BrowserController
+        try {
+            onMain { browser = BrowserController(app, app.runtime, archive) }
+            eventually { fromMain { browser.ready && browser.needsRecovery } }
+            onMain { browser.resetSavedTabs() }
+            eventually { fromMain { browser.storageError?.contains("could not be reset") == true } }
+            assertTrue(fromMain { browser.needsRecovery })
+            assertEquals("untouched", marker.readText())
+            marker.delete(); file.delete()
+            onMain { browser.resetSavedTabs() }
+            eventually { fromMain { !browser.needsRecovery && browser.storageError == null } }
+            eventually { runCatching { archive.read().tabs.size == 1 }.getOrDefault(false) }
+        } finally { marker.delete(); file.delete() }
+    }
+    @Test fun blankPopupsNavigateAndInheritTheirParentBrowsingMode() {
+        TestSite().use { site ->
+            ActivityScenario.launch(BrowserActivity::class.java).use { scenario ->
+                eventually { fromMain { app.browser.ready } }
+                for (mode in listOf(BrowsingMode.NORMAL, BrowsingMode.PRIVATE)) {
+                    onMain { app.browser.newTab(mode); app.browser.navigate(site.uri("/popup")) }
+                    val originalCount = fromMain { app.browser.tabs.visible.size }
+                    val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+                    eventually {
+                        automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Open test popup")
+                            ?.firstOrNull { it.isVisibleToUser }?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true
+                    }
+                    eventually { fromMain { app.browser.tabs.visible.size == originalCount + 1 && app.browser.tabs.selected?.page?.title?.startsWith("popupdone:") == true } }
+                    assertEquals(mode, fromMain { app.browser.tabs.selected!!.mode })
+                    if (mode == BrowsingMode.PRIVATE) assertFalse(fromMain { app.browser.tabs.normalSnapshot().tabs.any { it.id == app.browser.tabs.selected!!.id } })
+                    onMain { app.browser.close(app.browser.tabs.selected!!.id) }
+                }
+                scenario.onActivity { app.browser.closePrivateTabs() }
+            }
+        }
     }
     @Test fun privateCookiesArePartitionedAndNewPrivateWindowsStartEmpty() {
         TestSite().use { site ->
