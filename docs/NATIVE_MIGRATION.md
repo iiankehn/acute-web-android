@@ -321,3 +321,23 @@ handoff and timed out on recreation. The test now launches the real app task,
 observes Android lifecycle transitions directly, requires singleTask to reuse
 the same Activity, and checks recreation against the newly resumed Activity.
 The privacy and duplicate-tab assertions remain intact.
+
+## Accepted Dev.4 checkpoint
+
+CI run 38208036301 passed build and isolated signing jobs for commit
+634e2ffc33ac91ceed0b5c02c5641e8f6248b484. Acceptance includes 18 core tests,
+all 13 Android runtime tests, both cross-process force-stop stages, 45 preserved
+Python tests and 10 extension tests. Lint, permission boundary, telemetry artifact
+exclusion, ARM64/x86_64 native entries, non-debuggable release packaging and
+certificate continuity all passed. The real-task test verified reuse of the
+same singleTask Activity, preservation of the private session until explicitly
+closed, normal external-link handling, and no duplicate tabs after recreation.
+
+Separate inspection of Places/JNA source AARs verified ELF64 machine identifiers
+183 (ARM64) / 62 (x86_64) and 16 KiB PT_LOAD alignment. This is a binary check,
+not physical ARM64, Waydroid or 16 KiB-runtime certification. Extended physical
+UI/input/privacy checks and Stable/Beta migration remain outstanding.
+
+Original main, beta, feature/2.0-foundation and all three pre-native checkpoint
+refs were rechecked and still match the preserved hashes above. The tested Dev
+candidate does not modify those sources or installed Stable/Beta profiles.

@@ -44,4 +44,5 @@ tests, and both force-stop stages. Corrupt Places files are checked read-only
 before opening so upstream automatic recreation cannot discard them. Native
 link actions retain URL encoding and optionally remove known tracking names.
 Dev.4 adds validated Android HTTP/HTTPS link intake into fresh normal tabs;
-its Android acceptance run is pending.
+its Android acceptance and signing passed in CI run 38208036301 (13 runtime tests
+and both force-stop stages).
