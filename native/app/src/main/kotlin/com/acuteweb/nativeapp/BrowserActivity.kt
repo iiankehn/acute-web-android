@@ -188,6 +188,9 @@ class BrowserActivity : Activity() {
             menu.add(if (private) R.string.normal_tabs else R.string.private_tabs).setOnMenuItemClickListener {
                 browser.switchMode(if (private) BrowsingMode.NORMAL else BrowsingMode.PRIVATE); true
             }
+            if (!private) menu.add(R.string.suspend_background_tabs).setOnMenuItemClickListener {
+                browser.suspendBackgroundTabs { success -> if (!success && !isDestroyed) Toast.makeText(this@BrowserActivity, R.string.suspend_unavailable, Toast.LENGTH_SHORT).show() }; true
+            }
             menu.add(R.string.close_tab).setOnMenuItemClickListener { browser.tabs.selected?.let { browser.close(it.id) }; true }
             menu.add(R.string.page_section).isEnabled = false
             menu.add(R.string.reload).setOnMenuItemClickListener { browser.selectedEngine()?.reload(); true }
@@ -231,9 +234,14 @@ class BrowserActivity : Activity() {
             val row = LinearLayout(this)
             row.addView(Button(this).apply {
                 text = tab.page.title.takeIf { tab.page.uri.isNotEmpty() } ?: getString(R.string.new_tab)
+                if (!private && browser.isSuspended(tab.id)) text = getString(R.string.suspended_tab_label, text)
                 isSelected = tab.id == browser.tabs.selected?.id
                 setOnClickListener { dialog.dismiss(); browser.select(tab.id) }
             }, LinearLayout.LayoutParams(0, -2, 1f))
+            if (!private && browser.canSuspend(tab.id)) row.addView(button("Ⅱ", getString(R.string.suspend_tab)) {
+                dialog.dismiss()
+                browser.suspendTab(tab.id) { success -> if (!success && !isDestroyed) Toast.makeText(this, R.string.suspend_unavailable, Toast.LENGTH_SHORT).show() }
+            })
             row.addView(button("×", getString(R.string.close_tab)) { dialog.dismiss(); browser.close(tab.id) })
             list.addView(row)
         }

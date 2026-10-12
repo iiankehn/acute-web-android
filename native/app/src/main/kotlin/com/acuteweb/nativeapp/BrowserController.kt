@@ -22,6 +22,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     private val main = Handler(Looper.getMainLooper())
     private val listeners = linkedSetOf<() -> Unit>()
     private val engines = linkedMapOf<String, GeckoBrowserEngine>()
+    private val pendingSuspensions = linkedMapOf<String, () -> Unit>()
     private var privateContext = UUID.randomUUID().toString()
     private var canPersist = true
     private var resetting = false
@@ -51,6 +52,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     fun selectedEngine(): GeckoBrowserEngine? {
         checkThread(); val tab = tabs.selected ?: return null
         if (!ready) return null
+        pendingSuspensions.remove(tab.id)?.invoke()
         return engines[tab.id] ?: createEngine(tab).also { it.open(tab.engineState) }
     }
     private fun createEngine(tab: BrowserTab): GeckoBrowserEngine {
@@ -105,6 +107,7 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
     }
     fun close(id: String) {
         checkThread(); val removed = tabs.close(id) ?: return
+        pendingSuspensions.remove(id)?.invoke()
         engines.remove(id)?.close()
         if (removed.mode == BrowsingMode.PRIVATE && tabs.all.none { it.mode == BrowsingMode.PRIVATE }) {
             runtime.storageController.clearDataForSessionContext(privateContext)
@@ -125,6 +128,50 @@ class BrowserController(context: Context, private val runtime: GeckoRuntime, pri
         tabs.switchMode(BrowsingMode.NORMAL)
         if (ready && tabs.selected == null) tabs.add(BrowsingMode.NORMAL)
         emit()
+    }
+    fun isSuspended(id: String): Boolean {
+        checkThread()
+        return tabs.get(id)?.mode == BrowsingMode.NORMAL && id !in engines
+    }
+    fun canSuspend(id: String): Boolean {
+        checkThread()
+        return ready && canPersist && tabs.get(id)?.mode == BrowsingMode.NORMAL &&
+            tabs.selected?.id != id && engines[id]?.session?.isOpen == true &&
+            id !in pendingSuspensions && downloads?.busy != true
+    }
+    /** Keep private tabs, active tabs and current transfers live. Oversized/missing snapshots fail safely. */
+    fun suspendTab(id: String, completed: (Boolean) -> Unit = {}): Boolean {
+        checkThread(); if (!canSuspend(id)) return false
+        val engine = engines.getValue(id)
+        val uri = tabs.get(id)!!.page.uri
+        lateinit var timeout: Runnable
+        fun finish(success: Boolean) {
+            if (pendingSuspensions.remove(id) == null) return
+            main.removeCallbacks(timeout); engine.cancelSuspension()
+            completed(success)
+        }
+        timeout = Runnable { finish(false) }
+        pendingSuspensions[id] = { main.removeCallbacks(timeout); engine.cancelSuspension(); completed(false) }
+        main.postDelayed(timeout, 5000)
+        try {
+            engine.captureForSuspension { state ->
+                val tab = tabs.get(id)
+                if (id !in pendingSuspensions) return@captureForSuspension
+                if (tab == null || tabs.selected?.id == id || tab.page.uri != uri ||
+                    engines[id] !== engine || state.length > Tabs.MAX_ENGINE_STATE || downloads?.busy == true) {
+                    finish(false)
+                } else {
+                    tabs.saveEngineState(id, state)
+                    engines.remove(id); engine.close()
+                    finish(true); emit(); persistNow()
+                }
+            }
+        } catch (_: Exception) { finish(false) }
+        return true
+    }
+    fun suspendBackgroundTabs(completed: (Boolean) -> Unit = {}): Int {
+        checkThread()
+        return tabs.all.filter { canSuspend(it.id) }.count { suspendTab(it.id, completed) }
     }
     fun navigate(input: String): Boolean {
         checkThread(); if (!ready) return false

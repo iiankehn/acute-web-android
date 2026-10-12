@@ -27,6 +27,7 @@ class GeckoBrowserEngine(
     private var savedState: String? = null
     private var disposed = false
     private var active = false
+    private var suspensionSnapshot: ((String) -> Unit)? = null
     init {
         // Only app-owned explicit actions may export to Android. Do not install GeckoView's fallback printer.
         session.printDelegate = object : GeckoSession.PrintDelegate {
@@ -79,6 +80,8 @@ class GeckoBrowserEngine(
                 if (disposed) return
                 savedState = sessionState.toString()
                 snapshot(savedState)
+                val pending = suspensionSnapshot; suspensionSnapshot = null
+                pending?.invoke(savedState!!)
             }
         }
         session.historyDelegate = object : GeckoSession.HistoryDelegate {
@@ -128,6 +131,13 @@ class GeckoBrowserEngine(
         if (!session.isOpen || active == visible) return
         active = visible; session.setActive(visible); session.setFocused(visible)
     }
+    /** Closing waits for Gecko's asynchronous state callback, rather than racing flushSessionState(). */
+    fun captureForSuspension(callback: (String) -> Unit) {
+        check(!disposed && session.isOpen)
+        suspensionSnapshot = callback
+        session.flushSessionState()
+    }
+    fun cancelSuspension() { suspensionSnapshot = null }
     fun flush() { if (!disposed && session.isOpen) session.flushSessionState() }
     /** Gecko owns document layout and original PDF retrieval. Callbacks run on the session thread. */
     fun pdf(callback: (Result<java.io.InputStream>) -> Unit) {
@@ -153,7 +163,7 @@ class GeckoBrowserEngine(
         if (!closed) session.reload()
     }
     override fun close() {
-        disposed = true
+        disposed = true; cancelSuspension()
         session.navigationDelegate = null; session.contentDelegate = null
         session.progressDelegate = null; session.permissionDelegate = null; session.historyDelegate = null
         session.printDelegate = null

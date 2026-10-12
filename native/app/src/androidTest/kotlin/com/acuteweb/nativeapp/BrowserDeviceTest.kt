@@ -61,7 +61,7 @@ internal class TestSite(port: Int = 0) : AutoCloseable {
                     }
                     val token = path.substringAfter("token=", "fixture")
                     val marker = when { path.startsWith("/normal-set") -> "normal"; path.startsWith("/private-set") -> "private"; else -> null }
-                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else if (path.startsWith("/popup")) "<button onclick=\"const child=window.open(\'\',\'_blank\');if(child)child.location=\'/read?token=popupdone\';\">Open test popup</button>" else "Offline fixture"
+                    val content = if (path.startsWith("/long-document")) "<style>@page{size:A4;margin:20mm}.sheet{break-after:page;height:500px}.sheet:last-child{break-after:auto}.mark{width:100px;height:100px}</style><section class=sheet>First page<div class=mark style=\"border:40px solid red\"></div></section><section class=sheet>Second page<div class=mark style=\"border:40px solid blue\"></div></section><section class=sheet>Last page<div class=mark style=\"border:40px solid lime\"></div></section>" else if (path.startsWith("/popup")) "<meta name=viewport content=\"width=device-width,initial-scale=1\"><button style=\"position:fixed;top:0;left:0;width:100%;height:160px\" onclick=\"const child=window.open(\'\',\'_blank\');if(child)child.location=\'/read?token=popupdone\';\">Open test popup</button>" else "Offline fixture"
                     val body = "<html><head><script>document.title=" + JSONObject.quote(token + ":") + "+document.cookie;</script></head><body>$content</body></html>"
                     val bytes = body.toByteArray(Charsets.UTF_8)
                     val cookie = if (marker != null) "Set-Cookie: marker=$marker; Path=/; SameSite=Lax\r\n" else ""
@@ -155,12 +155,26 @@ class BrowserDeviceTest {
             ActivityScenario.launch(BrowserActivity::class.java).use { scenario ->
                 eventually { fromMain { app.browser.ready } }
                 for (mode in listOf(BrowsingMode.NORMAL, BrowsingMode.PRIVATE)) {
-                    onMain { app.browser.newTab(mode); app.browser.navigate(site.uri("/popup")) }
+                    val token = UUID.randomUUID().toString()
+                    onMain { app.browser.newTab(mode); app.browser.navigate(site.uri("/popup", token)) }
+                    eventually { fromMain { app.browser.tabs.selected?.page?.title?.startsWith(token + ":") == true } }
                     val originalCount = fromMain { app.browser.tabs.visible.size }
                     val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-                    eventually {
-                        automation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Open test popup")
-                            ?.firstOrNull { it.isVisibleToUser }?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) == true
+                    lateinit var point: FloatArray
+                    scenario.onActivity { activity ->
+                        fun find(view: android.view.View): org.mozilla.geckoview.GeckoView? {
+                            if (view is org.mozilla.geckoview.GeckoView) return view
+                            if (view is android.view.ViewGroup) for (index in 0 until view.childCount) find(view.getChildAt(index))?.let { return it }
+                            return null
+                        }
+                        val view = find(activity.window.decorView)!!
+                        val location = IntArray(2); view.getLocationOnScreen(location)
+                        point = floatArrayOf(location[0] + view.width / 2f, location[1] + 60 * activity.resources.displayMetrics.density)
+                    }
+                    val now = android.os.SystemClock.uptimeMillis()
+                    for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+                        val event = android.view.MotionEvent.obtain(now, android.os.SystemClock.uptimeMillis(), action, point[0], point[1], 0)
+                        try { assertTrue(automation.injectInputEvent(event, true)) } finally { event.recycle() }
                     }
                     eventually { fromMain { app.browser.tabs.visible.size == originalCount + 1 && app.browser.tabs.selected?.page?.title?.startsWith("popupdone:") == true } }
                     assertEquals(mode, fromMain { app.browser.tabs.selected!!.mode })

@@ -4,7 +4,7 @@ Independent Android application on `dev`, with GeckoView providing rendering
 and native session state. Preserved Fenix code/checkpoints are documented in
 [the migration baseline](../docs/NATIVE_MIGRATION.md).
 
-Current batch: `2.0.0-dev.6`, normal/private tabs, encrypted normal-session
+Current batch: `2.0.0-dev.7`, normal/private tabs, encrypted normal-session
 restoration, rotation continuity, reload recovery and native tab controls.
 Private tabs are never written to the archive. Existing Stable/Beta profiles
 are not read or migrated.
@@ -77,3 +77,11 @@ the already generated PDF layout rather than reflowing Gecko. Generation is
 cancelled when switching pages, rotating or backgrounding; late streams are
 closed. No screenshot stitching, permission additions or persistent document
 index is introduced. Dev.6 Android acceptance/signing is pending CI.
+
+Dev.7 adds manual normal background-tab suspension from the tab list and Tabs
+menu. Gecko state capture completes before closing a session; selecting the tab
+restores it. Private/active tabs and current transfers are excluded. Failed or
+oversized capture leaves the tab running. Named workspaces and automatic
+memory-pressure policies remain later work. This batch also finishes Dev.6
+print cancellation acceptance and adds confirmed archive recovery plus actual
+normal/private popup checks. See NATIVE_MIGRATION.md for validation status.

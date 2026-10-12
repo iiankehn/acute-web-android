@@ -24,6 +24,13 @@ class ProcessDeathDeviceTest {
             eventually { fromMain { browser.tabs.selected?.page?.title?.startsWith("process-normal:") == true } }
             onMain { browser.selectedEngine()!!.flush() }
             eventually { fromMain { browser.tabs.selected?.engineState?.contains("process-normal") == true } }
+            val originalId = fromMain { browser.tabs.selected!!.id }
+            val suspendedUri = site.uri("/suspended-restore", "process-suspended")
+            lateinit var suspendedId: String
+            onMain { browser.newTab(BrowsingMode.NORMAL); suspendedId = browser.tabs.selected!!.id; browser.navigate(suspendedUri) }
+            eventually { fromMain { browser.tabs.selected?.page?.title?.startsWith("process-suspended:") == true } }
+            onMain { browser.select(originalId); assertTrue(browser.suspendTab(suspendedId)) }
+            eventually { fromMain { browser.isSuspended(suspendedId) } }
             onMain { browser.newTab(BrowsingMode.PRIVATE); browser.navigate(private) }
             eventually { fromMain { browser.tabs.selected?.page?.title?.startsWith("process-private:") == true } }
             onMain { browser.persistNow() }
@@ -48,6 +55,10 @@ class ProcessDeathDeviceTest {
             assertTrue(browser.tabs.selected!!.page.uri.contains("/restore-me"))
             assertTrue(browser.tabs.selected!!.engineState!!.contains("process-normal"))
             assertFalse(browser.tabs.all.toString().contains("process-private"))
+            val suspended = browser.tabs.all.single { tab -> tab.page.uri.contains("/suspended-restore") }
+            assertTrue(suspended.engineState!!.contains("process-suspended"))
+            onMain { assertTrue(browser.isSuspended(suspended.id)); browser.select(suspended.id); browser.selectedEngine() }
+            eventually { fromMain { browser.tabs.selected?.page?.title?.startsWith("process-suspended:") == true } }
             assertTrue(storage<List<PlacesStore.Bookmark>> { places.bookmarks(it) }.any { bookmark -> bookmark.title == "Process bookmark" })
             val visits = storage<List<PlacesStore.Visit>> { places.history(it) }
             assertTrue(visits.any { visit -> visit.uri.contains("restore-me") })

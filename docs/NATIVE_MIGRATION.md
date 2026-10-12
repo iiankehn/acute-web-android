@@ -442,3 +442,48 @@ Instrumentation covers a real three-page Gecko export with the last page's
 visible marker below the viewport, byte-exact descriptor writes, cancelled and
 malformed streams, temporary-file cleanup, private-print consent and Android's
 actual print-dialog cancellation. CI acceptance/signing remains pending.
+
+## Dev.6 recovery and navigation follow-up
+
+The original Dev.6 run 38215582046 compiled and passed 24 of 25 Android runtime
+checks, but timed out waiting for print-adapter cleanup after a single Back
+press. The acceptance test now waits between Back transitions and exits the
+actual spooler UI, allowing for keyboard/expanded-option dismissal first. It
+still requires Android to call onFinish and remove the cached file; the test
+does not manually finish the adapter to satisfy the assertion.
+
+Reviewed ZIP fixes were incorporated selectively. Host/port input supports
+web hosts, localhost and bracketed IPv6; port bounds apply to explicit URLs as
+well as guessed addresses. Exactly about:blank is accepted for Gecko loads and
+new windows; privileged schemes and the existing popup gesture gate remain.
+A real Gecko touch-input test exercises normal/private blank popups.
+
+Unreadable archives now have an explicit confirmed recovery action. Atomic
+replacement writes the current normal snapshot before enabling persistence;
+a failed replacement retains the original archive and the recovery action.
+AtomicFile's logged rename failure is checked explicitly. Tests cover corrupt
+archive recovery and failed replacement followed by retry. Acceptance for this
+follow-up run 38219390271 passed print and recovery checks; its new popup
+fixture could not locate Gecko content through accessibility. The next run uses
+a real touch gesture in a fixed-layout fixture without weakening popup assertions.
+
+## Native background-tab suspension — 2.0.0-dev.7
+
+This is the first native suspension slice for the workspace roadmap. Normal
+background tabs may be suspended individually from the tab list or together
+from the Tabs menu. Their Gecko sessions close only after an asynchronous Gecko
+state callback supplies a bounded snapshot. The tab metadata remains available;
+selection creates a fresh session and restores Gecko navigation state.
+
+Selected and private tabs are excluded, as are tabs while a download/document
+transfer is pending or active. Selecting or closing a tab cancels its pending
+suspension. A five-second timeout, changed location, failed capture or oversized
+snapshot keeps the session open. No timer blindly closes a session after flush.
+No new persistent format or private-tab disk storage is introduced. Restored
+normal tabs remain lazy until selected, using the existing encrypted archive.
+
+Runtime acceptance covers actual session closure, backward history after
+selection, cancellation by selection and private exclusion. Cross-process
+force-stop acceptance also preserves and lazily reopens a suspended tab.
+Named workspaces, grouping UI, automatic memory-pressure policies and complete
+form/scroll acceptance remain subsequent work. CI/signing acceptance is pending.

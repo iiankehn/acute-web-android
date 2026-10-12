@@ -70,4 +70,8 @@
     <string name="document_preparing_notice">Keep this page open while Gecko generates the complete document.</string>
     <string name="document_unavailable">Open a web page first, and finish any current download before exporting.</string>
     <string name="document_failed">The document could not be prepared or printed.</string>
+    <string name="suspend_background_tabs">Suspend background tabs</string>
+    <string name="suspend_tab">Suspend tab</string>
+    <string name="suspended_tab_label">%1$s · Suspended</string>
+    <string name="suspend_unavailable">This tab could not be suspended safely. It remains open.</string>
 </resources>
