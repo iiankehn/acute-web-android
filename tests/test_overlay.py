@@ -813,6 +813,16 @@ class OverlayTests(unittest.TestCase):
         self.assertIn(".semantics { heading() }", menu)
         self.assertIn("isVisible = false // Acute owns", (code / "settings/CustomizationFragment.kt").read_text())
 
+    def test_desktop_shortcuts_import_generated_browser_directions(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="dev")
+        source = (root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/HomeActivity.kt").read_text()
+        # Upstream HomeActivity has no existing import for the class our Ctrl+L/F6 handlers add.
+        self.assertNotIn("import org.mozilla.fenix.browser.BrowserFragmentDirections", HOME_ACTIVITY)
+        self.assertEqual(source.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n"), 1)
+        self.assertEqual(source.count("BrowserFragmentDirections.actionGlobalHome("), 2)
+
     def test_midnight_pages_is_beta_only(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)

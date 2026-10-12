@@ -89,6 +89,9 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
             "android.permission.REQUEST_INSTALL_PACKAGES",
         }
     code = app / "src/main/java/org/mozilla/fenix"
+    home = (code / "HomeActivity.kt").read_text()
+    assert "import org.mozilla.fenix.browser.BrowserFragmentDirections\n" in home
+    assert home.count("BrowserFragmentDirections.actionGlobalHome(") >= 2
     settings = (code / "utils/Settings.kt").read_text()
     for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
         assert f"var {name}: Boolean\n        get() = false" in settings

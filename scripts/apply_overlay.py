@@ -737,6 +737,7 @@ def patch_desktop_shortcuts(path: Path) -> None:
         text,
         "import org.mozilla.fenix.ext.setNavigationIcon\n",
         "import org.mozilla.fenix.ext.setNavigationIcon\n"
+        "import org.mozilla.fenix.browser.BrowserFragmentDirections\n"
         "import org.mozilla.fenix.utils.isLargeScreenSize\n",
         "desktop shortcut screen-size import",
     )

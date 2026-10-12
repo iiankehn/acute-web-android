@@ -224,12 +224,7 @@ jobs:
             --max-workers=2
             '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
           )
-          for attempt in 1 2 3; do
-            ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}" && break
-            test "$attempt" -lt 3 || exit 1
-            echo "Gradle dependency resolution failed; retrying in 30 seconds"
-            sleep 30
-          done
+          ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}"
 
       - name: Collect and verify ${{ matrix.abi }} APK
         env:
