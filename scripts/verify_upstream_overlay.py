@@ -99,7 +99,12 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert len(removed_providers) == 1 and removed_providers[0].get(tools + "node") == "remove"
     code = app / "src/main/java/org/mozilla/fenix"
     home = (code / "HomeActivity.kt").read_text()
-    assert "import org.mozilla.fenix.browser.BrowserFragmentDirections\n" in home
+    assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
+    # Exact source anchors can apply successfully while introducing Kotlin
+    # compiler errors. Catch duplicate imports in every transformed source.
+    for kotlin in checkout.rglob("*.kt"):
+        imports = re.findall(r"^import .+$", kotlin.read_text(), re.MULTILINE)
+        assert len(imports) == len(set(imports)), f"Duplicate imports: {kotlin}"
     assert home.count("BrowserFragmentDirections.actionGlobalHome(") >= 2
     settings = (code / "utils/Settings.kt").read_text()
     for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):

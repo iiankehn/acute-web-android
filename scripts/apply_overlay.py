@@ -815,10 +815,16 @@ def patch_desktop_shortcuts(path: Path) -> None:
         text,
         "import org.mozilla.fenix.ext.setNavigationIcon\n",
         "import org.mozilla.fenix.ext.setNavigationIcon\n"
-        "import org.mozilla.fenix.browser.BrowserFragmentDirections\n"
         "import org.mozilla.fenix.utils.isLargeScreenSize\n",
         "desktop shortcut screen-size import",
     )
+
+    # Firefox 158 already imports this generated class; older sources do not.
+    directions_import = "import org.mozilla.fenix.browser.BrowserFragmentDirections\n"
+    if directions_import not in text:
+        text = replace_once(text, "import org.mozilla.fenix.ext.setNavigationIcon\n",
+                            directions_import + "import org.mozilla.fenix.ext.setNavigationIcon\n",
+                            "desktop shortcut navigation import")
 
     touch_anchor = '''    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
 '''

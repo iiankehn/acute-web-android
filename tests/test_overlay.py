@@ -857,10 +857,20 @@ class OverlayTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         apply(root, channel="dev")
         source = (root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/HomeActivity.kt").read_text()
-        # Upstream HomeActivity has no existing import for the class our Ctrl+L/F6 handlers add.
+        # Older fixture sources need the import; Firefox 158 already provides it.
         self.assertNotIn("import org.mozilla.fenix.browser.BrowserFragmentDirections", HOME_ACTIVITY)
         self.assertEqual(source.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n"), 1)
         self.assertEqual(source.count("BrowserFragmentDirections.actionGlobalHome("), 2)
+
+    def test_desktop_shortcuts_reuse_existing_upstream_import(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        path = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/HomeActivity.kt"
+        existing = "import org.mozilla.fenix.browser.BrowserFragmentDirections\n"
+        path.write_text(path.read_text().replace("import org.mozilla.fenix.ext.setNavigationIcon\n",
+                                              existing + "import org.mozilla.fenix.ext.setNavigationIcon\n"))
+        apply(root, channel="dev")
+        self.assertEqual(path.read_text().count(existing), 1)
 
     def test_release_template_does_not_inherit_artifact_debug_override(self):
         for channel in ("stable", "beta", "dev"):

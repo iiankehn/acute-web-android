@@ -1,6 +1,8 @@
 name: Build Android APK
 
 on:
+  pull_request:
+    branches: [dev]
   workflow_dispatch:
     inputs:
       firefox_ref:
@@ -94,7 +96,7 @@ jobs:
             else
               firefox_ref="$PINNED_FIREFOX_REF"
             fi
-            if [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            if [[ "$GITHUB_REF" == "refs/heads/dev" || "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
               echo "task=fenix:assembleRelease" >> "$GITHUB_OUTPUT"
               echo "kind=release" >> "$GITHUB_OUTPUT"
               echo "version=2.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
@@ -117,7 +119,7 @@ jobs:
               echo "package=com.acuteweb.browser.debug" >> "$GITHUB_OUTPUT"
               echo "channel=stable" >> "$GITHUB_OUTPUT"
             fi
-            if [[ "$GITHUB_REF" != "refs/heads/dev" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/dev" && "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
               echo "gradle_flags=" >> "$GITHUB_OUTPUT"
             fi
             echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
