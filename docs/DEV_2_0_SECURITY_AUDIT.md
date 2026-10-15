@@ -53,6 +53,61 @@ APK permission gate before signing. Actual post-fix APK acceptance remains pendi
 
 ## Upstream and dependencies
 
+### October 15 compiled x86_64 review and follow-up
+
+Firefox Android 158.0 was released October 13 with security fixes (MFSA 2026-106).
+The continuation changes the immutable pin to verified release tag commit
+`3c71aeacdb296402e41fb2084b13e797d1770642`; both `browser/config/version.txt` and
+`mobile/android/version.txt` report 158.0. The overlay is adapted to the renamed
+`WordmarkAndLogo.kt`. Historical 157.0.1 fixtures below remain regression inputs,
+not claims about the new dependency versions.
+
+Sources checked October 15:
+- https://www.firefox.com/en-US/firefox/android/158.0/releasenotes/
+- https://www.mozilla.org/en-US/security/advisories/mfsa2026-106/
+
+The prior disabled-upload configuration also left `CrashReporter.enabled=true`
+while supplying empty service lists, which upstream rejects during construction.
+It now sets `enabled=false` and permits empty services only for that disabled
+configuration. Enabled reporters still require a service. This closes a predicted
+startup exception from source analysis, not an observed device test result.
+
+Build 91 at `ead6dba25401fbea42d2842c967408df097ed73c` passed both architecture
+builds, vital lint, native/badging gates, signing and certificate continuity.
+The actual signed x86_64 artifact was downloaded and independently inspected:
+
+- Artifact ZIP SHA-256:
+  `b883fed32b5ea6320f09b8d776890b98bbf50654aa0f2dff2e5fa42867db51ff`.
+- APK SHA-256:
+  `69c488b16a20b90a9dc83cde95e064cf584bbc6f6c01813bcb5c6adfa580b57b`,
+  matching the attached checksum. Package `com.acuteweb.browser.dev`, version
+  `2.0.0-dev.91`, minimum API 31, 18 x86_64-only native libraries; backups disabled.
+- The five prohibited permissions are absent in the signed permission report.
+- The dependency-merged manifest still registers
+  `com.adjust.sdk.SystemLifecycleContentProvider`. This startup hook is independent
+  of the disabled metrics-service list. The follow-up blocks that provider at
+  merge time and verifies its absence (and the attribution receiver's absence)
+  using the compiled AAPT2 manifest before upload/signing. Post-fix APK verification
+  remains required. Provider presence alone does not establish data transmission.
+- Autofill, WorkManager and diagnostic exports have their expected system
+  permission guards. The updater and file-sharing providers are non-exported.
+  Contrary to a blanket statement about providers, upstream Gecko's clipboard
+  provider is exported with URI grants; its implementation/access semantics
+  still need review. Do not declare all providers non-exported or all entry points
+  accepted from source-only inspection.
+- Firebase initialization remains installed; it is not removed speculatively
+  because supported web-push behavior must be preserved and runtime traffic has
+  not yet been measured. No traffic capture or transitive Maven/Rust CVE scan has
+  completed. General HTTP browsing/local-site support remains an upstream browser
+  capability, not a newly introduced cleartext updater endpoint.
+
+Only the x86_64 binary was independently parsed locally in this continuation;
+ARM64 has successful CI verification/signing, not a claimed local manifest review.
+The XML parser was used in a temporary review environment, not added to the app
+or repository dependencies.
+
+### October 12 source-version checkpoint
+
 The immutable Firefox Android 157.0.1 release source is
 `0c469c2352451630bc69fc328c9f0c589c6c534d`. Mozilla's latest Android release notes
 and Firefox advisory index were checked on October 12 and list 157.0.1. The October 6

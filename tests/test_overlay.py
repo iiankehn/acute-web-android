@@ -748,6 +748,16 @@ class OverlayTests(unittest.TestCase):
             '</resources>')
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
+        crash = root / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt"
+        crash.parent.mkdir(parents=True, exist_ok=True)
+        crash.write_text('''class CrashReporter(enabled: Boolean, services: List<Service>, telemetryServices: List<Service>) {
+    init {
+        require(services.isNotEmpty() || telemetryServices.isNotEmpty()) {
+            "No crash reporter services defined"
+        }
+    }
+}
+''')
         return temp, root
 
     def test_styles_display_and_edit_address_fields(self):

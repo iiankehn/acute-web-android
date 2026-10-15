@@ -6,7 +6,7 @@ on:
       firefox_ref:
         description: Audited Mozilla Firefox commit (manual test builds only)
         required: true
-        default: 0c469c2352451630bc69fc328c9f0c589c6c534d
+        default: 3c71aeacdb296402e41fb2084b13e797d1770642
   push:
     branches:
       - beta
@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/dev' }}
 
 env:
-  PINNED_FIREFOX_REF: 0c469c2352451630bc69fc328c9f0c589c6c534d
+  PINNED_FIREFOX_REF: 3c71aeacdb296402e41fb2084b13e797d1770642
 
 jobs:
   audit:
@@ -251,6 +251,8 @@ jobs:
           grep -qx "lib/$ABI/libmozglue.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko glue library"; exit 1; }
           grep -qx "lib/$ABI/libxul.so" "$RUNNER_TEMP/acute-apk-entries.txt" || { echo "::error::Missing $ABI Gecko engine library"; exit 1; }
           python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"
+          "$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "$apk" > "$RUNNER_TEMP/acute-manifest-tree.txt"
+          python3 acute-overlay/scripts/verify_apk_manifest.py "$RUNNER_TEMP/acute-manifest-tree.txt"
           cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
           printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \
             "$VERSION" "$ABI" "$FIREFOX_REF" "$GITHUB_SHA" > "dist/build-inputs-${ABI}.txt"
@@ -263,6 +265,7 @@ jobs:
           path: |
             ${{ runner.temp }}/acute-badging.txt
             ${{ runner.temp }}/acute-apk-entries.txt
+            ${{ runner.temp }}/acute-manifest-tree.txt
           if-no-files-found: ignore
           retention-days: 7
 

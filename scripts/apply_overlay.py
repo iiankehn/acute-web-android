@@ -627,6 +627,7 @@ def patch_runtime_privacy(settings_path: Path, analytics_path: Path) -> None:
     start = text.index("            telemetryServices =")
     end = text.index("            shouldPrompt =", start)
     text = text[:start] + "            telemetryServices = emptyList(),\n" + text[end:]
+    text = replace_once(text, "            enabled = true,", "            enabled = false,", "disabled crash reporting")
     text = replace_once(text, "private fun isSentryEnabled() = !BuildConfig.SENTRY_TOKEN.isNullOrEmpty()",
                         "private fun isSentryEnabled() = false", "disabled Sentry initialization")
     # Do not construct attribution/usage SDK services even though the controller is a no-op.
@@ -634,6 +635,17 @@ def patch_runtime_privacy(settings_path: Path, analytics_path: Path) -> None:
     end = text.index("            isDataTelemetryEnabled =", start)
     text = text[:start] + "            emptyList(),\n" + text[end:]
     analytics_path.write_text(text, encoding="utf-8")
+
+
+def patch_disabled_crash_constructor(path: Path) -> None:
+    """Permit an explicit disabled reporter without constructing an upload service."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text, "require(services.isNotEmpty() || telemetryServices.isNotEmpty())",
+        "require(!enabled || services.isNotEmpty() || telemetryServices.isNotEmpty())",
+        "disabled crash reporter constructor guard",
+    )
+    path.write_text(text, encoding="utf-8")
 
 
 def patch_manifest(path: Path) -> None:
@@ -709,6 +721,9 @@ def patch_manifest(path: Path) -> None:
             android:initOrder="100" />
 """
     provider += '        <receiver android:name="com.adjust.sdk.AdjustPreinstallReferrerReceiver" tools:node="remove" />\n'
+    # This dependency provider runs before Application.onCreate, independently
+    # of the disabled MetricController service list. Acute does not use attribution.
+    provider += '        <provider android:name="com.adjust.sdk.SystemLifecycleContentProvider" tools:node="remove" />\n'
     text = replace_once(text, "    </application>", provider + "    </application>",
                         "application closing tag")
     path.write_text(text, encoding="utf-8")
@@ -1014,7 +1029,13 @@ def patch_user_reporting(settings: Path, preferences: Path, search_providers: Pa
 
 def patch_branding_ui(fenix: Path) -> None:
     """Apply Acute's CORE identity to prominent browser surfaces."""
-    wordmark = fenix / "app/src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt"
+    # Firefox 158 colocates the wordmark and logo; retain historical fixture
+    # compatibility but never silently choose between two upstream definitions.
+    home_ui = fenix / "app/src/main/java/org/mozilla/fenix/home/ui"
+    wordmarks = [home_ui / name for name in ("Wordmark.kt", "WordmarkAndLogo.kt") if (home_ui / name).is_file()]
+    if len(wordmarks) != 1:
+        raise OverlayError("Expected one upstream wordmark implementation")
+    wordmark = wordmarks[0]
     text = wordmark.read_text(encoding="utf-8")
     text = replace_once(text, "import androidx.compose.foundation.layout.height\n",
                         "import androidx.compose.foundation.layout.Column\nimport androidx.compose.foundation.layout.height\n",
@@ -1475,6 +1496,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     toolbar_surface = compose_toolbar / "BrowserToolbar.kt"
     toolbar_middleware = fenix / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarMiddleware.kt"
     analytics = fenix / "app/src/main/java/org/mozilla/fenix/components/Analytics.kt"
+    crash_reporter = checkout / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt"
     main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
     clipping_behavior = (
@@ -1494,7 +1516,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics, crash_reporter,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding,
                 preferences, search_providers, desktop_mode, core, about, customization,
@@ -1516,6 +1538,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_native_navigation(toolbar_middleware)
     patch_native_menu(main_menu)
     patch_runtime_privacy(settings, analytics)
+    patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
     patch_branding_ui(fenix)

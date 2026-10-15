@@ -34,7 +34,7 @@ FENIX_KOTLIN = (
     "utils/Settings.kt",
     "HomeActivity.kt",
     "home/ui/Homepage.kt",
-    "home/ui/Wordmark.kt",
+    "home/ui/WordmarkAndLogo.kt",
     "components/menu/compose/MainMenu.kt",
     "components/menu/MenuDialogFragment.kt",
     "components/menu/compose/MoreSettingsSubmenu.kt",
@@ -54,6 +54,7 @@ FENIX_KOTLIN = (
     "settings/CustomizationFragment.kt",
 )
 COMPONENT_FILES = (
+    "lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/ui/FullDisplayToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserEditToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt",
@@ -80,17 +81,22 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     android = "{http://schemas.android.com/apk/res/android}"
     application = manifest.find("application")
     assert application.get(android + "allowBackup") == "false"
+    tools = "{http://schemas.android.com/tools}"
     for provider in application.findall("provider"):
+        if provider.get(tools + "node") == "remove":
+            assert provider.get(android + "name") == "com.adjust.sdk.SystemLifecycleContentProvider"
+            continue
         assert provider.get(android + "exported") == "false"
         assert provider.get(android + "authorities", "").startswith("${applicationId}.")
     from verify_apk_badging import DENIED_PERMISSIONS
-    tools = "{http://schemas.android.com/tools}"
     for tag in ("uses-permission", "uses-permission-sdk-23"):
         for name in DENIED_PERMISSIONS:
             markers = [p for p in manifest.findall(tag) if p.get(android + "name") == name]
             assert len(markers) == 1 and markers[0].get(tools + "node") == "remove"
     receiver = [r for r in application.findall("receiver") if r.get(android + "name") == "com.adjust.sdk.AdjustPreinstallReferrerReceiver"]
     assert len(receiver) == 1 and receiver[0].get(tools + "node") == "remove"
+    removed_providers = [p for p in application.findall("provider") if p.get(android + "name") == "com.adjust.sdk.SystemLifecycleContentProvider"]
+    assert len(removed_providers) == 1 and removed_providers[0].get(tools + "node") == "remove"
     code = app / "src/main/java/org/mozilla/fenix"
     home = (code / "HomeActivity.kt").read_text()
     assert "import org.mozilla.fenix.browser.BrowserFragmentDirections\n" in home
@@ -101,6 +107,9 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     analytics = (code / "components/Analytics.kt").read_text()
     assert "services = emptyList()," in analytics
     assert "telemetryServices = emptyList()," in analytics
+    assert "            enabled = false," in analytics
+    crash = (checkout / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt").read_text()
+    assert "require(!enabled || services.isNotEmpty() || telemetryServices.isNotEmpty())" in crash
     for relative in (
         "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt",
         "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt",

@@ -1,5 +1,36 @@
 # Android 2.0 reviewed-source handoff
 
+## October 15 continuation
+
+Dev `ead6dba25401fbea42d2842c967408df097ed73c` completed Build 91 successfully:
+both ABIs compiled, passed APK policy checks, and produced signed artifacts with
+signer continuity. Public release/website jobs correctly did not run.
+Run: https://github.com/iiankehn/acute-web-android/actions/runs/38306153873
+
+The compiled x86_64 manifest review found an unused Adjust lifecycle provider
+contributed by an AAR. The follow-up removes that provider with a manifest-merger
+rule and adds a targeted compiled-manifest gate before unsigned artifact upload
+and signing. This is not evidence of actual tracking traffic; runtime egress
+testing is still outstanding. Keep Firebase/web-push and browser entry points.
+Do not promote this follow-up before source/upstream checks pass; its resulting
+APK must then prove the provider is absent. Stable/Beta/archives remain untouched.
+
+The same continuation targets Firefox Android 158.0 release commit
+`3c71aeacdb296402e41fb2084b13e797d1770642` (verified release tag and Android
+version file). It adapts the wordmark's rename to `WordmarkAndLogo.kt` and checks
+all transformed sources. The prior empty crash-reporting service configuration
+would violate upstream's constructor requirement; reporting is now explicitly
+disabled and the guard accepts empty lists only when disabled, while preserving
+the requirement for enabled reporters. Compilation and on-device launch of this
+new checkpoint still need verification. Do not treat Build 91 as runtime acceptance.
+
+Next acceptance: launch both signed Dev variants, phone/tablet Back/Forward and
+menu behavior, install-over/profile preservation, runtime traffic verification,
+clipboard provider URI access review, and transitive dependency scanning. The
+independent GeckoView migration and CORE Glass remain out of scope.
+
+## Earlier reviewed-source checkpoint
+
 Repository: `iiankehn/acute-web-android`. Review branch:
 `wip/android-2.0-native-ui-2026-10-12`; promotion target: `dev`.
 Stable and Beta refs and `archive/native-geckoview-2026-10-12` must remain unchanged.

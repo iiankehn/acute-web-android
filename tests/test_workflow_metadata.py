@@ -17,7 +17,7 @@ class WorkflowMetadataTests(unittest.TestCase):
             output = Path(directory) / "output"
             env = dict(os.environ, GITHUB_REF=ref, GITHUB_REF_NAME=ref.split("/")[-1],
                        GITHUB_EVENT_NAME=event, GITHUB_RUN_NUMBER="501", GITHUB_OUTPUT=str(output),
-                       PINNED_FIREFOX_REF="0c469c2352451630bc69fc328c9f0c589c6c534d", MANUAL_FIREFOX_REF=manual)
+                       PINNED_FIREFOX_REF="3c71aeacdb296402e41fb2084b13e797d1770642", MANUAL_FIREFOX_REF=manual)
             result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", script], env=env, capture_output=True, text=True)
             values = dict(line.split("=", 1) for line in output.read_text().splitlines()) if output.exists() else {}
             return result, values

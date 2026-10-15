@@ -23,7 +23,7 @@ release_pattern = "CI artifacts only; 2.0.0-dev.NUMBER"
 
 [upstream]
 repository = "https://github.com/mozilla-firefox/firefox.git"
-ref = "0c469c2352451630bc69fc328c9f0c589c6c534d"
+ref = "3c71aeacdb296402e41fb2084b13e797d1770642"
 
 [updates]
 api = "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
