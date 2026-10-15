@@ -197,7 +197,25 @@ def patch_native_menu(path: Path) -> None:
                 )
             }
         }
+        AcuteMenuHeading(R.string.acute_menu_library)
+        if (accessPoint == MenuAccessPoint.Browser) {
+            MenuGroup {
+                AcuteBookmarkMenuItem(
+                    isBookmarked = isBookmarked,
+                    onBookmarkPageMenuClick = onBookmarkPageMenuClick,
+                    onEditBookmarkButtonClick = onEditBookmarkButtonClick,
+                )
+            }
+        }
+        LibraryMenuGroup(
+            isDownloadHighlighted = isDownloadHighlighted,
+            onBookmarksMenuClick = onBookmarksMenuClick,
+            onHistoryMenuClick = onHistoryMenuClick,
+            onDownloadsMenuClick = onDownloadsMenuClick,
+            onPasswordsMenuClick = onPasswordsMenuClick,
+        )
         if (showIPProtection) {
+            AcuteMenuHeading(R.string.acute_menu_privacy)
             MenuGroup {
                 IPProtectionMenuItem(
                     state = ipProtectionMenuState,
@@ -206,14 +224,6 @@ def patch_native_menu(path: Path) -> None:
                 )
             }
         }
-        AcuteMenuHeading(R.string.acute_menu_library)
-        LibraryMenuGroup(
-            isDownloadHighlighted = isDownloadHighlighted,
-            onBookmarksMenuClick = onBookmarksMenuClick,
-            onHistoryMenuClick = onHistoryMenuClick,
-            onDownloadsMenuClick = onDownloadsMenuClick,
-            onPasswordsMenuClick = onPasswordsMenuClick,
-        )
         if (accessPoint == MenuAccessPoint.Home || accessPoint == MenuAccessPoint.Browser) {
             AcuteMenuHeading(R.string.acute_menu_extensions)
             MenuGroup {
@@ -259,10 +269,16 @@ private fun AcuteMenuHeading(label: Int) {
     )
 }
 """ + text[end:]
-    # Put extension access in its dedicated group, retaining the existing submenu implementation.
+    # Move the existing bookmark state/action block into Library without
+    # replacing its maintained add/edit handlers or applying it to custom tabs.
     start = text.index("private fun ToolsAndActionsMenuGroup(")
     end = text.index("@Composable\nprivate fun MoreMenuButtonGroup", start)
     section = text[start:end]
+    bookmark_start = section.index("        if (isBookmarked) {")
+    bookmark_end = section.index("        MenuItem(\n            label = stringResource(id = R.string.browser_menu_find_in_page)", bookmark_start)
+    bookmark_body = section[bookmark_start:bookmark_end]
+    section = replace_once(section, bookmark_body, "", "bookmark action moves to Library")
+    # Put extension access in its dedicated group, retaining the existing submenu implementation.
     match = """        ExtensionsMenuItem(
             inCustomTab = false,
             isExtensionsProcessDisabled = isExtensionsProcessDisabled,
@@ -277,6 +293,37 @@ private fun AcuteMenuHeading(label: Int) {
 """
     section = replace_once(section, match, "", "page-group extension duplication")
     text = text[:start] + section + text[end:]
+    text += '''
+@Composable
+private fun AcuteBookmarkMenuItem(
+    isBookmarked: Boolean,
+    onBookmarkPageMenuClick: () -> Unit,
+    onEditBookmarkButtonClick: () -> Unit,
+) {
+''' + bookmark_body + "}\n"
+    for old, new in (
+        ('''            iconRes = iconsR.drawable.mozac_ic_history_24,
+            labelRes = R.string.library_history,
+            shape = leftShape,
+            index = 0,
+            onClick = onHistoryMenuClick,''',
+         '''            iconRes = iconsR.drawable.mozac_ic_bookmark_tray_fill_24,
+            labelRes = R.string.library_bookmarks,
+            shape = leftShape,
+            index = 0,
+            onClick = onBookmarksMenuClick,'''),
+        ('''            iconRes = iconsR.drawable.mozac_ic_bookmark_tray_fill_24,
+            labelRes = R.string.library_bookmarks,
+            shape = middleShape,
+            index = 1,
+            onClick = onBookmarksMenuClick,''',
+         '''            iconRes = iconsR.drawable.mozac_ic_history_24,
+            labelRes = R.string.library_history,
+            shape = middleShape,
+            index = 1,
+            onClick = onHistoryMenuClick,'''),
+    ):
+        text = replace_once(text, old, new, "consistent Library action order")
     path.write_text(text, encoding="utf-8")
 
 

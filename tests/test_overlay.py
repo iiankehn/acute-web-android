@@ -827,6 +827,31 @@ class OverlayTests(unittest.TestCase):
         self.assertIn(".semantics { heading() }", menu)
         self.assertIn("isVisible = false // Acute owns", (code / "settings/CustomizationFragment.kt").read_text())
 
+    def test_native_menu_continuity_preserves_bookmark_actions(self):
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        apply(root, channel="dev")
+        menu = (root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt").read_text()
+        groups = [menu.index("AcuteMenuHeading(R.string.acute_menu_" + name + ")")
+                  for name in ("page", "library", "privacy", "extensions", "settings")]
+        self.assertEqual(groups, sorted(groups))
+        self.assertIn("if (showIPProtection) {\n            AcuteMenuHeading(R.string.acute_menu_privacy)", menu)
+        self.assertIn("AcuteMenuHeading(R.string.acute_menu_library)\n        if (accessPoint == MenuAccessPoint.Browser) {\n            MenuGroup {\n                AcuteBookmarkMenuItem(", menu)
+        original = (Path(__file__).parent / "fixtures/firefox-157.0.1/MainMenu.kt").read_text()
+        begin = original.index("        if (isBookmarked) {")
+        end = original.index("        MenuItem(\n            label = stringResource(id = R.string.browser_menu_find_in_page)", begin)
+        body = original[begin:end]
+        self.assertEqual(menu.count(body), 1)
+        self.assertIn(body, menu[menu.index("private fun AcuteBookmarkMenuItem("):])
+        tools = menu[menu.index("private fun ToolsAndActionsMenuGroup("):menu.index("private fun MoreMenuButtonGroup(")]
+        self.assertNotIn("if (isBookmarked)", tools)
+        library = menu[menu.index("private fun LibraryMenuGroup("):]
+        positions = [library.index("labelRes = R.string." + name)
+                     for name in ("library_bookmarks", "library_history", "library_downloads", "browser_menu_passwords")]
+        self.assertEqual(positions, sorted(positions))
+        for index, callback in enumerate(("Bookmarks", "History", "Downloads", "Passwords")):
+            self.assertIn(f"index = {index},\n            onClick = on{callback}MenuClick", library)
+
     def test_desktop_shortcuts_import_generated_browser_directions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
