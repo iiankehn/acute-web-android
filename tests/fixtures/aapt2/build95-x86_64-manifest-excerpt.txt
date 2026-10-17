@@ -1,0 +1,16 @@
+# Exact selected lines from Build 95 x86_64 AAPT2 output; omitted unrelated elements.
+N: android=http://schemas.android.com/apk/res/android (line=14)
+  E: manifest (line=14)
+    A: package="com.acuteweb.browser.dev" (Raw: "com.acuteweb.browser.dev")
+      E: application (line=129)
+        A: http://schemas.android.com/apk/res/android:allowBackup(0x01010280)=false
+          E: provider (line=988)
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="org.mozilla.fenix.acute.GitHubUpdateProvider" (Raw: "org.mozilla.fenix.acute.GitHubUpdateProvider")
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=false
+            A: http://schemas.android.com/apk/res/android:authorities(0x01010018)="com.acuteweb.browser.dev.acute-updates" (Raw: "com.acuteweb.browser.dev.acute-updates")
+            A: http://schemas.android.com/apk/res/android:initOrder(0x0101001a)=100
+          E: provider (line=1871)
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="org.mozilla.gecko.GeckoClipboardContentProvider" (Raw: "org.mozilla.gecko.GeckoClipboardContentProvider")
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=false
+            A: http://schemas.android.com/apk/res/android:authorities(0x01010018)="com.acuteweb.browser.dev.clipboard" (Raw: "com.acuteweb.browser.dev.clipboard")
+            A: http://schemas.android.com/apk/res/android:grantUriPermissions(0x0101001b)=true

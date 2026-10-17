@@ -97,6 +97,8 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert len(receiver) == 1 and receiver[0].get(tools + "node") == "remove"
     removed_providers = [p for p in application.findall("provider") if p.get(android + "name") == "com.adjust.sdk.SystemLifecycleContentProvider"]
     assert len(removed_providers) == 1 and removed_providers[0].get(tools + "node") == "remove"
+    debug_activities = [a for a in application.findall("activity") if a.get(android + "name") == "mozilla.telemetry.glean.debug.GleanDebugActivity"]
+    assert len(debug_activities) == 1 and debug_activities[0].get(tools + "node") == "remove"
     code = app / "src/main/java/org/mozilla/fenix"
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1

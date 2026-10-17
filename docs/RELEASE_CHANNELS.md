@@ -24,9 +24,11 @@ Android 2.0 experiments are reviewed and tested on `dev` before a Beta candidate
 `main` only after its tests pass, its user-facing branding and documentation are
 complete, and it survives phone, tablet, upgrade, and update-channel testing.
 
-The 1.1 series is the current Beta train. Its first feature is native x86_64
-support alongside ARM64, including architecture-aware update selection and
-separately verified, signed release packages.
+The 2.0 development candidate retains native x86_64 support alongside ARM64,
+including architecture-aware update selection and separately verified signed
+packages. The native Android UI/security work on Dev supersedes the older
+Glass-based Beta implementation. Promotion depends on the open gates in
+[the 2.0 Beta audit](BETA_2_0_AUDIT.md).
 
 Stable releases use tags such as `v1.1.0`. Beta releases use tags such as
 `v1.1.0-beta.1` and are published as GitHub prereleases.

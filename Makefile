@@ -5,6 +5,7 @@ check:
 
 test:
 	python3 -m unittest discover -s tests -v
+	node --test tests/extensions.test.cjs
 
 audit: check test
 	python3 -m compileall -q -f scripts tests

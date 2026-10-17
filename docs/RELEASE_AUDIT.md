@@ -2,14 +2,15 @@
 
 Acute Web uses a fail-closed pipeline for Android builds.
 No Stable or Beta APK is published merely because it compiles.
-Pull requests also run the same audit without launching an APK build.
+Pull requests targeting Dev run the audit and unsigned APK builds. Signing is
+restricted to trusted pushes; pull requests do not receive release credentials.
 
 ## Automated audit
 
 Every Beta push and release tag must pass these checks before the native builds
 start:
 
-- all Acute Python regression tests and overlay fixtures;
+- all Acute Python regression tests, overlay fixtures, and JavaScript behavioral tests;
 - compilation of Acute Python build and release tooling;
 - JSON and Android XML parsing;
 - Stable/Beta application-ID isolation;
@@ -21,6 +22,7 @@ start:
 - agreement between project metadata, the workflow, and the pinned Firefox
   source commit;
 - explicit ARM64 and x86_64 native build targets and package verification.
+- compiled-manifest backup, shared-UID, updater and clipboard-provider access checks.
 
 The APK pipeline then verifies the expected Gecko libraries for each ABI,
 minimized permissions, release signature, signer continuity with earlier
@@ -54,11 +56,10 @@ packaging and the ARM64 candidate is tested on supported physical devices for:
   compatible extensions;
 - rotation, split screen, phone and large-screen layouts;
 - update notification and handoff to Android's package installer;
-- CORE Glass contrast, touch targets, and page-content accessibility.
+- opaque native-chrome contrast, touch targets, and page-content accessibility.
 
-Failures block promotion. Versions 0.8 and 0.9 are cut only when a verified
-issue requires a corrective candidate; otherwise the audited Beta proceeds
-toward 1.0 without ceremonial releases.
+Failures block promotion. For the current 2.0 source audit, dependency findings,
+and physical-device gates, see [the Beta audit](BETA_2_0_AUDIT.md).
 
 ## 1.0 upstream review
 

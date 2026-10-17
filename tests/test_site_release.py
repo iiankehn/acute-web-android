@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.update_site_release import update_site
+from scripts.update_site_release import release_details, update_site
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +31,17 @@ def release_event(tag, prerelease, size=100):
 
 
 class SiteReleaseTests(unittest.TestCase):
+    def test_rejects_noncanonical_asset_urls_before_html_mutation(self):
+        for suffix in ('?download=1', '#fragment', ';extra', '?x=" onclick="alert(1)', '?', '#', '\n'):
+            event = release_event("v2.0.0-beta.1", prerelease=True)
+            event["release"]["assets"][0]["browser_download_url"] += suffix
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(ValueError, "official"):
+                release_details(event)
+
+    def test_rejects_non_ascii_version_tags(self):
+        with self.assertRaisesRegex(ValueError, "invalid format"):
+            release_details(release_event("v٢.0.0", prerelease=False))
+
     def update_copy(self, event):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)

@@ -12,8 +12,11 @@
   if (sensitivePath.test(location.pathname)) return;
 
   const host = location.hostname.toLowerCase();
-  const { mode = "automatic", disabledHosts = [] } =
-    await browser.storage.local.get(["mode", "disabledHosts"]);
+  let storage;
+  try { storage = await browser.storage.local.get(["mode", "disabledHosts"]); }
+  catch (_) { return; }
+  const mode = ["off", "automatic", "always"].includes(storage.mode) ? storage.mode : "automatic";
+  const disabledHosts = Array.isArray(storage.disabledHosts) ? storage.disabledHosts : [];
 
   if (mode === "off" || disabledHosts.includes(host)) return;
 
