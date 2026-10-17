@@ -275,6 +275,7 @@ jobs:
           "$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "$apk" > "$RUNNER_TEMP/acute-manifest-tree.txt"
           python3 acute-overlay/scripts/verify_apk_manifest.py "$RUNNER_TEMP/acute-manifest-tree.txt"
           cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
+          cp "$RUNNER_TEMP/acute-manifest-tree.txt" "dist/manifest-tree-${ABI}.txt"
           cp "$RUNNER_TEMP/acute-runtime-dependencies.txt" "dist/runtime-dependencies-${ABI}.txt"
           cp firefox/Cargo.lock "dist/cargo-lock-${ABI}.txt"
           printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \

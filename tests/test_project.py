@@ -11,6 +11,8 @@ class ProjectTests(unittest.TestCase):
     def test_updater_uses_selected_public_repository(self):
         updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text()
         self.assertIn("iiankehn/acute-web-android/releases?per_page=20", updater)
+        self.assertIn("iiankehn/acute-web-android/releases/latest", updater)
+        self.assertIn("if (IS_BETA) BETA_RELEASE_API else STABLE_RELEASE_API", updater)
         self.assertIn('setOf("arm64-v8a", "x86_64")', updater)
         self.assertIn('Build.SUPPORTED_ABIS.firstOrNull', updater)
         self.assertIn('"acute-web-$version-$deviceAbi.apk"', updater)

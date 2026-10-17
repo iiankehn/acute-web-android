@@ -36,6 +36,7 @@ traffic, and physical-device behavior remain separate acceptance work.
 | Action pins | Direct `- uses:` steps escaped the pin-audit regex | Cover both named steps and direct action steps |
 | Source packaging | Recursive bundle could include untracked local files and follow links | Package Git-tracked files only, exclude credential/build files, reject unsafe links and missing sources, publish archives atomically |
 | Website links | URL validation accepted query/fragment suffixes before HTML insertion | Require an exact canonical asset URL and ASCII semantic-version digits |
+| Stable update discovery | Twenty mixed-channel releases could hide the Stable update | Use GitHub's dedicated latest-release endpoint for Stable and retain the separate Beta array response |
 | Extension privacy | Popup could show a private tab's hostname and store a per-site preference | Block private contexts/tabs before reading local settings or rendering site controls |
 | Extension reliability | Failed/racing storage writes could misrepresent saved preferences | Disable controls until loaded, serialize writes, restore saved state on failure, distinguish reload failures, validate malformed settings |
 | Extension upgrades | Modified built-in scripts need a distinct package version | Bump Midnight Pages to `0.1.1` |
@@ -65,9 +66,9 @@ resolution, C/C++ libraries and binary provenance require additional review.
 
 | Package | Advisory | Assessment and next action |
 |---|---|---|
-| `smallbitvec 2.5.1` | [GHSA-97wc-2hqc-cjgr](https://osv.dev/vulnerability/GHSA-97wc-2hqc-cjgr) | Reported capacity-overflow calculation is present in pinned vendored source. Used by style-related crates. Review reachable sizes/callers and whether the consumed Gecko artifact contains a mitigation before accepting risk or selecting a rebuilt engine. |
-| `serde_with 3.12.0` | [GHSA-7gcf-g7xr-8hxj](https://osv.dev/vulnerability/GHSA-7gcf-g7xr-8hxj) | Reported `KeyValueMap` capacity-underflow expressions are present. Lockfile lists `qlog` as a dependent. Establish enabled features and actual use; advisory lists 3.21.0 as fixed. |
-| `ringbuf 0.2.8` | [RUSTSEC-2026-0293](https://osv.dev/vulnerability/RUSTSEC-2026-0293) | Advisory names newer skip/clear APIs; this version has a discard path dropping elements before advancing state. Listed reverse dependencies are CoreAudio/Pulse backends. Confirm Android exclusion and panic strategy before disposition; do not infer Android exploitability from a lockfile match. |
+| `smallbitvec 2.5.1` | [GHSA-97wc-2hqc-cjgr](https://osv.dev/vulnerability/GHSA-97wc-2hqc-cjgr) | Capacity-overflow calculation is present. Examined Style/dogear creation sites use allocated container lengths, constant size 1 or incremental pushes; no arbitrary page-supplied capacity was found. Binary parity and complete reachability/risk disposition remain open. |
+| `serde_with 3.12.0` | [GHSA-7gcf-g7xr-8hxj](https://osv.dev/vulnerability/GHSA-7gcf-g7xr-8hxj) | `KeyValueMap` underflow expressions are present in the dependency. The sole direct reverse dependency in this lockfile is `qlog`; all 12 pinned qlog source files were inspected and use `skip_serializing_none`, not `KeyValueMap`. Source evidence indicates the affected API is not used through that consumer. Preserve the match and confirm consumed binary/source parity. |
+| `ringbuf 0.2.8` | [RUSTSEC-2026-0293](https://osv.dev/vulnerability/RUSTSEC-2026-0293) | Lockfile reverse dependencies are CoreAudio/Pulse backends. Pinned `toolkit/moz.configure` defaults Android to AAudio/OpenSL, rejects PulseAudio on Android and restricts AudioUnit to Darwin. `gkrust-features.mozbuild` enables these optional Rust backends only under their corresponding flags. Source evidence excludes them from the standard Android configuration; confirm artifact configuration/provenance. |
 | `bincode 1.3.3` | [RUSTSEC-2025-0141](https://osv.dev/vulnerability/RUSTSEC-2025-0141) | Unmaintained notice; track upstream migration, not a demonstrated runtime exploit. |
 | `paste 1.0.11` | [RUSTSEC-2024-0436](https://osv.dev/vulnerability/RUSTSEC-2024-0436) | Unmaintained notice; track upstream replacement and build exposure. |
 | `unsafe-libyaml 0.2.11` | [RUSTSEC-2024-0449](https://osv.dev/vulnerability/RUSTSEC-2024-0449) | Unmaintained notice; establish build/runtime inclusion and upstream replacement. |
@@ -77,6 +78,15 @@ workflow uses **Gecko artifact mode**: modifying vendored Rust after downloading
 Gecko does not repair the compiled engine in the APK. A required native fix
 must come from a verified fixed upstream artifact or a full, tested Gecko source
 build. Blind version changes to the lockfile are not a binary security patch.
+
+Source-triage evidence at the same immutable pin:
+
+- [Android audio backend guards](https://github.com/mozilla-firefox/firefox/blob/3c71aeacdb296402e41fb2084b13e797d1770642/toolkit/moz.configure),
+  [Rust feature selection](https://github.com/mozilla-firefox/firefox/blob/3c71aeacdb296402e41fb2084b13e797d1770642/toolkit/library/rust/gkrust-features.mozbuild).
+- [qlog source](https://github.com/mozilla-firefox/firefox/tree/3c71aeacdb296402e41fb2084b13e797d1770642/third_party/rust/qlog/src).
+- [Style declarations](https://github.com/mozilla-firefox/firefox/blob/3c71aeacdb296402e41fb2084b13e797d1770642/servo/components/style/properties/declaration_block.rs),
+  [Style selector/scoping callers](https://github.com/mozilla-firefox/firefox/blob/3c71aeacdb296402e41fb2084b13e797d1770642/servo/components/style/stylist.rs),
+  [dogear container lengths](https://github.com/mozilla-firefox/firefox/blob/3c71aeacdb296402e41fb2084b13e797d1770642/third_party/rust/dogear/src/tree.rs).
 
 Reproduce the source-metadata scan with Python 3.12+ and network access:
 
@@ -94,6 +104,12 @@ paginated results fail instead of being reported clean.
 - Existing Dev build 94 at the reviewed base passed both ABI builds, signing
   and CI checks: [run 38999177956](https://github.com/iiankehn/acute-web-android/actions/runs/38999177956).
   That run predates these patches.
+- [Draft PR #7](https://github.com/iiankehn/acute-web-android/pull/7) started
+  [Build 95](https://github.com/iiankehn/acute-web-android/actions/runs/39054971557).
+  Its Linux audit passed all 81 Python tests, eight JavaScript tests and all
+  channel overlays. Native compilation/artifact review was still running when
+  this note was updated. Stable update discovery and unsigned manifest retention
+  were added afterward and require the subsequent PR run.
 - Complete Stable, Beta and Dev overlays applied successfully to real files
   from the immutable Firefox pin after the source changes in this branch.
 - Repository checks, security/release audit, Python compilation and diff
