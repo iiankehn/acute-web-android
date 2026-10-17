@@ -40,6 +40,12 @@ class WorkflowMetadataTests(unittest.TestCase):
                     self.assertEqual(values["gradle_flags"], "-PlocalProperties.disableDebugSigning=true")
 
     def test_rejects_malformed_release_tags_and_mutable_manual_source(self):
+        result, values = self.run_metadata("refs/pull/6/merge", "pull_request")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(values["channel"], "dev")
+        self.assertEqual(values["package"], "com.acuteweb.browser.dev")
+        self.assertEqual(values["task"], "fenix:assembleRelease")
+        self.assertEqual(values["gradle_flags"], "-PlocalProperties.disableDebugSigning=true")
         for ref in ("refs/tags/v2.0.0-dev.1", "refs/tags/vgarbage"):
             self.assertNotEqual(self.run_metadata(ref)[0].returncode, 0)
         self.assertNotEqual(self.run_metadata("refs/heads/dev", "workflow_dispatch", "main")[0].returncode, 0)
