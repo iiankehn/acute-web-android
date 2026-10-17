@@ -52,8 +52,8 @@ branch.
 
 ## Supported devices
 
-Version 1.1 adds native **ARM64 (arm64-v8a)** and **x86_64** packages for devices
-running **Android 8.0 or newer**. The updater selects the package matching the
+The 2.0 development source targets native **ARM64 (arm64-v8a)** and **x86_64**
+packages for devices running **Android 12 or newer**. The updater selects the package matching the
 device architecture. Android 12 is included in the launch and rotation test
 matrix. Large-screen behavior is documented in
 [Tablet support](docs/TABLET_SUPPORT.md).
@@ -92,10 +92,12 @@ downloads a large toolchain and source tree.
 
 ```bash
 git clone https://github.com/mozilla-firefox/firefox.git
-git clone https://github.com/iiankehn/acute-web-android.git
+git clone --branch dev https://github.com/iiankehn/acute-web-android.git
 cd firefox
+git checkout 3c71aeacdb296402e41fb2084b13e797d1770642
 python3 ./mach bootstrap --application-choice mobile_android_artifact_mode --no-interactive
-../acute-web-android/scripts/apply_overlay.py .
+python3 ../acute-web-android/scripts/apply_overlay.py . --channel dev
+export ACUTE_TARGET_ABI=arm64-v8a
 ./mach gradle fenix:assembleDebug
 ```
 

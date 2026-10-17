@@ -32,6 +32,8 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
     "synced_tabs",
     "term_of_service",
     "tou_",
+    "pair_instructions",
+    "sign_in_instructions",
 )
 
 
@@ -333,8 +335,6 @@ def replace_product_branding(xml: str) -> str:
         "preferences_rate": "Visit the Acute Web project",
         "preferences_show_sponsored_suggestions_summary": "Recommendations are disabled in Acute Web",
         "customize_toggle_contile": "Recommendations",
-        "pair_instructions_2": "Sync pairing is not available in Acute Web",
-        "sign_in_instructions": "Sync pairing is not available in Acute Web",
     }
     string = re.compile(
         r'(<string\b[^>]*\bname="([^"]+)"[^>]*>)(.*?)(</string>)',

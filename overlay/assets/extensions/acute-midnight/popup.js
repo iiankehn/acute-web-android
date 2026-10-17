@@ -1,45 +1,76 @@
 /* Local settings UI for Acute Midnight Pages. */
 (async () => {
   "use strict";
-  const storage = await browser.storage.local.get(["mode", "disabledHosts"]);
-  const mode = ["off", "automatic", "always"].includes(storage.mode)
-    ? storage.mode
-    : "automatic";
-  const disabledHosts = new Set(storage.disabledHosts || []);
-  const selected = document.querySelector(`input[name="mode"][value="${mode}"]`);
-  if (selected) selected.checked = true;
-
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  let host = "";
-  try {
-    const url = new URL(tab.url);
-    if (/^https?:$/.test(url.protocol)) host = url.hostname.toLowerCase();
-  } catch (_) {
-    // Internal and invalid URLs intentionally have no per-site control.
-  }
-
-  const reload = async () => {
-    if (tab && Number.isInteger(tab.id)) await browser.tabs.reload(tab.id);
+  const status = document.getElementById("status");
+  const fieldset = document.querySelector("fieldset");
+  const siteEnabled = document.getElementById("site-enabled");
+  const inputs = [...document.querySelectorAll('input[name="mode"]')];
+  let busy = false;
+  const setBusy = (value) => {
+    busy = value;
+    fieldset.disabled = value;
+    siteEnabled.disabled = value;
   };
-  for (const input of document.querySelectorAll('input[name="mode"]')) {
-    input.addEventListener("change", async () => {
-      await browser.storage.local.set({ mode: input.value });
-      await reload();
-    });
-  }
-
-  if (host) {
-    const controls = document.getElementById("site-controls");
-    const siteName = document.getElementById("site-name");
-    const siteEnabled = document.getElementById("site-enabled");
-    controls.hidden = false;
-    siteName.textContent = host;
-    siteEnabled.checked = !disabledHosts.has(host);
-    siteEnabled.addEventListener("change", async () => {
-      if (siteEnabled.checked) disabledHosts.delete(host);
-      else disabledHosts.add(host);
-      await browser.storage.local.set({ disabledHosts: [...disabledHosts].sort() });
-      await reload();
-    });
+  setBusy(true);
+  try {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (browser.extension.inIncognitoContext || tab?.incognito) {
+      status.textContent = "Midnight Pages is unavailable in private browsing.";
+      return;
+    }
+    const storage = await browser.storage.local.get(["mode", "disabledHosts"]);
+    let mode = ["off", "automatic", "always"].includes(storage.mode) ? storage.mode : "automatic";
+    let disabledHosts = new Set(Array.isArray(storage.disabledHosts)
+      ? storage.disabledHosts.filter((host) => typeof host === "string") : []);
+    let host = "";
+    const restoreControls = () => {
+      for (const input of inputs) input.checked = input.value === mode;
+      siteEnabled.checked = !disabledHosts.has(host);
+    };
+    try {
+      const url = new URL(tab?.url);
+      if (/^https?:$/.test(url.protocol)) host = url.hostname.toLowerCase();
+    } catch (_) {
+      // Internal and invalid URLs intentionally have no per-site control.
+    }
+    const save = async (values, commit) => {
+      if (busy) { restoreControls(); return; }
+      setBusy(true);
+      status.textContent = "";
+      try {
+        await browser.storage.local.set(values);
+        commit();
+      } catch (_) {
+        status.textContent = "Settings could not be saved. Please try again.";
+        return;
+      } finally {
+        restoreControls();
+        setBusy(false);
+      }
+      if (tab && Number.isInteger(tab.id)) {
+        try { await browser.tabs.reload(tab.id); }
+        catch (_) { status.textContent = "Settings saved. Reload the page to apply them."; }
+      }
+    };
+    for (const input of inputs) {
+      input.addEventListener("change", () => {
+        const nextMode = input.value;
+        return save({ mode: nextMode }, () => { mode = nextMode; });
+      });
+    }
+    if (host) {
+      document.getElementById("site-controls").hidden = false;
+      document.getElementById("site-name").textContent = host;
+      siteEnabled.addEventListener("change", () => {
+        const next = new Set(disabledHosts);
+        if (siteEnabled.checked) next.delete(host);
+        else next.add(host);
+        return save({ disabledHosts: [...next].sort() }, () => { disabledHosts = next; });
+      });
+    }
+    restoreControls();
+    setBusy(false);
+  } catch (_) {
+    status.textContent = "Settings could not be loaded. Close this panel and try again.";
   }
 })();

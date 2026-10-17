@@ -28,10 +28,10 @@ the public overlay, resources, tests, and workflow in this repository.
 ## Interface and accessibility
 
 - Application chrome uses Acute's Midnight interface and CORE blue accents.
-- Beta contains the CORE Glass work, including layered translucent surfaces and
-  page-aware toolbar composition.
-- The top toolbar collapses after a page finishes loading and returns through
-  the standard upward-scroll gesture, leaving page controls accessible.
+- The 2.0 development source removes CORE Glass in favor of opaque native Android
+  surfaces. Older Beta tags retain their historical implementation.
+- Toolbar scrolling and viewport handling retain upstream behavior; Acute no
+  longer forces toolbar collapse after page loading.
 - Launcher assets support circular, rounded-rectangle, square, and monochrome
   adaptive-icon treatments.
 - Upstream accessibility semantics and Android text scaling remain release

@@ -81,7 +81,7 @@ def validate_configuration() -> None:
 
 
 def validate_action_pinning() -> None:
-    action = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
+    action = re.compile(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)", re.MULTILINE)
     immutable = re.compile(r"^[^@]+@[0-9a-f]{40}$")
     for path in WORKFLOWS.glob("*.yml"):
         for reference in action.findall(path.read_text(encoding="utf-8")):

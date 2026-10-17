@@ -139,10 +139,11 @@ class ProjectTests(unittest.TestCase):
     def test_android_build_bounds_gradle_resources(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         self.assertEqual(workflow.count("Bound Gradle memory and configure swap"), 1)
-        self.assertEqual(workflow.count("--max-workers=2"), 1)
-        self.assertEqual(workflow.count("--no-parallel"), 1)
-        self.assertEqual(workflow.count("-Xmx4g -Xms1g"), 1)
-        self.assertEqual(workflow.count("MaxMetaspaceSize=2g"), 1)
+        for name in ("Build APK without release credentials", "Record resolved Android runtime dependencies"):
+            step = workflow.split(f'- name: {name}', 1)[1].split('- name:', 1)[0]
+            with self.subTest(step=name):
+                for limit in ("--max-workers=2", "--no-parallel", "-Xmx4g -Xms1g", "MaxMetaspaceSize=2g"):
+                    self.assertIn(limit, step)
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()

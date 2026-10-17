@@ -63,8 +63,7 @@ run_profile() {
       return 1
     fi
     sleep 10
-    # Put text and imagery underneath the browser chrome so screenshots verify
-    # CORE Glass transparency against real page content, not an empty homepage.
+    # Exercise normal scrolling and opaque toolbar contrast against page content.
     adb shell input swipe 600 1500 600 500 500 >/dev/null 2>&1 || true
     sleep 2
     if ! adb shell pidof "$package_name" >/dev/null 2>&1; then
