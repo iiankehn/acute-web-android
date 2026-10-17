@@ -31,6 +31,7 @@ traffic, and physical-device behavior remain separate acceptance work.
 |---|---|---|
 | Signing policy | Negated `grep` checks do not trigger Bash `-e` reliably on a match | Explicit failure paths for debuggable APKs and prohibited permissions, including read errors; shell execution regressions |
 | Compiled manifest | Attribution check did not verify backup and app-isolation boundaries | Require disabled backups, no shared UID, one private package-scoped updater without URI grants; check clipboard access if present |
+| Exported diagnostics | The actual Build 95 manifest contains Glean's public debug-command activity | Remove `GleanDebugActivity` at manifest merge time and reject its presence in compiled APKs; no claim of observed traffic |
 | Signed evidence | Successful artifacts omitted the compiled manifest | Compare unsigned/signed manifest dumps and retain signed manifest reports, without executing repository source in the signing job |
 | Dependency evidence | Actual Android runtime graph absent from artifacts | Add bounded Gradle runtime dependency export and retain it with the Rust lockfile per ABI; this step still needs CI execution |
 | Action pins | Direct `- uses:` steps escaped the pin-audit regex | Cover both named steps and direct action steps |
@@ -110,10 +111,20 @@ paginated results fail instead of being reported clean.
   channel overlays. Both APKs compiled, exported runtime dependencies and passed
   ABI/permission checks. The new manifest parser rejected AAPT2's current
   namespace/Boolean syntax even though the actual dumps show backups disabled.
-  Both original ABI manifest dumps pass the corrected parser locally; an exact
-  Build 95 excerpt is now a regression fixture. The current PR run must verify
+  Both original ABI manifest dumps passed the corrected backup/provider parser
+  locally; an exact Build 95 excerpt is now a regression fixture. Further review
+  found the exported Glean debug activity in those dumps, which the new policy
+  deliberately rejects. The current PR run must verify its removal as well as
   the fix and the subsequent Stable updater/unsigned manifest retention changes.
   Superseded PR runs now cancel when a replacement starts.
+
+The exported diagnostic activity was compared with
+[Glean 70.2.0 source](https://github.com/mozilla/glean/blob/v70.2.0/glean-core/android/src/main/java/mozilla/telemetry/glean/debug/GleanDebugActivity.kt).
+It accepts log-ping, debug-tag and submit-ping commands from other applications.
+The pinned Fenix `GleanHelper.kt` still initializes normal upload consent from
+Acute's forced-false telemetry setting. Removing the unused debug activity is
+additional attack-surface reduction, not evidence that disabled uploads were
+bypassed or that telemetry was observed. Firebase/web-push components remain.
 - Complete Stable, Beta and Dev overlays applied successfully to real files
   from the immutable Firefox pin after the source changes in this branch.
 - Repository checks, security/release audit, Python compilation and diff

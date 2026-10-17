@@ -290,6 +290,7 @@ jobs:
             ${{ runner.temp }}/acute-badging.txt
             ${{ runner.temp }}/acute-apk-entries.txt
             ${{ runner.temp }}/acute-manifest-tree.txt
+            ${{ runner.temp }}/acute-runtime-dependencies.txt
           if-no-files-found: ignore
           retention-days: 7
 

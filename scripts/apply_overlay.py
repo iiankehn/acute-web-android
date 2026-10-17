@@ -771,6 +771,8 @@ def patch_manifest(path: Path) -> None:
     # This dependency provider runs before Application.onCreate, independently
     # of the disabled MetricController service list. Acute does not use attribution.
     provider += '        <provider android:name="com.adjust.sdk.SystemLifecycleContentProvider" tools:node="remove" />\n'
+    # Glean's dependency exports this diagnostic command activity even in release builds.
+    provider += '        <activity android:name="mozilla.telemetry.glean.debug.GleanDebugActivity" tools:node="remove" />\n'
     text = replace_once(text, "    </application>", provider + "    </application>",
                         "application closing tag")
     path.write_text(text, encoding="utf-8")

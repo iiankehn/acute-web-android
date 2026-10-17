@@ -126,3 +126,6 @@ class CompiledManifestTests(unittest.TestCase):
                 self.assertEqual(providers[0].get(tools + "node"), "remove")
                 updater = next(p for p in app.findall("provider") if p.get(android + "name").endswith("GitHubUpdateProvider"))
                 self.assertEqual(updater.get(android + "exported"), "false")
+                debug_activities = [a for a in app.findall("activity") if a.get(android + "name") == "mozilla.telemetry.glean.debug.GleanDebugActivity"]
+                self.assertEqual(len(debug_activities), 1)
+                self.assertEqual(debug_activities[0].get(tools + "node"), "remove")

@@ -11,6 +11,7 @@ import re
 DENIED_COMPONENTS = (
     "com.adjust.sdk.SystemLifecycleContentProvider",
     "com.adjust.sdk.AdjustPreinstallReferrerReceiver",
+    "mozilla.telemetry.glean.debug.GleanDebugActivity",
 )
 
 
@@ -61,7 +62,7 @@ def verify(text):
             raise ValueError(f"Missing compiled {element} element; expected aapt2 dump xmltree output")
     found = [name for name in DENIED_COMPONENTS if name in text]
     if found:
-        raise ValueError("Prohibited attribution components: " + ", ".join(found))
+        raise ValueError("Prohibited diagnostic/attribution components: " + ", ".join(found))
     roots = elements(text)
     if len(roots) != 1 or roots[0]["tag"] != "manifest":
         raise ValueError("Expected one compiled manifest root")
@@ -108,7 +109,7 @@ def main():
         verify(args.manifest_dump.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Compiled manifest verification failed: {error}\n")
-    print("Compiled manifest passed attribution, backup and updater access checks")
+    print("Compiled manifest passed diagnostic, attribution, backup and updater access checks")
 
 
 if __name__ == "__main__":
