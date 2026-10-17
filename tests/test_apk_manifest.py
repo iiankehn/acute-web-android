@@ -23,6 +23,19 @@ CLEAN_MANIFEST = '''E: manifest (line=1)
 
 
 class CompiledManifestTests(unittest.TestCase):
+    def test_actual_build95_namespace_and_boolean_output(self):
+        fixture = Path(__file__).parent / 'fixtures/aapt2/build95-x86_64-manifest-excerpt.txt'
+        text = fixture.read_text(encoding='utf-8')
+        verify(text)
+        for old, new in (
+            ('allowBackup(0x01010280)=false', 'allowBackup(0x01010280)=true'),
+            ('exported(0x01010010)=false', 'exported(0x01010010)=true'),
+            ('allowBackup(0x01010280)=false', 'allowBackup(0x01010280)="false"'),
+            ('http://schemas.android.com/apk/res/android:allowBackup', 'http://example.invalid:allowBackup'),
+        ):
+            with self.subTest(mutation=new), self.assertRaises(ValueError):
+                verify(text.replace(old, new, 1))
+
     def test_disabled_reporting_does_not_require_an_upload_service(self):
         for channel in ("stable", "beta", "dev"):
             with self.subTest(channel=channel):

@@ -31,14 +31,18 @@ def elements(text):
                 result.append(node)
             stack.append((depth, node))
             continue
-        match = re.match(r"^(\s*)A: ([\w:.-]+)(?:\(0x[0-9a-fA-F]+\))?=(.*)$", line)
+        match = re.match(r"^(\s*)A: ([^\s=]+?)(?:\(0x[0-9a-fA-F]+\))?=(.*)$", line)
         if match and stack:
             if len(match[1]) <= stack[-1][0]:
                 raise ValueError("Malformed compiled manifest attribute indentation")
             attrs = stack[-1][1]["attrs"]
-            if match[2] in attrs:
+            name = match[2]
+            namespace = "http://schemas.android.com/apk/res/android:"
+            if name.startswith(namespace):
+                name = "android:" + name.removeprefix(namespace)
+            if name in attrs:
                 raise ValueError("Duplicate compiled manifest attribute")
-            attrs[match[2]] = match[3].strip()
+            attrs[name] = match[3].strip()
     return result
 
 
@@ -48,7 +52,7 @@ def string_value(value):
 
 
 def is_false(value):
-    return bool(re.fullmatch(r"\(type 0x12\)0x0+", value or ""))
+    return value == "false" or bool(re.fullmatch(r"\(type 0x12\)0x0+", value or ""))
 
 
 def verify(text):

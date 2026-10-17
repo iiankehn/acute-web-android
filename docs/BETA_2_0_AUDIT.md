@@ -107,9 +107,13 @@ paginated results fail instead of being reported clean.
 - [Draft PR #7](https://github.com/iiankehn/acute-web-android/pull/7) started
   [Build 95](https://github.com/iiankehn/acute-web-android/actions/runs/39054971557).
   Its Linux audit passed all 81 Python tests, eight JavaScript tests and all
-  channel overlays. Native compilation/artifact review was still running when
-  this note was updated. Stable update discovery and unsigned manifest retention
-  were added afterward and require the subsequent PR run.
+  channel overlays. Both APKs compiled, exported runtime dependencies and passed
+  ABI/permission checks. The new manifest parser rejected AAPT2's current
+  namespace/Boolean syntax even though the actual dumps show backups disabled.
+  Both original ABI manifest dumps pass the corrected parser locally; an exact
+  Build 95 excerpt is now a regression fixture. The current PR run must verify
+  the fix and the subsequent Stable updater/unsigned manifest retention changes.
+  Superseded PR runs now cancel when a replacement starts.
 - Complete Stable, Beta and Dev overlays applied successfully to real files
   from the immutable Firefox pin after the source changes in this branch.
 - Repository checks, security/release audit, Python compilation and diff
