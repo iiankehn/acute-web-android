@@ -21,7 +21,7 @@ start:
 - immutable 40-character GitHub Action references;
 - agreement between project metadata, the workflow, and the pinned Firefox
   source commit;
-- explicit ARM64 and x86_64 native build targets and package verification.
+- explicit ARM64 and x86_64 native build targets and package verification;
 - compiled-manifest backup, shared-UID, updater and clipboard-provider access checks.
 
 The APK pipeline then verifies the expected Gecko libraries for each ABI,
@@ -36,7 +36,7 @@ The Acute overlay has no third-party Python package dependency. Its local
 Midnight Pages extension makes no external service request. GitHub Actions are
 pinned to reviewed commit hashes, and the complete Mozilla source input is
 pinned to one full commit recorded in `acute-android.toml`, the workflow, and
-each release's `build-inputs.txt`.
+each release's `build-inputs-<ABI>.txt`.
 
 Mozilla security advisories and upstream source changes must be reviewed before
 moving that pin. Acute prefers an ESR-style maintenance cadence, but a different
@@ -46,7 +46,7 @@ first.
 
 ## Physical-device acceptance
 
-Version 1.1 adds x86_64 as a supported native architecture alongside ARM64.
+ARM64 and x86_64 are separate supported native architectures.
 Before promotion to Stable, the signed candidates are checked for correct ABI
 packaging and the ARM64 candidate is tested on supported physical devices for:
 
@@ -61,14 +61,7 @@ packaging and the ARM64 candidate is tested on supported physical devices for:
 Failures block promotion. For the current 2.0 source audit, dependency findings,
 and physical-device gates, see [the Beta audit](BETA_2_0_AUDIT.md).
 
-## 1.0 upstream review
+## Historical reviews
 
-The 1.0 candidate retains Firefox commit
-`4452e9a17a29f762c5af6326f45c000dcf3117bb`, reviewed on September 28, 2026.
-That input was eight days behind Mozilla's development head and had already
-passed Acute's complete ARM64 build, signing-continuity checks, and physical
-0.7 acceptance testing. Moving to the contemporary development head would
-have introduced roughly 2,200 additional commits, including AndroidX, Gradle,
-Android build-system, and Gecko changes, immediately before the final release.
-The larger upstream refresh is therefore a post-1.0 Beta task and must pass the
-same fail-closed audit and device-acceptance gates before later promotion.
+The [1.0 upstream decision](archive/RELEASE_1_0_UPSTREAM_REVIEW.md) is retained
+for provenance. It does not describe the current Firefox pin.

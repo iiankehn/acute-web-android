@@ -23,7 +23,7 @@ for ARM64 and x86_64 phones, tablets, ChromeOS devices, and Android computers.
 | Channel | Public source | Downloads | Purpose |
 |---|---|---|---|
 | Stable | [`main`](https://github.com/iiankehn/acute-web-android/tree/main) | [Signed stable APK](https://github.com/iiankehn/acute-web-android/releases/latest) | Tested releases intended for everyday use |
-| Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Release-candidate testing |
+| Beta | [`beta`](https://github.com/iiankehn/acute-web-android/tree/beta) | [Signed beta APKs](https://github.com/iiankehn/acute-web-android/releases?q=prerelease%3Atrue) | Prerelease testing |
 | Dev | [`dev`](https://github.com/iiankehn/acute-web-android/tree/dev) | GitHub Actions artifacts | Isolated Android 2.0 experiments |
 
 The branches use separate Android application IDs, so Stable, Beta and Dev can be
@@ -48,7 +48,8 @@ branch.
   <img src="docs/assets/screenshots/acute-web-tablet-landscape.png" alt="Acute Web home screen on an Android tablet" width="900">
 </p>
 
-*Acute Web running on the Android 12 tablet test profile.*
+*Earlier Acute Web build on an Android 12 tablet test profile; this image is not
+acceptance evidence for the current 2.0 UI.*
 
 ## Supported devices
 
@@ -64,8 +65,8 @@ the signed APKs published on the
 
 ## Updates
 
-Acute checks GitHub Releases for a newer stable version at most once every six
-hours. When an update is available, the app presents the release and hands the
+Stable and Beta check their respective GitHub release channels at most once
+every six hours; Dev disables release checks. When an update is available, the app presents the release and hands the
 signed APK to Android's package installer. Android will accept an upgrade only
 when its signing certificate matches the installed version.
 
@@ -104,7 +105,7 @@ export ACUTE_TARGET_ABI=arm64-v8a
 The debug APK is written beneath the Firefox object directory at
 `gradle/build/mobile/android/fenix/app/outputs/apk/debug/`.
 
-For release operations, see:
+Start with the [documentation index](docs/README.md). For release operations, see:
 
 - [Repository and release setup](docs/GITHUB_SETUP.md)
 - [APK signing](docs/SIGNING.md)
@@ -126,7 +127,7 @@ wide layouts include Refresh/Stop. More actions are grouped by purpose.
 The reviewed source targets Android 12+ with separate ARM64 and x86_64 packages.
 Dev uses `com.acuteweb.browser.dev`, the launcher label **Acute Dev**, and
 `2.0.0-dev.NUMBER` CI artifacts. Its release updater is disabled. Stable and Beta
-remain on their existing branches and profiles. See the [2.0 security review](docs/DEV_2_0_SECURITY_AUDIT.md)
+remain on their existing branches and profiles. See the [2.0 Beta audit](docs/BETA_2_0_AUDIT.md)
 for validation evidence and the checks still required before accepting an APK.
 
 ## Licensing and attribution
