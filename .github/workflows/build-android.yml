@@ -125,9 +125,22 @@ jobs:
             echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
           fi
 
+  provenance:
+    name: Verify release tag branch provenance
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out build commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require Stable tags on main and Beta tags on beta
+        run: bash scripts/verify_release_ref.sh
+
   build:
     name: Build without release secrets (${{ matrix.abi }})
-    needs: metadata
+    needs: [metadata, provenance]
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:

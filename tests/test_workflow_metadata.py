@@ -11,7 +11,7 @@ class WorkflowMetadataTests(unittest.TestCase):
     def run_metadata(self, ref, event="push", manual=""):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
         start = workflow.index("        run: |", workflow.index("        id: version"))
-        end = workflow.index("\n  build:", start)
+        end = workflow.index("\n  provenance:", start)
         script = "\n".join(line[10:] for line in workflow[start:end].splitlines()[1:])
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "output"

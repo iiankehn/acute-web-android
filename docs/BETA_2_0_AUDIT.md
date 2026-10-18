@@ -100,53 +100,41 @@ required, and 1 means the scan failed. The JSON records source SHA-256 hashes,
 all queries and matches, omitted inputs, scope and generation time. Partial or
 paginated results fail instead of being reported clean.
 
-## Validation
+## Validation — refreshed October 18, 2026
 
-- Existing Dev build 94 at the reviewed base passed both ABI builds, signing
-  and CI checks: [run 38999177956](https://github.com/iiankehn/acute-web-android/actions/runs/38999177956).
-  That run predates these patches.
-- [Draft PR #7](https://github.com/iiankehn/acute-web-android/pull/7) started
-  [Build 95](https://github.com/iiankehn/acute-web-android/actions/runs/39054971557).
-  Its Linux audit passed all 81 Python tests, eight JavaScript tests and all
-  channel overlays. Both APKs compiled, exported runtime dependencies and passed
-  ABI/permission checks. The new manifest parser rejected AAPT2's current
-  namespace/Boolean syntax even though the actual dumps show backups disabled.
-  Both original ABI manifest dumps passed the corrected backup/provider parser
-  locally; an exact Build 95 excerpt is now a regression fixture. Further review
-  found the exported Glean debug activity in those dumps, which the new policy
-  deliberately rejects. The current PR run must verify its removal as well as
-  the fix and the subsequent Stable updater/unsigned manifest retention changes.
-  Superseded PR runs now cancel when a replacement starts.
-
-The exported diagnostic activity was compared with
-[Glean 70.2.0 source](https://github.com/mozilla/glean/blob/v70.2.0/glean-core/android/src/main/java/mozilla/telemetry/glean/debug/GleanDebugActivity.kt).
-It accepts log-ping, debug-tag and submit-ping commands from other applications.
-The pinned Fenix `GleanHelper.kt` still initializes normal upload consent from
-Acute's forced-false telemetry setting. Removing the unused debug activity is
-additional attack-surface reduction, not evidence that disabled uploads were
-bypassed or that telemetry was observed. Firebase/web-push components remain.
-- Complete Stable, Beta and Dev overlays applied successfully to real files
-  from the immutable Firefox pin after the source changes in this branch.
-- Repository checks, security/release audit, Python compilation and diff
-  whitespace checks pass locally.
-- 74 Python tests passed in the Windows-compatible selection; three tests were
-  skipped (two Bash execution tests and one privileged symlink test). Four
-  pre-existing Bash/local-Git test methods were excluded after their Windows
-  environment failures were confirmed. All eight JavaScript tests passed.
-- JavaScript behavioral tests execute the actual extension scripts with mocked
-  browser/DOM APIs. They do not certify Android extension installation or UI.
-- Windows cannot execute the existing Bash workflow-metadata tests or the local
-  Git-transport fixture here. New shell tests require Linux/Bash; symlink tests
-  require OS permission. The full Linux suite remains a required CI check.
-- New compiled-manifest rules and dependency-export/signing steps still need
-  execution against freshly built ARM64/x86_64 APKs. No APK was rebuilt locally.
+- [Build 98](https://github.com/iiankehn/acute-web-android/actions/runs/39068332859)
+  passed at PR head `361b3e37c41f0f081b5563ce163cc06d74e690e1`
+  (GitHub merge checkout `14c12e8eebd19f64bd95065302d2de12e34bfe8e`).
+  Both ARM64 and x86_64 APK builds passed. The matching source-check run
+  [107](https://github.com/iiankehn/acute-web-android/actions/runs/39068332875)
+  also passed. These are unsigned Dev-package PR artifacts, not signed Beta APKs.
+- Both Build 98 artifacts were downloaded and independently rechecked locally:
+  compiled manifests pass the diagnostic/attribution/backup/updater rules, and
+  each APK contains 18 native libraries exclusively for its intended ABI.
+  Runtime dependency exports and Cargo lockfiles are present for both ABIs.
+  This closes the earlier missing build-evidence gate; runtime dependency
+  advisory review remains open.
+- The current release-provenance patch requires Stable tags to identify a commit
+  on `main`, and Beta tags to identify a commit on `beta`, before APK builds.
+  It also verifies that the tag identifies the actual checked-out commit.
+  Local Git integration tests reject wrong-branch tags, malformed tags, missing
+  release branches and mismatched checkouts, and accept annotated Beta tags.
+- After this patch, `make audit` passes locally on Linux: 83 Python tests,
+  eight JavaScript behavioral tests, project checks and security/release audit.
+  The new workflow gate still requires fresh Actions execution.
+- Build 98 establishes removal of the exported Glean debug activity. It does
+  not establish runtime traffic behavior. Firebase/web push remains preserved.
+- Previous source checks applied all three channel overlays to the immutable
+  Firefox pin. JavaScript tests mock browser/DOM APIs; they do not certify
+  Android extension installation or physical-device UI behavior.
 
 ## Beta acceptance work still required
 
 1. Resolve or document evidence-based platform/risk dispositions for the three
    vulnerability matches; track the three maintenance notices separately.
-2. Run full Linux CI, then review new per-ABI manifests, resolved runtime
-   dependency reports, native libraries, signatures and signer continuity.
+2. Run fresh CI for the release-provenance patch. Review resolved runtime
+   dependency advisories, then build the Beta-channel candidate and verify its
+   signatures and signer continuity. Build 98 Dev manifest/native checks passed.
 3. Install the signed matching-channel candidate over its prior installation;
    retain history, bookmarks, passwords, tabs, extensions and preferences.
    Dev and Beta have separate profiles; installing Beta does not migrate Dev.
