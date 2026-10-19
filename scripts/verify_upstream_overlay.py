@@ -40,6 +40,7 @@ FENIX_KOTLIN = (
     "home/ui/Homepage.kt",
     "home/ui/WordmarkAndLogo.kt",
     "components/menu/compose/MainMenu.kt",
+    "components/menu/compose/MenuNavigation.kt",
     "components/menu/MenuDialogFragment.kt",
     "components/menu/compose/MoreSettingsSubmenu.kt",
     "tabstray/redux/middleware/TabStorageMiddleware.kt",
@@ -170,6 +171,9 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         (source / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix" / menu).read_text(),
         (code / menu).read_text(),
     )
+    # MenuNavigation renders inside MenuFrame's scrolling body; a second
+    # vertical scroll there crashes the menu on every web page.
+    assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
     validate_settings_and_artwork(source, checkout)
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1

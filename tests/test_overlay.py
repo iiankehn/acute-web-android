@@ -686,6 +686,8 @@ class OverlayTests(unittest.TestCase):
             destination = app / "src/main/java/org/mozilla/fenix" / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text((fixtures / Path(relative).name).read_text())
+        navigation = app / "src/main/java/org/mozilla/fenix/components/menu/compose/MenuNavigation.kt"
+        navigation.write_text((Path(__file__).parent / "fixtures/firefox-158.0/MenuNavigation.kt").read_text(encoding="utf-8"))
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
@@ -827,6 +829,8 @@ class OverlayTests(unittest.TestCase):
         for callback in ("onCustomizeReaderViewMenuClick", "onIPProtectionClick", "onIPProtectionNavigate", "onPasswordsMenuClick", "onExtensionsMenuClick", "onQuitMenuClick"):
             self.assertIn("= " + callback, menu)
         self.assertIn(".semantics { heading() }", menu)
+        navigation = (code / "components/menu/compose/MenuNavigation.kt").read_text(encoding="utf-8")
+        self.assertNotIn("verticalScroll", navigation)
         self.assertIn("isVisible = false // Acute owns", (code / "settings/CustomizationFragment.kt").read_text())
 
     def test_native_menu_continuity_preserves_bookmark_actions(self):
