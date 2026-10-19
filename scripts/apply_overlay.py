@@ -329,6 +329,25 @@ private fun AcuteBookmarkMenuItem(
     path.write_text(text, encoding="utf-8")
 
 
+def patch_menu_navigation_scroll(path: Path) -> None:
+    """Drop the navigation row's own vertical scroll now that it sits in the scrolling menu body.
+
+    Upstream renders MenuNavigation in the fixed menu header, where its Row may scroll on its
+    own. patch_native_menu moves it into MenuFrame's verticalScroll content, and Compose throws
+    "Vertically scrollable component was measured with an infinity maximum height" for a
+    scroll nested inside another, crashing whenever the menu opens on a web page.
+    """
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "                .verticalScroll(rememberScrollState())\n", "",
+                        "menu navigation row vertical scroll")
+    text = replace_once(text, "import androidx.compose.foundation.verticalScroll\n", "",
+                        "menu navigation verticalScroll import")
+    scroll_state_import = "import androidx.compose.foundation.rememberScrollState\n"
+    if text.count("rememberScrollState") == 1:
+        text = replace_once(text, scroll_state_import, "", "menu navigation rememberScrollState import")
+    path.write_text(text, encoding="utf-8")
+
+
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
     acute_resource_values = {
@@ -1742,6 +1761,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_native_address_bar(display_toolbar, edit_toolbar)
     patch_native_navigation(toolbar_middleware)
     patch_native_menu(main_menu)
+    patch_menu_navigation_scroll(main_menu.with_name("MenuNavigation.kt"))
     patch_runtime_privacy(settings, analytics)
     patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)
