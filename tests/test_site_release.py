@@ -1,8 +1,9 @@
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.update_site_release import update_site
+from scripts.update_site_release import release_details, update_site
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,25 @@ def release_event(tag, prerelease, size=100):
 
 
 class SiteReleaseTests(unittest.TestCase):
+    def test_rejects_noncanonical_asset_urls_before_html_mutation(self):
+        for suffix in ('?download=1', '#fragment', ';extra', '?x=" onclick="alert(1)', '?', '#', '\n'):
+            event = release_event("v2.0.0-beta.1", prerelease=True)
+            event["release"]["assets"][0]["browser_download_url"] += suffix
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(ValueError, "official"):
+                release_details(event)
+
+    def test_rejects_non_ascii_version_tags(self):
+        with self.assertRaisesRegex(ValueError, "invalid format"):
+            release_details(release_event("v٢.0.0", prerelease=False))
+
+    def update_copy_from(self, html_text, event):
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        html = Path(temp.name) / "index.html"
+        html.write_text(html_text, encoding="utf-8")
+        update_site(event, html)
+        return html.read_text(encoding="utf-8")
+
     def update_copy(self, event):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
@@ -47,14 +67,22 @@ class SiteReleaseTests(unittest.TestCase):
 
     def test_beta_release_updates_beta_only(self):
         original = (ROOT / "docs/index.html").read_text(encoding="utf-8")
-        stable_links = [
-            line.strip()
-            for line in original.splitlines()
-            if 'data-release-link="stable"' in line
-        ]
+        stable_links = re.findall(r'<a\b[^>]*data-release-link="stable"[^>]*>.*?</a>', original)
+        self.assertTrue(stable_links)
         updated = self.update_copy(release_event("v0.5.0-beta.1", prerelease=True))
         self.assertIn("acute-web-0.5.0-beta.1-arm64-v8a.apk", updated)
         self.assertIn('data-release-version="beta">0.5.0-beta.1', updated)
+        self.assertIn('class="button button-secondary" data-release-link="beta"', updated)
+        actions = updated.split('<div class="home-actions">', 1)[1].split("</div>", 1)[0]
+        self.assertIn('data-release-link="stable"', actions)
+        self.assertIn('data-release-link="beta"', actions)
+        self.assertIn('href="https://github.com/iiankehn/acute-web-android/releases/tag/v0.5.0-beta.1">Beta release notes', updated)
+        again = self.update_copy_from(updated, release_event("v0.5.0-beta.2", prerelease=True))
+        self.assertIn("releases/tag/v0.5.0-beta.2", again)
+        self.assertNotIn("v0.5.0-beta.1", again)
+        self.assertEqual(updated.count('data-release-link="beta"'), 1)
+        self.assertEqual(self.update_copy_from(updated, release_event("v0.5.0-beta.2", prerelease=True)).count(
+            'data-release-link="beta"'), 1)
         for stable_link in stable_links:
             self.assertIn(stable_link, updated)
 
