@@ -144,7 +144,8 @@ class ProjectTests(unittest.TestCase):
         for name in ("Build APK without release credentials", "Record resolved Android runtime dependencies"):
             step = workflow.split(f'- name: {name}', 1)[1].split('- name:', 1)[0]
             with self.subTest(step=name):
-                for limit in ("--max-workers=2", "--no-parallel", "-Xmx4g -Xms1g", "MaxMetaspaceSize=2g"):
+                for limit in ("--max-workers=2", "--no-parallel", "-Xmx6g -Xms1g", "MaxMetaspaceSize=2g",
+                              "-Pkotlin.daemon.jvmargs=-Xmx4g"):
                     self.assertIn(limit, step)
 
     def test_release_inputs_are_pinned_and_attested(self):

@@ -64,6 +64,42 @@ COMPONENT_FILES = (
 )
 
 
+# MainMenu parameters Acute deliberately stops reading. The default-browser
+# promotion banner is not shown, and the grouped navigation section no longer
+# moves with toolbar position. Every other upstream menu input must stay wired.
+INTENTIONALLY_UNUSED_MENU_INPUTS = frozenset({
+    "showBanner", "onBannerClick", "onBannerDismiss",
+    "isBottomToolbar", "isExpandedToolbarEnabled",
+})
+
+
+def validate_menu_continuity(original: str, transformed: str) -> None:
+    """Fail when regrouping the main menu drops an upstream action or label."""
+    def main_menu(text: str) -> tuple[list[str], str]:
+        start = text.index("fun MainMenu(")
+        signature_end = text.index(") {", start)
+        body_end = text.index("\n@Composable", signature_end)
+        parameters = re.findall(r"^\s+(\w+): ", text[start:signature_end], re.MULTILINE)
+        return parameters, text[signature_end:body_end]
+
+    parameters, original_body = main_menu(original)
+    transformed_parameters, transformed_body = main_menu(transformed)
+    assert transformed_parameters == parameters, "MainMenu signature changed"
+    used = lambda name, body: re.search(rf"\b{name}\b", body) is not None
+    dropped = sorted(
+        name for name in parameters
+        if used(name, original_body) and not used(name, transformed_body)
+        and name not in INTENTIONALLY_UNUSED_MENU_INPUTS
+    )
+    assert not dropped, "Main menu no longer uses upstream inputs: " + ", ".join(dropped)
+    wiring = lambda text: set(re.findall(r"\b(on\w+) = (on\w+)\b", text))
+    missing_wiring = sorted(wiring(original) - wiring(transformed))
+    assert not missing_wiring, f"Main menu handlers are no longer wired: {missing_wiring}"
+    strings = lambda text: set(re.findall(r"R\.string\.(\w+)", text))
+    missing_labels = sorted(strings(original) - strings(transformed))
+    assert not missing_labels, f"Main menu labels disappeared: {missing_labels}"
+
+
 def validate_output(source: Path, checkout: Path, channel: str) -> None:
     """Validate security and viewport invariants on real transformed upstream files."""
     import xml.etree.ElementTree as ET
@@ -100,6 +136,11 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     debug_activities = [a for a in application.findall("activity") if a.get(android + "name") == "mozilla.telemetry.glean.debug.GleanDebugActivity"]
     assert len(debug_activities) == 1 and debug_activities[0].get(tools + "node") == "remove"
     code = app / "src/main/java/org/mozilla/fenix"
+    menu = "components/menu/compose/MainMenu.kt"
+    validate_menu_continuity(
+        (source / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix" / menu).read_text(),
+        (code / menu).read_text(),
+    )
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
     # Exact source anchors can apply successfully while introducing Kotlin

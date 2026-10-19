@@ -239,10 +239,14 @@ jobs:
           GRADLE_FLAGS: ${{ needs.metadata.outputs.gradle_flags }}
           GRADLE_TASK: ${{ needs.metadata.outputs.task }}
         run: |
+          # Fenix release lint analyzes the whole app inside the Gradle heap and
+          # exhausted 4 GiB (GC overhead limit, Build 99). Give Gradle 6 GiB and
+          # cap the separate Kotlin daemon, which otherwise inherits the same heap.
           gradle_resource_args=(
             --no-parallel
             --max-workers=2
-            '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
+            '-Dorg.gradle.jvmargs=-Xmx6g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
+            '-Pkotlin.daemon.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g'
           )
           ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}"
 
@@ -256,7 +260,8 @@ jobs:
         run: |
           ./mach gradle fenix:dependencies --configuration "${BUILD_KIND}RuntimeClasspath" \
             --no-parallel --max-workers=2 \
-            '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC' \
+            '-Dorg.gradle.jvmargs=-Xmx6g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC' \
+            '-Pkotlin.daemon.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g' \
             > "$RUNNER_TEMP/acute-runtime-dependencies.txt"
           if grep -q ' FAILED' "$RUNNER_TEMP/acute-runtime-dependencies.txt"; then
             echo "::error::Runtime dependency resolution is incomplete"
