@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -66,15 +67,19 @@ class SiteReleaseTests(unittest.TestCase):
 
     def test_beta_release_updates_beta_only(self):
         original = (ROOT / "docs/index.html").read_text(encoding="utf-8")
-        stable_links = [
-            line.strip()
-            for line in original.splitlines()
-            if 'data-release-link="stable"' in line
-        ]
+        stable_links = re.findall(r'<a\b[^>]*data-release-link="stable"[^>]*>.*?</a>', original)
+        self.assertTrue(stable_links)
         updated = self.update_copy(release_event("v0.5.0-beta.1", prerelease=True))
         self.assertIn("acute-web-0.5.0-beta.1-arm64-v8a.apk", updated)
         self.assertIn('data-release-version="beta">0.5.0-beta.1', updated)
         self.assertIn('class="button button-secondary" data-release-link="beta"', updated)
+        actions = updated.split('<div class="home-actions">', 1)[1].split("</div>", 1)[0]
+        self.assertIn('data-release-link="stable"', actions)
+        self.assertIn('data-release-link="beta"', actions)
+        self.assertIn('href="https://github.com/iiankehn/acute-web-android/releases/tag/v0.5.0-beta.1">Beta release notes', updated)
+        again = self.update_copy_from(updated, release_event("v0.5.0-beta.2", prerelease=True))
+        self.assertIn("releases/tag/v0.5.0-beta.2", again)
+        self.assertNotIn("v0.5.0-beta.1", again)
         self.assertEqual(updated.count('data-release-link="beta"'), 1)
         self.assertEqual(self.update_copy_from(updated, release_event("v0.5.0-beta.2", prerelease=True)).count(
             'data-release-link="beta"'), 1)

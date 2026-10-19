@@ -75,24 +75,34 @@ def release_details(payload: dict) -> tuple[str, str, str, str]:
 
 
 def update_site(payload: dict, html_path: Path) -> bool:
-    channel, version, _tag, download_url = release_details(payload)
+    channel, version, tag, download_url = release_details(payload)
+    notes_url = f"https://github.com/{REPOSITORY}/releases/tag/{tag}"
     html = html_path.read_text(encoding="utf-8")
     original_html = html
     if channel == "beta" and 'data-release-link="beta"' not in html:
-        # Show a beta option only after an actual signed beta is published.
-        slot = "<!-- beta-release:start --><!-- beta-release:end -->"
-        if slot not in html:
-            raise ValueError("No beta release slot was found in the website")
-        html = html.replace(slot, (
-            '<!-- beta-release:start --><div class="home-actions beta-release">'
-            f'<a class="button button-secondary" data-release-link="beta" href="{download_url}">'
-            'Download Acute Beta <span aria-hidden="true">↓</span></a>'
-            '<p class="beta-note">Version <span data-release-version="beta">'
-            f'{version}</span> · Early access; may be unstable.</p>'
-            '</div><!-- beta-release:end -->'
-        ))
+        # Show the beta options only after an actual signed beta is published.
+        for name, content in (
+            ("beta-release",
+             '<a class="button button-secondary" data-release-link="beta" '
+             f'href="{download_url}">Download Acute Beta <span aria-hidden="true">↓</span></a>'),
+            ("beta-notes",
+             f'<a class="text-link" data-release-notes="beta" href="{notes_url}">Beta release notes</a>'),
+            ("beta-meta",
+             f'<span>Beta <span data-release-version="beta">{version}</span>'
+             ' · early access, may be unstable</span>'),
+        ):
+            slot = f"<!-- {name}:start --><!-- {name}:end -->"
+            if slot not in html:
+                raise ValueError(f"No {name} slot was found in the website")
+            html = html.replace(slot, f"<!-- {name}:start -->{content}<!-- {name}:end -->")
     updated = replace_marked_href(html, channel, download_url)
     updated = replace_marked_text(updated, channel, version)
+    if channel == "beta":
+        updated, count = re.subn(
+            r'(<a\b(?=[^>]*\bdata-release-notes="beta")[^>]*\bhref=")[^"]*(")',
+            rf"\g<1>{notes_url}\g<2>", updated)
+        if count == 0:
+            raise ValueError("No beta release notes links were found in the website")
 
     if channel == "stable":
         major_minor = ".".join(version.split(".")[:2])

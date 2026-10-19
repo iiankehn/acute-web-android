@@ -47,6 +47,6 @@ h1,h2,h3,p{margin-top:0}.home-intro h1{font-size:clamp(3rem,6vw,5.4rem);font-wei
 .product-highlights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin-top:28px}
 .product-highlights h3{font-size:1.05rem;font-weight:500;margin-bottom:8px}
 .product-highlights p{color:var(--muted);font-size:.9rem;margin-bottom:0;max-width:320px}
-.beta-release{margin-top:28px;gap:24px}.button-secondary{background:transparent;color:var(--accent)}.button-secondary:hover{background:rgba(117,184,255,.12)}
-.beta-note{margin:0;font-size:.85rem;color:var(--muted)}
+.button-secondary{background:transparent;color:var(--accent)}.button-secondary:hover{background:rgba(117,184,255,.12)}
+.home-actions+.release-notes{display:flex;flex-wrap:wrap;gap:12px 28px;margin:20px 0 0}
 @media(max-width:600px){.product-about{margin-top:22px;padding-top:28px}.product-highlights{grid-template-columns:1fr;gap:22px}.product-meta{gap:6px 16px}}
