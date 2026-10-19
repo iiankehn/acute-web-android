@@ -20,15 +20,23 @@ Testing Beta therefore does not replace or modify a user's Stable installation.
 
 ## Promotion policy
 
-Android 2.0 experiments are reviewed and tested on `dev` before a Beta candidate. Dev builds do not publish releases or update the public download website. Its release updater is disabled. A feature is promoted to
-`main` only after its tests pass, its user-facing branding and documentation are
-complete, and it survives phone, tablet, upgrade, and update-channel testing.
+Every change moves through the channels in one direction: **Dev → Beta → Stable**.
 
-The 2.0 development candidate retains native x86_64 support alongside ARM64,
-including architecture-aware update selection and separately verified signed
-packages. The native Android UI/security work on Dev supersedes the older
-Glass-based Beta implementation. Promotion depends on the open gates in
-[the 2.0 Beta audit](BETA_2_0_AUDIT.md).
+1. **Dev.** Changes land on `dev` through pull requests. Each push builds signed
+   Dev-package APKs as CI artifacts for device testing. Dev builds never publish
+   releases or update the website, and the Dev updater is disabled.
+2. **Beta.** Once a Dev build has been tested on a device, `dev` is promoted to
+   `beta` and tagged `vMAJOR.MINOR.PATCH-beta.NUMBER` to publish a prerelease.
+3. **Stable.** When a Beta has been tested and the feature set is locked in, `beta`
+   is promoted to `main` and tagged `vMAJOR.MINOR.PATCH`. A feature reaches `main`
+   only after its tests pass, its branding and documentation are complete, and it
+   survives phone, tablet, upgrade, and update-channel testing.
+
+Fixes always start on `dev`, including fixes for problems found in Beta or Stable.
+
+Android 2.0 replaces the CORE Glass interface with native Android controls; the
+Glass-based Beta line is preserved at `archive/pre-native-2026-10-12-beta`.
+Open acceptance gates are tracked in [the 2.0 Beta audit](BETA_2_0_AUDIT.md).
 
 Stable releases use tags such as `v1.1.0`. Beta releases use tags such as
 `v1.1.0-beta.1` and are published as GitHub prereleases.

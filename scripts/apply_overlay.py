@@ -1483,6 +1483,156 @@ def patch_shared_uid_manifest(path: Path) -> None:
     path.write_text(updated, encoding="utf-8")
 
 
+# Settings groups, in display order: (title, category key, preference keys).
+# Every preference upstream shows below the account rows must be placed in
+# exactly one group, so an upstream addition or removal fails the overlay
+# instead of silently disappearing from Settings.
+SETTINGS_GROUPS = (
+    ("@string/preferences_category_general", None, (
+        "@string/pref_key_make_default_browser",
+        "@string/pref_key_search_settings",
+        "@string/pref_key_language",
+        "@string/pref_key_translation",
+        "@string/pref_key_page_summaries",
+        "@string/pref_key_ai_controls",
+        "@string/pref_key_import_bookmarks",
+    )),
+    ("@string/acute_settings_category_appearance", None, (
+        "@string/pref_key_customize",
+        "@string/pref_key_home",
+        "@string/pref_key_tabs",
+        "@string/pref_key_accessibility",
+    )),
+    ("@string/preferences_category_privacy_security", "@string/pref_key_privacy_security_category", (
+        "@string/pref_key_private_browsing",
+        "@string/pref_key_tracking_protection_settings",
+        "@string/pref_key_https_only_settings",
+        "@string/pref_key_doh_settings",
+        "@string/pref_key_ip_protection_settings",
+        "@string/pref_key_site_permissions",
+        "@string/pref_key_notifications",
+    )),
+    ("@string/acute_settings_category_passwords", None, (
+        "@string/pref_key_passwords",
+        "@string/pref_key_email_masks",
+        "@string/pref_key_credit_cards",
+    )),
+    ("@string/acute_settings_category_browsing_data", None, (
+        "@string/pref_key_delete_browsing_data",
+        "@string/pref_key_delete_browsing_data_on_quit_preference",
+    )),
+    ("@string/acute_settings_category_downloads_links", None, (
+        "@string/pref_key_downloads",
+        "@string/pref_key_open_links_in_apps",
+        "@string/pref_key_link_sharing",
+    )),
+    ("@string/acute_settings_category_extensions", None, (
+        "@string/pref_key_addons",
+        "@string/pref_key_install_local_addon",
+        "@string/pref_key_override_amo_collection",
+    )),
+    ("@string/preferences_category_advanced", "@string/pref_key_advanced", (
+        "@string/pref_key_firefox_labs",
+        "@string/pref_key_remote_improvements",
+        "@string/pref_key_remote_debugging",
+        "@string/pref_key_enable_gecko_logs",
+        "@string/pref_key_local_network_access",
+        "@string/pref_key_leakcanary",
+    )),
+    ("@string/preferences_category_about", None, (
+        "@string/pref_key_about",
+        "acute_report_issue",
+        "@string/pref_key_rate",
+        "@string/pref_key_debug_settings",
+        "@string/pref_key_nimbus_experiments",
+        "@string/pref_key_start_profiler",
+    )),
+)
+SETTINGS_ENTRY = re.compile(
+    r"^        <([\w.]+)\b[^>]*?(?:/>|>.*?^        </\1>)\n", re.MULTILINE | re.DOTALL
+)
+
+
+def patch_settings_categories(path: Path) -> None:
+    """Regroup the main Settings list into focused categories without dropping entries."""
+    text = path.read_text(encoding="utf-8")
+    general = (
+        "    <androidx.preference.PreferenceCategory\n"
+        '        android:title="@string/preferences_category_general"'
+    )
+    start = text.find(general)
+    end = text.rfind("</androidx.preference.PreferenceScreen>")
+    if start < 0 or end < start or text.count(general) != 1:
+        raise OverlayError("Missing expected Fenix anchor: settings category layout")
+    region = text[start:end]
+    entries = {}
+    for match in SETTINGS_ENTRY.finditer(region):
+        key = re.search(r'android:key="([^"]+)"', match.group(0))
+        if key is None or key.group(1) in entries:
+            raise OverlayError("Settings entry without a unique key")
+        entries[key.group(1)] = match.group(0)
+    remainder = SETTINGS_ENTRY.sub("", region)
+    remainder = re.sub(r"^    </?(?:androidx\.preference\.)?PreferenceCategory\b[^>]*>\n", "",
+                       remainder, flags=re.MULTILINE)
+    if remainder.strip():
+        raise OverlayError("Unexpected content in Settings categories: " + remainder.strip()[:80])
+    placed = [key for _, _, keys in SETTINGS_GROUPS for key in keys]
+    if sorted(placed) != sorted(entries):
+        missing = sorted(set(entries) - set(placed))
+        absent = sorted(set(placed) - set(entries))
+        raise OverlayError(f"Settings entries changed upstream; unplaced {missing}, absent {absent}")
+    groups = []
+    for title, category_key, keys in SETTINGS_GROUPS:
+        key_attribute = f'\n        android:key="{category_key}"' if category_key else ""
+        groups.append(
+            "    <androidx.preference.PreferenceCategory\n"
+            f'        android:title="{title}"{key_attribute}\n'
+            '        android:layout="@layout/preference_category_no_icon_style">\n'
+            + "\n".join(entries[key] for key in keys)
+            + "    </androidx.preference.PreferenceCategory>\n"
+        )
+    path.write_text(text[:start] + "\n".join(groups) + text[end:], encoding="utf-8")
+
+
+# Compose's painterResource accepts only vector XML or raster files, so a
+# <bitmap> XML wrapper around the Acute mark throws when drawn. Upstream draws
+# these images with painterResource; each becomes a raster copy of the mark.
+COMPOSE_BRAND_RASTERS = (
+    "ic_firefox",
+    "expressive_firefox",
+    "ic_onboarding_welcome",
+    "nova_onboarding_marketing",
+    "nova_onboarding_notifications",
+    "nova_onboarding_sync",
+    "nova_onboarding_sync_qr",
+    "nova_onboarding_tou",
+    "nova_onboarding_tou_2",
+)
+
+
+def patch_onboarding_artwork(fenix: Path) -> None:
+    """Replace upstream mascot artwork with the Acute mark in Compose-safe forms."""
+    mark = ROOT / "overlay/res/drawable-nodpi/acute_brand_mark_transparent.png"
+    source_sets = [fenix / f"app/src/{name}/res" for name in ("main", "debug", "nightly", "beta", "release")]
+    for name in COMPOSE_BRAND_RASTERS:
+        if not (fenix / f"app/src/main/res/drawable/{name}.xml").is_file():
+            raise OverlayError(f"Missing expected Fenix drawable: {name}")
+        for res in source_sets:
+            (res / f"drawable/{name}.xml").unlink(missing_ok=True)
+        raster = fenix / f"app/src/main/res/drawable-nodpi/{name}.png"
+        raster.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(mark, raster)
+    # Selected toolbar-position art shows the mascot. The option also shows a
+    # checkmark, so the unselected device art serves both states.
+    drawable = fenix / "app/src/main/res/drawable"
+    for position in ("top", "bottom"):
+        active = drawable / f"nova_onboarding_toolbar_{position}_active.xml"
+        inactive = drawable / f"nova_onboarding_toolbar_{position}_inactive.xml"
+        if not active.is_file() or not inactive.is_file():
+            raise OverlayError(f"Missing expected Fenix drawable: {position} toolbar onboarding art")
+        shutil.copy2(inactive, active)
+
+
 def copy_overlay(fenix: Path, channel: str) -> None:
     java_target = fenix / "app/src/main/java/org/mozilla/fenix/acute"
     java_target.mkdir(parents=True, exist_ok=True)
@@ -1596,6 +1746,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)
     patch_user_reporting(settings, preferences, search_providers)
+    patch_settings_categories(preferences)
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
     patch_about_page(about)
@@ -1609,6 +1760,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     )
     patch_product_branding(fenix)
     copy_overlay(fenix, channel)
+    patch_onboarding_artwork(fenix)
     validate_product_identity(fenix)
     (checkout / MARKER).write_text(
         f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"

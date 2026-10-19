@@ -1,10 +1,11 @@
 from pathlib import Path
+import re
 import tempfile
 import unittest
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from apply_overlay import apply, OverlayError  # noqa: E402
+from apply_overlay import COMPOSE_BRAND_RASTERS, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
 
 
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
@@ -232,15 +233,6 @@ ONBOARDING = '''class OnboardingFragment {
         super.onViewCreated(view, savedInstanceState)
     }
 }
-'''
-
-PREFERENCES = '''<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
-        <androidx.preference.Preference
-            android:key="@string/pref_key_data_choices"
-            app:iconSpaceReserved="false"
-            android:title="@string/preferences_data_collection" />
-</PreferenceScreen>
 '''
 
 SEARCH_PROVIDERS = '''import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider
@@ -731,7 +723,17 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/res/values-night/colors.xml").write_text(NIGHT_COLORS)
         (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
-        (app / "src/main/res/xml/preferences.xml").write_text(PREFERENCES)
+        (app / "src/main/res/xml/preferences.xml").write_text(
+            (Path(__file__).parent / "fixtures/firefox-158.0/preferences.xml").read_text())
+        for name in COMPOSE_BRAND_RASTERS:
+            (app / "src/main/res/drawable").mkdir(parents=True, exist_ok=True)
+            (app / f"src/main/res/drawable/{name}.xml").write_text("<vector />")
+        (app / "src/beta/res/drawable").mkdir(parents=True)
+        (app / "src/beta/res/drawable/ic_firefox.xml").write_text("<vector />")
+        for position in ("top", "bottom"):
+            for state in ("active", "inactive"):
+                (app / f"src/main/res/drawable/nova_onboarding_toolbar_{position}_{state}.xml").write_text(
+                    f"<vector><!-- {state} --></vector>")
         (app / "src/main/res/values/static_strings.xml").write_text(
             '<resources><string name="app_name">Firefox Fenix</string></resources>')
         (app / "src/release/res/values/static_strings.xml").write_text(
@@ -1007,6 +1009,15 @@ class OverlayTests(unittest.TestCase):
         preferences = (app / "src/main/res/xml/preferences.xml").read_text()
         self.assertIn('android:key="acute_report_issue"', preferences)
         self.assertNotIn("pref_key_data_choices", preferences)
+        titles = re.findall(r'<androidx.preference.PreferenceCategory\n        android:title="([^"]+)"', preferences)
+        self.assertEqual(titles, [title for title, _, _ in SETTINGS_GROUPS])
+        about = preferences.split("@string/preferences_category_about", 1)[1]
+        self.assertIn('android:key="acute_report_issue"', about)
+        for name in COMPOSE_BRAND_RASTERS:
+            self.assertTrue((app / f"src/main/res/drawable-nodpi/{name}.png").is_file())
+            self.assertFalse((app / f"src/main/res/drawable/{name}.xml").exists())
+        self.assertFalse((app / "src/beta/res/drawable/ic_firefox.xml").exists())
+        self.assertIn("inactive", (app / "src/main/res/drawable/nova_onboarding_toolbar_top_active.xml").read_text())
         providers = (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").read_text()
         self.assertNotIn("DataChoicesSearchProvider", providers)
         reporting_strings = (app / "src/main/res/values/acute_reporting_strings.xml").read_text()
