@@ -19,7 +19,10 @@ Before publishing, confirm that the release-signing environment described in
 [SIGNING.md](SIGNING.md) is configured and that device acceptance testing is
 complete.
 
-Create and push an annotated semantic-version tag:
+Create Stable tags from a reviewed commit on `main`, or Beta tags from a
+reviewed commit on `beta`. The workflow rejects tags outside their channel
+branch history. After checking out and updating the intended channel branch,
+create and push an annotated semantic-version tag:
 
 ```bash
 VERSION=MAJOR.MINOR.PATCH
@@ -30,7 +33,7 @@ git push origin "v${VERSION}"
 The release workflow:
 
 1. runs the complete Acute source and release-control audit;
-2. checks out the pinned Mozilla source revision;
+2. verifies release-tag branch provenance and checks out the pinned Mozilla source revision;
 3. applies and validates the Acute overlay;
 4. builds and verifies the ARM64 and x86_64 APKs without production signing secrets;
 5. signs both APKs in isolated jobs;
@@ -51,7 +54,7 @@ use a new patch version so users and auditors can identify the exact artifact.
 - Verify the SHA-256 checksum and that every release asset is non-empty.
 - Install the release over the previous production version.
 - Verify the in-app update flow and direct download link.
-- Update the public website to the new stable version.
+- Verify the automatic website update points to the published release assets.
 
 ## Repository protections
 

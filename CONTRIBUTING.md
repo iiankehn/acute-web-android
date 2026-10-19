@@ -27,11 +27,11 @@ change should work on both phones and tablets.
 
 ## Development workflow
 
-1. Fork the repository and create a focused branch.
+1. Fork the repository and create a focused branch from `dev`; target `dev` in the pull request.
 2. Make the smallest coherent change.
 3. Add or update overlay fixtures and regression tests.
-4. Run the lightweight test suite locally.
-5. Use a manual GitHub Actions build for full APK and tablet smoke testing.
+4. Run `make audit`; run `make upstream-check` when changing overlay transformations.
+5. Use GitHub Actions for full APK builds. Emulator smoke tests are optional and run manually; see [Tablet support](docs/TABLET_SUPPORT.md).
 6. Test the resulting APK on a physical device when behavior changes.
 7. Open a pull request that explains the change, risk, and validation performed.
 
