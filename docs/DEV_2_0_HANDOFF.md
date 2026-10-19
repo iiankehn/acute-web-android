@@ -11,8 +11,8 @@ validation evidence and remaining acceptance gates. Inspect the live branch,
 PR head and Actions results before resuming; build numbers in notes describe
 specific historical commits.
 
-The hardening work is tracked in [PR #7](https://github.com/iiankehn/acute-web-android/pull/7)
-against `dev`. Stable, Beta and Dev use separate profiles; a Dev build does not
+The hardening work from [PR #7](https://github.com/iiankehn/acute-web-android/pull/7)
+is merged into `dev`; its Build 100 compiled and verified both ABIs. Stable, Beta and Dev use separate profiles; a Dev build does not
 establish Beta install-over behavior or readiness for public release.
 
 ## Preserved history
