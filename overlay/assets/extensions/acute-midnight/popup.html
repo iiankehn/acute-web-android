@@ -13,7 +13,7 @@
         <h1>Midnight Pages</h1>
         <p>Darken bright websites locally on this device.</p>
       </header>
-      <fieldset>
+      <fieldset disabled>
         <legend>Page appearance</legend>
         <label><input type="radio" name="mode" value="off"> Off</label>
         <label><input type="radio" name="mode" value="automatic"> Automatic <small>Recommended</small></label>
@@ -23,10 +23,11 @@
         <span class="section-label">Current website</span>
         <strong id="site-name"></strong>
         <label class="switch-row">
-          <input id="site-enabled" type="checkbox">
+          <input id="site-enabled" type="checkbox" disabled>
           Use Midnight Pages here
         </label>
       </section>
+      <p id="status" role="status" aria-live="polite"></p>
       <p class="privacy">No page content or browsing data leaves your device.</p>
     </main>
     <script src="popup.js"></script>

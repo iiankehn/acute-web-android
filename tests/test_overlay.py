@@ -1043,7 +1043,7 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
 
-    def test_product_branding_removes_disabled_upstream_service_copy(self):
+    def test_product_branding_removes_promotions_and_preserves_sync_instructions(self):
         temp, root = self.make_checkout()
         self.addCleanup(temp.cleanup)
         strings = root / "mobile/android/fenix/app/src/main/res/values/strings.xml"
@@ -1061,10 +1061,11 @@ class OverlayTests(unittest.TestCase):
         branded = strings.read_text()
         self.assertIn("Visit the Acute Web project", branded)
         self.assertIn("Recommendations are disabled in Acute Web", branded)
-        self.assertIn("Sync pairing is not available in Acute Web", branded)
+        self.assertNotIn("Sync pairing is not available in Acute Web", branded)
         self.assertNotIn("Google Play", branded)
         self.assertNotIn("Sponsored", branded)
-        self.assertNotIn("firefox.com/pair", branded)
+        self.assertIn('<string name="pair_instructions_2">Visit firefox.com/pair</string>', branded)
+        self.assertIn('<string name="sign_in_instructions">Visit firefox.com/pair</string>', branded)
 
     def test_product_identity_gate_rejects_upstream_promotions(self):
         temp, root = self.make_checkout()

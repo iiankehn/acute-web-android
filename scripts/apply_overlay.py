@@ -32,6 +32,8 @@ UPSTREAM_DISCLOSURE_RESOURCE_PARTS = (
     "synced_tabs",
     "term_of_service",
     "tou_",
+    "pair_instructions",
+    "sign_in_instructions",
 )
 
 
@@ -333,8 +335,6 @@ def replace_product_branding(xml: str) -> str:
         "preferences_rate": "Visit the Acute Web project",
         "preferences_show_sponsored_suggestions_summary": "Recommendations are disabled in Acute Web",
         "customize_toggle_contile": "Recommendations",
-        "pair_instructions_2": "Sync pairing is not available in Acute Web",
-        "sign_in_instructions": "Sync pairing is not available in Acute Web",
     }
     string = re.compile(
         r'(<string\b[^>]*\bname="([^"]+)"[^>]*>)(.*?)(</string>)',
@@ -771,6 +771,8 @@ def patch_manifest(path: Path) -> None:
     # This dependency provider runs before Application.onCreate, independently
     # of the disabled MetricController service list. Acute does not use attribution.
     provider += '        <provider android:name="com.adjust.sdk.SystemLifecycleContentProvider" tools:node="remove" />\n'
+    # Glean's dependency exports this diagnostic command activity even in release builds.
+    provider += '        <activity android:name="mozilla.telemetry.glean.debug.GleanDebugActivity" tools:node="remove" />\n'
     text = replace_once(text, "    </application>", provider + "    </application>",
                         "application closing tag")
     path.write_text(text, encoding="utf-8")

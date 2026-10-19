@@ -1,5 +1,20 @@
 # Android 2.0 reviewed-source handoff
 
+## October 17 Beta audit continuation
+
+Current Dev base `93995d8f1954d7bd48ba8aaef841c4755c8e8a5f` passed Build 94 on
+both architectures, including signing. Local follow-up patches are on
+`fix/2.0-beta-hardening`; they have not been built into a new APK.
+
+See [BETA_2_0_AUDIT.md](BETA_2_0_AUDIT.md) for repository-wide source findings,
+patches, dependency evidence, validation limits and physical-device acceptance.
+The 712-package OSV source inventory produced three vulnerability matches and
+three unmaintained notices. Vulnerability applicability/native artifact fixes
+remain open. Do not describe the dependency review as clean or Beta as ready.
+The Firefox 158 clipboard provider already disables exported access while
+allowing URI grants; the prior exported-provider concern is superseded by the
+current source inspection and must still receive compiled/device verification.
+
 ## October 15 continuation
 
 Dev `ead6dba25401fbea42d2842c967408df097ed73c` completed Build 91 successfully:

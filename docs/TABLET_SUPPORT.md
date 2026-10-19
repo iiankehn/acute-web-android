@@ -11,7 +11,7 @@ post-1.0 validation target.
 On qualifying devices, Acute enables:
 
 - a persistent tab strip, configurable in customization settings;
-- an expanded toolbar that uses the available width for direct actions;
+- a single address/navigation row with direct actions on wide layouts;
 - fixed browser chrome that remains visible instead of collapsing like the
   phone toolbar;
 - desktop browsing mode for newly opened tabs, with per-site and default
@@ -20,8 +20,7 @@ On qualifying devices, Acute enables:
 - picture-in-picture where supported by Android and the website;
 - installation on ChromeOS hardware that does not report a touchscreen.
 - mouse back/forward buttons mapped to browser history navigation;
-- a deeper blue CORE Glass toolbar treatment on wide layouts while phones keep
-  the existing subtler glass stack.
+- opaque Midnight surfaces with native controls on phones and wide layouts.
 
 ## Keyboard shortcuts
 
@@ -40,8 +39,9 @@ Tablet and laptop-class layouts support conventional browser controls:
 
 ## Automated coverage
 
-Every Android build runs launch and rotation smoke tests at three large-screen
-configurations:
+The optional `scripts/tablet_smoke.sh` helper covers these large-screen
+configurations, plus a compact-phone profile. The current APK workflow does
+not run an emulator or this script automatically.
 
 | Profile | Resolution | Density | Approximate smallest width |
 |---|---:|---:|---:|
@@ -50,9 +50,11 @@ configurations:
 | Large tablet | 1848 × 2960 | 320 dpi | 924 dp |
 | Laptop landscape | 1920 × 1080 | 160 dpi | 1080 dp |
 
-For each profile, the workflow installs Acute, launches it in portrait and
-landscape, sends keyboard navigation input, checks that the process remains
-alive, and stores screenshots as build artifacts.
+For each profile, the helper installs Acute, launches it in portrait and
+landscape, checks that the process remains alive, and stores screenshots in the
+requested output folder. Keyboard behavior and interactive controls still need
+manual testing. Use a dedicated test device or emulator: the helper changes
+display size/density and rotation settings.
 
 ## Device acceptance checklist
 

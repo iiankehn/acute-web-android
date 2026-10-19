@@ -90,7 +90,8 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
                 }
                 output.toString(Charsets.UTF_8.name())
             }
-            val releases = JSONArray(body)
+            // Beta traffic must not push Stable security updates off a mixed-channel page.
+            val releases = if (IS_BETA) JSONArray(body) else JSONArray().put(JSONObject(body))
             var json: JSONObject? = null
             for (index in 0 until releases.length()) {
                 val candidate = releases.getJSONObject(index)
@@ -248,7 +249,10 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private val STABLE_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
         private val BETA_VERSION = Regex("^([0-9]+)\\.([0-9]+)\\.([0-9]+)-beta\\.([0-9]+)$")
         private val channelVersion = if (IS_BETA) BETA_VERSION else STABLE_VERSION
-        private const val RELEASE_API =
+        private const val BETA_RELEASE_API =
             "https://api.github.com/repos/iiankehn/acute-web-android/releases?per_page=20"
+        private const val STABLE_RELEASE_API =
+            "https://api.github.com/repos/iiankehn/acute-web-android/releases/latest"
+        private val RELEASE_API = if (IS_BETA) BETA_RELEASE_API else STABLE_RELEASE_API
     }
 }

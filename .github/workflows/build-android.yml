@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' }}
 
 env:
   PINNED_FIREFOX_REF: 3c71aeacdb296402e41fb2084b13e797d1770642
@@ -125,9 +125,22 @@ jobs:
             echo "firefox_ref=$firefox_ref" >> "$GITHUB_OUTPUT"
           fi
 
+  provenance:
+    name: Verify release tag branch provenance
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out build commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require Stable tags on main and Beta tags on beta
+        run: bash scripts/verify_release_ref.sh
+
   build:
     name: Build without release secrets (${{ matrix.abi }})
-    needs: metadata
+    needs: [metadata, provenance]
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
@@ -226,12 +239,36 @@ jobs:
           GRADLE_FLAGS: ${{ needs.metadata.outputs.gradle_flags }}
           GRADLE_TASK: ${{ needs.metadata.outputs.task }}
         run: |
+          # Fenix release lint analyzes the whole app inside the Gradle heap and
+          # exhausted 4 GiB (GC overhead limit, Build 99). Give Gradle 6 GiB and
+          # cap the separate Kotlin daemon, which otherwise inherits the same heap.
           gradle_resource_args=(
             --no-parallel
             --max-workers=2
-            '-Dorg.gradle.jvmargs=-Xmx4g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
+            '-Dorg.gradle.jvmargs=-Xmx6g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC'
+            '-Pkotlin.daemon.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g'
           )
           ./mach gradle "$GRADLE_TASK" $GRADLE_FLAGS "${gradle_resource_args[@]}"
+
+      - name: Record resolved Android runtime dependencies
+        working-directory: firefox
+        env:
+          BUILD_KIND: ${{ needs.metadata.outputs.kind }}
+          ACUTE_TARGET_ABI: ${{ matrix.abi }}
+          ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}
+          ACUTE_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          ./mach gradle fenix:dependencies --configuration "${BUILD_KIND}RuntimeClasspath" \
+            --no-parallel --max-workers=2 \
+            '-Dorg.gradle.jvmargs=-Xmx6g -Xms1g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC' \
+            '-Pkotlin.daemon.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g' \
+            > "$RUNNER_TEMP/acute-runtime-dependencies.txt"
+          if grep -q ' FAILED' "$RUNNER_TEMP/acute-runtime-dependencies.txt"; then
+            echo "::error::Runtime dependency resolution is incomplete"
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
 
       - name: Collect and verify ${{ matrix.abi }} APK
         env:
@@ -256,6 +293,9 @@ jobs:
           "$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "$apk" > "$RUNNER_TEMP/acute-manifest-tree.txt"
           python3 acute-overlay/scripts/verify_apk_manifest.py "$RUNNER_TEMP/acute-manifest-tree.txt"
           cp "$apk" "dist/acute-web-${VERSION}-${ABI}-unsigned.apk"
+          cp "$RUNNER_TEMP/acute-manifest-tree.txt" "dist/manifest-tree-${ABI}.txt"
+          cp "$RUNNER_TEMP/acute-runtime-dependencies.txt" "dist/runtime-dependencies-${ABI}.txt"
+          cp firefox/Cargo.lock "dist/cargo-lock-${ABI}.txt"
           printf 'Acute version: %s\nArchitecture: %s\nFirefox commit: %s\nAcute commit: %s\n' \
             "$VERSION" "$ABI" "$FIREFOX_REF" "$GITHUB_SHA" > "dist/build-inputs-${ABI}.txt"
 
@@ -268,6 +308,7 @@ jobs:
             ${{ runner.temp }}/acute-badging.txt
             ${{ runner.temp }}/acute-apk-entries.txt
             ${{ runner.temp }}/acute-manifest-tree.txt
+            ${{ runner.temp }}/acute-runtime-dependencies.txt
           if-no-files-found: ignore
           retention-days: 7
 
@@ -333,7 +374,15 @@ jobs:
           unsigned_apk="$(find unsigned -name '*-unsigned.apk' -print -quit)"
           "$build_tools/aapt2" dump badging "$unsigned_apk" > "$RUNNER_TEMP/acute-unsigned-badging.txt"
           grep -F "package: name='$EXPECTED_PACKAGE' " "$RUNNER_TEMP/acute-unsigned-badging.txt"
-          ! grep -q '^application-debuggable' "$RUNNER_TEMP/acute-unsigned-badging.txt"
+          # BEGIN signed APK debug policy
+          if grep -q '^application-debuggable' "$RUNNER_TEMP/acute-unsigned-badging.txt"; then
+            echo "::error::Refusing to sign a debuggable APK"
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
+          # END signed APK debug policy
+          "$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "$unsigned_apk" > "$RUNNER_TEMP/acute-unsigned-manifest.txt"
           "$build_tools/zipalign" -f -p 4 "$unsigned_apk" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" sign \
             --ks "$RUNNER_TEMP/acute-web-release.jks" \
@@ -344,15 +393,30 @@ jobs:
             "$RUNNER_TEMP/aligned.apk"
           signing_report="$("$build_tools/apksigner" verify --verbose --print-certs "dist/acute-web-${VERSION}-${ABI}.apk")"
           printf '%s\n' "$signing_report" | tee "dist/signing-certificate-${ABI}.txt"
+          "$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "dist/acute-web-${VERSION}-${ABI}.apk" > "dist/manifest-tree-${ABI}.txt"
+          # Preserve the build-verified manifest through alignment and signing.
+          # Do not execute repository source in this credential-bearing job.
+          cmp "$RUNNER_TEMP/acute-unsigned-manifest.txt" "dist/manifest-tree-${ABI}.txt"
           permissions_report="$("$build_tools/aapt2" dump permissions "dist/acute-web-${VERSION}-${ABI}.apk")"
           printf '%s\n' "$permissions_report" | tee "dist/manifest-permissions-${ABI}.txt"
-          ! grep -q 'com.adjust.preinstall.READ_PERMISSION' "dist/manifest-permissions-${ABI}.txt"
-          ! grep -q 'com.google.android.gms.permission.AD_ID' "dist/manifest-permissions-${ABI}.txt"
-          ! grep -q 'android.permission.QUERY_ALL_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
-          ! grep -q 'android.permission.REQUEST_DELETE_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
-          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "dist/manifest-permissions-${ABI}.txt"
+          # BEGIN signed APK permission policy
+          if grep -Fq \
+            -e 'com.adjust.preinstall.READ_PERMISSION' \
+            -e 'com.google.android.gms.permission.AD_ID' \
+            -e 'android.permission.QUERY_ALL_PACKAGES' \
+            -e 'android.permission.REQUEST_DELETE_PACKAGES' \
+            -e 'android.permission.REQUEST_INSTALL_PACKAGES' \
+            "dist/manifest-permissions-${ABI}.txt"; then
+            echo "::error::Prohibited permission in the signed APK"
+            exit 1
+          else
+            test "$?" -eq 1
+          fi
+          # END signed APK permission policy
           sha256sum "dist/acute-web-${VERSION}-${ABI}.apk" > "dist/acute-web-${VERSION}-${ABI}.apk.sha256"
           cp "unsigned/build-inputs-${ABI}.txt" "dist/build-inputs-${ABI}.txt"
+          cp "unsigned/runtime-dependencies-${ABI}.txt" "dist/runtime-dependencies-${ABI}.txt"
+          cp "unsigned/cargo-lock-${ABI}.txt" "dist/cargo-lock-${ABI}.txt"
           rm -f "$RUNNER_TEMP/acute-web-release.jks" "$RUNNER_TEMP/aligned.apk"
 
       - name: Verify signing continuity with v0.2.0
