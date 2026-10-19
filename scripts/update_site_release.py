@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 
 
 REPOSITORY = "iiankehn/acute-web-android"
-STABLE_TAG = re.compile(r"^v(?P<version>\d+\.\d+\.\d+)$")
-BETA_TAG = re.compile(r"^v(?P<version>\d+\.\d+\.\d+-beta\.\d+)$")
+STABLE_TAG = re.compile(r"^v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)$")
+BETA_TAG = re.compile(r"^v(?P<version>[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+)$")
 
 
 def replace_marked_href(html: str, channel: str, url: str) -> str:
@@ -66,7 +66,9 @@ def release_details(payload: dict) -> tuple[str, str, str, str]:
     download_url = asset.get("browser_download_url", "")
     parsed = urlparse(download_url)
     expected_path = f"/{REPOSITORY}/releases/download/{tag}/{expected_name}"
-    if parsed.scheme != "https" or parsed.netloc != "github.com" or parsed.path != expected_path:
+    if (parsed.scheme != "https" or parsed.netloc != "github.com" or parsed.path != expected_path
+            or parsed.params or parsed.query or parsed.fragment or download_url != parsed.geturl()
+            or download_url != f"https://github.com{expected_path}"):
         raise ValueError("Release APK download URL is not an official Acute GitHub asset")
 
     return channel, version, tag, download_url
@@ -82,10 +84,12 @@ def update_site(payload: dict, html_path: Path) -> bool:
         if slot not in html:
             raise ValueError("No beta release slot was found in the website")
         html = html.replace(slot, (
-            '<!-- beta-release:start --><p class="beta-release">'
-            f'<a data-release-link="beta" href="{download_url}">Try Acute Beta '
-            f'<span data-release-version="beta">{version}</span></a>'
-            ' · Early access; may be unstable.</p><!-- beta-release:end -->'
+            '<!-- beta-release:start --><div class="home-actions beta-release">'
+            f'<a class="button button-secondary" data-release-link="beta" href="{download_url}">'
+            'Download Acute Beta <span aria-hidden="true">↓</span></a>'
+            '<p class="beta-note">Version <span data-release-version="beta">'
+            f'{version}</span> · Early access; may be unstable.</p>'
+            '</div><!-- beta-release:end -->'
         ))
     updated = replace_marked_href(html, channel, download_url)
     updated = replace_marked_text(updated, channel, version)
