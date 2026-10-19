@@ -348,6 +348,196 @@ def patch_menu_navigation_scroll(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_private_by_default(settings: Path, tracking_protection: Path) -> None:
+    """Default every profile to Strict tracking protection, HTTPS-Only mode and Global Privacy Control.
+
+    Only defaults change: a choice a user already saved in Settings is kept. Gecko continues to
+    exempt loopback and private-network IP addresses from HTTPS-Only upgrades.
+    """
+    text = settings.read_text(encoding="utf-8")
+    for old, new, label in (
+        ('''            appContext.getPreferenceKey(R.string.pref_key_https_only),
+            default = false,''',
+         '''            appContext.getPreferenceKey(R.string.pref_key_https_only),
+            default = true,''',
+         "HTTPS-Only default"),
+        ('''            appContext.getPreferenceKey(R.string.pref_key_privacy_enable_global_privacy_control),
+            false,''',
+         '''            appContext.getPreferenceKey(R.string.pref_key_privacy_enable_global_privacy_control),
+            true,''',
+         "Global Privacy Control default"),
+        ('''            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_standard_option),
+            true,''',
+         '''            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_standard_option),
+            false,''',
+         "Standard tracking protection default"),
+        ('''    val useStrictTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_strict_default),
+            false,''',
+         '''    val useStrictTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_strict_default),
+            true,''',
+         "Strict tracking protection default"),
+    ):
+        text = replace_once(text, old, new, label)
+    settings.write_text(text, encoding="utf-8")
+
+    # The preference screen declares its own defaults; keep them identical to Settings.kt.
+    xml = tracking_protection.read_text(encoding="utf-8")
+    for old, new, label in (
+        ('''        android:defaultValue="true"
+        android:dependency="@string/pref_key_tracking_protection"
+        android:key="@string/pref_key_tracking_protection_standard_option"''',
+         '''        android:defaultValue="false"
+        android:dependency="@string/pref_key_tracking_protection"
+        android:key="@string/pref_key_tracking_protection_standard_option"''',
+         "Standard tracking protection screen default"),
+        ('''        android:defaultValue="false"
+        android:dependency="@string/pref_key_tracking_protection"
+        android:key="@string/pref_key_tracking_protection_strict_default"''',
+         '''        android:defaultValue="true"
+        android:dependency="@string/pref_key_tracking_protection"
+        android:key="@string/pref_key_tracking_protection_strict_default"''',
+         "Strict tracking protection screen default"),
+        ('''        android:defaultValue="false"
+        android:key="@string/pref_key_privacy_enable_global_privacy_control"''',
+         '''        android:defaultValue="true"
+        android:key="@string/pref_key_privacy_enable_global_privacy_control"''',
+         "Global Privacy Control screen default"),
+    ):
+        xml = replace_once(xml, old, new, label)
+    tracking_protection.write_text(xml, encoding="utf-8")
+
+
+def patch_private_by_default_summary(preferences: Path) -> None:
+    """Explain the privacy defaults at the top of Settings › Privacy and security."""
+    text = preferences.read_text(encoding="utf-8")
+    category = '''        android:key="@string/pref_key_privacy_security_category"
+        android:layout="@layout/preference_category_no_icon_style">
+'''
+    summary = category + '''        <androidx.preference.Preference
+            android:key="acute_private_by_default"
+            android:selectable="false"
+            app:iconSpaceReserved="false"
+            android:title="@string/acute_private_by_default_title"
+            android:summary="@string/acute_private_by_default_settings_summary" />
+'''
+    text = replace_once(text, category, summary, "Privacy and security category")
+    preferences.write_text(text, encoding="utf-8")
+
+
+def patch_private_by_default_onboarding(onboarding: Path) -> None:
+    """Add a first-run page announcing the privacy defaults; it has no opt-out control."""
+    view = onboarding / "view"
+
+    path = view / "OnboardingPageUiData.kt"
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, '''        MARKETING_DATA(telemetryId = "marketing_data"),
+''', '''        MARKETING_DATA(telemetryId = "marketing_data"),
+        PRIVATE_BY_DEFAULT(telemetryId = "private_by_default"),
+''', "onboarding page types")
+    path.write_text(text, encoding="utf-8")
+
+    path = view / "OnboardingMapper.kt"
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, '''    onMarketingDataContinueClick: () -> Unit = {},
+): OnboardingPageState =''', '''    onMarketingDataContinueClick: () -> Unit = {},
+    onPrivateByDefaultContinueClick: () -> Unit = {},
+): OnboardingPageState =''', "onboarding page state mapper parameters")
+    text = replace_once(text, '''                onPositiveButtonClick = onMarketingDataContinueClick,
+                onNegativeButtonClick = {}, // No negative button option for marketing data.
+                isSmallDevice = isSmallDevice,
+            )
+    }
+''', '''                onPositiveButtonClick = onMarketingDataContinueClick,
+                onNegativeButtonClick = {}, // No negative button option for marketing data.
+                isSmallDevice = isSmallDevice,
+            )
+
+        OnboardingPageUiData.Type.PRIVATE_BY_DEFAULT ->
+            createOnboardingPageState(
+                onboardingPageUiData = onboardingPageUiData,
+                onPositiveButtonClick = onPrivateByDefaultContinueClick,
+                onNegativeButtonClick = {}, // Acute's privacy defaults are announced, not offered.
+                isSmallDevice = isSmallDevice,
+            )
+    }
+''', "onboarding page state mapping")
+    path.write_text(text, encoding="utf-8")
+
+    path = view / "OnboardingScreen.kt"
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, '''        onAgreeAndConfirmTermsOfService = {
+            termsOfServiceEventHandler.onAcceptTermsButtonClicked()
+            scrollToNextPageOrDismiss()
+        },
+''', '''        onAgreeAndConfirmTermsOfService = {
+            termsOfServiceEventHandler.onAcceptTermsButtonClicked()
+            scrollToNextPageOrDismiss()
+        },
+        onPrivateByDefaultContinueClick = scrollToNextPageOrDismiss,
+''', "onboarding content callbacks")
+    content_start = text.index("private fun OnboardingContent(")
+    signature_end = text.index(") {", content_start)
+    signature = text[content_start:signature_end]
+    if "    onAgreeAndConfirmTermsOfService: () -> Unit,\n" not in signature:
+        raise OverlayError("Expected exactly one onboarding content terms callback")
+    text = (text[:content_start]
+            + signature.replace("    onAgreeAndConfirmTermsOfService: () -> Unit,\n",
+                                "    onAgreeAndConfirmTermsOfService: () -> Unit,\n"
+                                "    onPrivateByDefaultContinueClick: () -> Unit = {},\n", 1)
+            + text[signature_end:])
+    text = replace_once(text, '''                        onTermsOfServiceButtonClick = onAgreeAndConfirmTermsOfService,
+                        isSmallDevice = layout.isSmall,
+''', '''                        onTermsOfServiceButtonClick = onAgreeAndConfirmTermsOfService,
+                        onPrivateByDefaultContinueClick = onPrivateByDefaultContinueClick,
+                        isSmallDevice = layout.isSmall,
+''', "onboarding page state callbacks")
+    text = replace_once(text, '''        OnboardingPageUiData.Type.NOTIFICATION_PERMISSION -> OnboardingPage(state)
+''', '''        OnboardingPageUiData.Type.NOTIFICATION_PERMISSION,
+        OnboardingPageUiData.Type.PRIVATE_BY_DEFAULT -> OnboardingPage(state)
+''', "onboarding page rendering")
+    path.write_text(text, encoding="utf-8")
+
+    path = onboarding / "OnboardingTelemetryRecorder.kt"
+    text = path.read_text(encoding="utf-8")
+    impression = text.index("        when (pageType) {")
+    end = text.index("\n        }\n    }\n", impression)
+    text = text[:end] + '''
+
+            // Acute does not record telemetry for its own onboarding page.
+            OnboardingPageUiData.Type.PRIVATE_BY_DEFAULT -> Unit''' + text[end:]
+    path.write_text(text, encoding="utf-8")
+
+    path = onboarding / "OnboardingFragment.kt"
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, '''            .distinctBy { it.type }
+            .toMutableStateList()
+    }
+''', '''            .distinctBy { it.type }
+            .withPrivateByDefaultPage()
+            .toMutableStateList()
+    }
+
+    // Shown right after the terms page (or first), so every new profile learns the defaults.
+    private fun List<OnboardingPageUiData>.withPrivateByDefaultPage(): List<OnboardingPageUiData> {
+        val page =
+            OnboardingPageUiData(
+                type = OnboardingPageUiData.Type.PRIVATE_BY_DEFAULT,
+                imageRes = R.drawable.ic_onboarding_welcome,
+                title = getString(R.string.acute_private_by_default_title),
+                description = getString(R.string.acute_private_by_default_onboarding_description),
+                primaryButtonLabel = getString(R.string.acute_private_by_default_continue),
+            )
+        val index = indexOfFirst { it.type == OnboardingPageUiData.Type.TERMS_OF_SERVICE } + 1
+        return toMutableList().apply { add(index, page) }
+    }
+''', "onboarding pages to display")
+    path.write_text(text, encoding="utf-8")
+
+
 def replace_product_branding(xml: str) -> str:
     """Rename the product while preserving truthful upstream disclosures."""
     acute_resource_values = {
@@ -1733,6 +1923,10 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     )
     onboarding = fenix / "app/src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt"
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
+    tracking_protection = fenix / "app/src/main/res/xml/tracking_protection_preferences.xml"
+    onboarding_views = [onboarding.parent / "view" / name for name in (
+        "OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt")]
+    onboarding_telemetry = onboarding.with_name("OnboardingTelemetryRecorder.kt")
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
     core = fenix / "app/src/main/java/org/mozilla/fenix/components/Core.kt"
@@ -1742,8 +1936,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics, crash_reporter,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
-                clipping_behavior, toolbar_behavior, onboarding,
-                preferences, search_providers, desktop_mode, core, about, customization,
+                clipping_behavior, toolbar_behavior, onboarding, *onboarding_views, onboarding_telemetry,
+                preferences, tracking_protection, search_providers, desktop_mode, core, about, customization,
                 values / "static_strings.xml", values / "strings.xml", night_colors]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -1763,10 +1957,13 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_native_menu(main_menu)
     patch_menu_navigation_scroll(main_menu.with_name("MenuNavigation.kt"))
     patch_runtime_privacy(settings, analytics)
+    patch_private_by_default(settings, tracking_protection)
     patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)
+    patch_private_by_default_onboarding(onboarding.parent)
     patch_user_reporting(settings, preferences, search_providers)
     patch_settings_categories(preferences)
+    patch_private_by_default_summary(preferences)
     patch_branding_ui(fenix)
     patch_home_content_policy(settings)
     patch_about_page(about)

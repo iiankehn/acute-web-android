@@ -198,10 +198,34 @@ class Settings(private val appContext: Context) {
                 },
         )
 
+    var shouldUseHttpsOnly by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_https_only),
+            default = false,
+        )
+
+    var shouldEnableGlobalPrivacyControl by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_privacy_enable_global_privacy_control),
+            false,
+        )
+
     val shouldUseAutoBatteryTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
             default = false,
+        )
+
+    val useStandardTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_standard_option),
+            true,
+        )
+
+    val useStrictTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_strict_default),
+            false,
         )
 }
 '''
@@ -688,6 +712,16 @@ class OverlayTests(unittest.TestCase):
             destination.write_text((fixtures / Path(relative).name).read_text())
         navigation = app / "src/main/java/org/mozilla/fenix/components/menu/compose/MenuNavigation.kt"
         navigation.write_text((Path(__file__).parent / "fixtures/firefox-158.0/MenuNavigation.kt").read_text(encoding="utf-8"))
+        fixtures_158 = Path(__file__).parent / "fixtures/firefox-158.0"
+        onboarding_code = app / "src/main/java/org/mozilla/fenix/onboarding"
+        (onboarding_code / "view").mkdir(parents=True, exist_ok=True)
+        for name in ("OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt"):
+            (onboarding_code / "view" / name).write_text((fixtures_158 / name).read_text(encoding="utf-8"), encoding="utf-8")
+        (onboarding_code / "OnboardingTelemetryRecorder.kt").write_text(
+            (fixtures_158 / "OnboardingTelemetryRecorder.kt").read_text(encoding="utf-8"), encoding="utf-8")
+        (app / "src/main/res/xml").mkdir(parents=True, exist_ok=True)
+        (app / "src/main/res/xml/tracking_protection_preferences.xml").write_text(
+            (fixtures_158 / "tracking_protection_preferences.xml").read_text(encoding="utf-8"), encoding="utf-8")
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
