@@ -28,6 +28,7 @@ FENIX_FILES = (
     "app/src/main/res/values-night/colors.xml",
     "app/src/main/res/values/styles.xml",
     "app/src/main/res/xml/preferences.xml",
+    "app/src/main/res/xml/tracking_protection_preferences.xml",
     "app/src/main/res/xml/customization_preferences.xml",
     *(f"app/src/main/res/drawable/{name}.xml" for name in COMPOSE_BRAND_RASTERS),
     *(f"app/src/{source}/res/drawable/ic_firefox.xml" for source in ("beta", "debug", "nightly")),
@@ -52,6 +53,10 @@ FENIX_KOTLIN = (
     "browser/NativeShareSheetContextMenuCandidate.kt",
     "browser/desktopmode/DesktopModeRepository.kt",
     "onboarding/OnboardingFragment.kt",
+    "onboarding/OnboardingTelemetryRecorder.kt",
+    "onboarding/view/OnboardingPageUiData.kt",
+    "onboarding/view/OnboardingMapper.kt",
+    "onboarding/view/OnboardingScreen.kt",
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
     "components/Analytics.kt",
@@ -117,6 +122,7 @@ def validate_settings_and_artwork(source: Path, checkout: Path) -> None:
     expected = keys(original)
     expected.remove("@string/pref_key_data_choices")
     expected.append("acute_report_issue")
+    expected.append("acute_private_by_default")
     assert keys(transformed) == sorted(expected), "Settings entries were lost or duplicated"
     titles = [c.get(android + "title") for c in transformed if c.tag.endswith("PreferenceCategory")]
     assert titles[1:] == [title for title, _, _ in SETTINGS_GROUPS], titles
@@ -174,6 +180,7 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     # MenuNavigation renders inside MenuFrame's scrolling body; a second
     # vertical scroll there crashes the menu on every web page.
     assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
+    validate_private_by_default(app, code)
     validate_settings_and_artwork(source, checkout)
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
@@ -202,6 +209,31 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         assert (source / relative).read_bytes() == (checkout / relative).read_bytes(), relative
     for xml in app.rglob("*.xml"):
         ET.parse(xml)
+
+
+def validate_private_by_default(app: Path, code: Path) -> None:
+    """Strict, HTTPS-Only and GPC defaults agree in code and XML, and onboarding announces them."""
+    import xml.etree.ElementTree as ET
+    settings = (code / "utils/Settings.kt").read_text()
+    for key, default in (
+        ("pref_key_https_only", "default = true"),
+        ("pref_key_privacy_enable_global_privacy_control", "true"),
+        ("pref_key_tracking_protection_standard_option", "false"),
+        ("pref_key_tracking_protection_strict_default", "true"),
+    ):
+        assert f"R.string.{key}),\n            {default}," in settings, key
+    xml = ET.parse(app / "src/main/res/xml/tracking_protection_preferences.xml").getroot()
+    android = "{http://schemas.android.com/apk/res/android}"
+    defaults = {node.get(android + "key"): node.get(android + "defaultValue") for node in xml.iter()}
+    assert defaults["@string/pref_key_tracking_protection_standard_option"] == "false"
+    assert defaults["@string/pref_key_tracking_protection_strict_default"] == "true"
+    assert defaults["@string/pref_key_privacy_enable_global_privacy_control"] == "true"
+    preferences = (app / "src/main/res/xml/preferences.xml").read_text()
+    assert preferences.count('android:key="acute_private_by_default"') == 1
+    fragment = (code / "onboarding/OnboardingFragment.kt").read_text()
+    assert ".withPrivateByDefaultPage()" in fragment
+    screen = (code / "onboarding/view/OnboardingScreen.kt").read_text()
+    assert screen.count("onPrivateByDefaultContinueClick") == 4
 
 
 def fetch_source(source: Path, repository: str, ref: str, paths: list[str]) -> None:

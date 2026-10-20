@@ -39,6 +39,8 @@ branch.
 - Tablet layouts, desktop-site defaults, split-screen support, and
   keyboard/mouse-friendly controls
 - Built-in update checks against signed releases from this repository
+- Private by default: Strict tracking protection, HTTPS-Only mode, and Global
+  Privacy Control ([details](docs/PRIVACY.md))
 - Acute telemetry, diagnostic reporting, and crash uploads disabled
 - Direct issue reporting through GitHub
 
