@@ -75,6 +75,12 @@ class PrivateByDefaultTests(unittest.TestCase):
         # The master switch stays on and the strict allow-list baseline stays enabled.
         self.assertEqual(defaults["@string/pref_key_tracking_protection"], "true")
         self.assertEqual(defaults["@string/pref_key_tracking_protection_strict_allow_list_baseline"], "true")
+        titles = {node.get(ANDROID + "key"): node.get(ANDROID + "title")
+                  for node in ET.parse(screen).getroot().iter()}
+        self.assertEqual(titles["@string/pref_key_tracking_protection_standard_option"],
+                         "@string/tracking_protection_standard")
+        self.assertEqual(titles["@string/pref_key_tracking_protection_strict_default"],
+                         "@string/acute_tracking_protection_strict_default")
 
     def test_defaults_fail_closed_when_upstream_changes(self):
         settings = self.root / "Settings.kt"
@@ -131,6 +137,11 @@ class PrivateByDefaultTests(unittest.TestCase):
     def test_whats_new_is_shown_once_and_only_after_updates(self):
         updater = (ROOT / "overlay/kotlin/GitHubUpdateProvider.kt").read_text(encoding="utf-8")
         self.assertIn("if (info.firstInstallTime == info.lastUpdateTime) return false", updater)
+        # Clearing app data keeps the original install time; a missing browser profile at
+        # launch is what marks that case as new, so the notice can't cover onboarding.
+        self.assertIn('hadProfileAtLaunch = File(app.dataDir, "shared_prefs/$BROWSER_PREFS.xml").exists()', updater)
+        self.assertIn("if (!hadProfileAtLaunch) return false", updater)
+        self.assertLess(updater.index("hadProfileAtLaunch = File("), updater.index("app.registerActivityLifecycleCallbacks(this)"))
         seen = updater.index("prefs.edit().putString(KEY_WHATS_NEW_SEEN, WHATS_NEW_ID).apply()")
         self.assertLess(seen, updater.index("AlertDialog.Builder(activity)\n            .setTitle(\"Private by default\")"))
         # Dev never checks GitHub releases even though it now registers for the notice.

@@ -228,6 +228,9 @@ def validate_private_by_default(app: Path, code: Path) -> None:
     assert defaults["@string/pref_key_tracking_protection_standard_option"] == "false"
     assert defaults["@string/pref_key_tracking_protection_strict_default"] == "true"
     assert defaults["@string/pref_key_privacy_enable_global_privacy_control"] == "true"
+    titles = {node.get(android + "key"): node.get(android + "title") for node in xml.iter()}
+    assert titles["@string/pref_key_tracking_protection_standard_option"] == "@string/tracking_protection_standard"
+    assert titles["@string/pref_key_tracking_protection_strict_default"] == "@string/acute_tracking_protection_strict_default"
     preferences = (app / "src/main/res/xml/preferences.xml").read_text()
     assert preferences.count('android:key="acute_private_by_default"') == 1
     fragment = (code / "onboarding/OnboardingFragment.kt").read_text()
