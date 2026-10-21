@@ -28,9 +28,12 @@ as `nas.lan` show the HTTPS-Only notice; choose **Continue to HTTP site**. See
   security, Passwords and autofill, Browsing data, Downloads and links,
   Extensions, Advanced and About.
 - First-run artwork uses the Acute mark.
+- The welcome page states Acute's own facts: open-source licensing and no
+  telemetry, diagnostics or crash reports.
+- Acute no longer re-prompts you on later days to set it as your default
+  browser, sign in to sync or try a VPN.
 
 ## Known issues
 
-- The last item in the main menu can be partly hidden at the bottom of the menu.
 - "Continue to HTTP site" exceptions for local host names last until Acute is
   closed.

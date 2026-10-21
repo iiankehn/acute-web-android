@@ -1257,6 +1257,22 @@ def patch_marketing_policy(settings: Path, onboarding: Path) -> None:
     settings_text = replace_once(
         settings_text, preference, enforced, "marketing telemetry preference"
     )
+    # Continuous onboarding re-prompts existing profiles on days 2-7: the system default-browser
+    # role request, a Firefox Sync sign-in card and a Mozilla VPN (IP Protection) prompt.
+    continuous = '''    var continuousOnboardingFeatureEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_enabled),
+            default = { FxNimbus.features.continuousOnboarding.value().enabled },
+        )
+'''
+    no_continuous = '''    // Acute Web does not re-prompt existing users with engagement or promotion cards.
+    var continuousOnboardingFeatureEnabled: Boolean
+        get() = false
+        set(value) = Unit
+'''
+    settings_text = replace_once(
+        settings_text, continuous, no_continuous, "continuous onboarding preference"
+    )
     settings.write_text(settings_text, encoding="utf-8")
 
     onboarding_text = onboarding.read_text(encoding="utf-8")
