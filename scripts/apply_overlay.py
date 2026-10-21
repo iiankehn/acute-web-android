@@ -428,6 +428,54 @@ def patch_private_by_default_summary(preferences: Path) -> None:
     preferences.write_text(text, encoding="utf-8")
 
 
+ACUTE_SOURCE_URL = "https://github.com/iiankehn/acute-web-android/blob/main/docs/SOURCE_AND_LICENSE.md"
+ACUTE_PRIVACY_URL = "https://github.com/iiankehn/acute-web-android/blob/main/docs/PRIVACY.md"
+
+
+def patch_acute_terms_page(path: Path) -> None:
+    """Replace the welcome page's Mozilla terms, privacy notice and diagnostic-data lines.
+
+    The upstream lines describe Firefox: Mozilla's Terms of Use, Mozilla's privacy notice and
+    diagnostic data sent to Mozilla. None of that is true of Acute, so the page states Acute's
+    own licensing and no-telemetry facts and links to Acute's documents instead.
+    """
+    text = path.read_text(encoding="utf-8")
+    start = text.index("private fun BodyText(")
+    body_start = text.index("    with(termsOfService) {\n", start)
+    body_end = text.index("\n}\n\n@Composable\nprivate fun BodyLinkText(", body_start)
+    upstream = text[body_start:body_end]
+    for marker in ("onTermsOfServiceLinkClicked", "onPrivacyNoticeLinkClicked", "onManagePrivacyPreferencesLinkClicked"):
+        if upstream.count(marker) != 1:
+            raise OverlayError(f"Unexpected terms page body: {marker}")
+    acute = f'''    // Acute states its own licensing and privacy facts instead of Mozilla's terms,
+    // privacy notice and diagnostic-data disclosure, which describe Firefox.
+    with(termsOfService) {{
+        Column(modifier = Modifier.padding(horizontal = FirefoxTheme.layout.space.static100)) {{
+            val sourceLinkText = stringResource(R.string.acute_onboarding_source_link_text)
+            BodyLinkText(
+                stringResource(R.string.acute_onboarding_source_line).updateFirstPlaceholder(sourceLinkText),
+                LinkTextState(
+                    text = sourceLinkText,
+                    url = "{ACUTE_SOURCE_URL}",
+                    onClick = eventHandler::onTermsOfServiceLinkClicked,
+                ),
+            )
+
+            val privacyLinkText = stringResource(R.string.acute_onboarding_privacy_link_text)
+            BodyLinkText(
+                stringResource(R.string.acute_onboarding_privacy_line).updateFirstPlaceholder(privacyLinkText),
+                LinkTextState(
+                    text = privacyLinkText,
+                    url = "{ACUTE_PRIVACY_URL}",
+                    onClick = eventHandler::onPrivacyNoticeLinkClicked,
+                ),
+            )
+        }}
+    }}'''
+    text = text[:body_start] + acute + text[body_end:]
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_private_by_default_onboarding(onboarding: Path) -> None:
     """Add a first-run page announcing the privacy defaults; it has no opt-out control."""
     view = onboarding / "view"
@@ -1925,7 +1973,8 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     preferences = fenix / "app/src/main/res/xml/preferences.xml"
     tracking_protection = fenix / "app/src/main/res/xml/tracking_protection_preferences.xml"
     onboarding_views = [onboarding.parent / "view" / name for name in (
-        "OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt")]
+        "OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt",
+        "TermsOfServiceOnboardingPage.kt")]
     onboarding_telemetry = onboarding.with_name("OnboardingTelemetryRecorder.kt")
     search_providers = fenix / "app/src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt"
     desktop_mode = fenix / "app/src/main/java/org/mozilla/fenix/browser/desktopmode/DesktopModeRepository.kt"
@@ -1961,6 +2010,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)
     patch_private_by_default_onboarding(onboarding.parent)
+    patch_acute_terms_page(onboarding.parent / "view/TermsOfServiceOnboardingPage.kt")
     patch_user_reporting(settings, preferences, search_providers)
     patch_settings_categories(preferences)
     patch_private_by_default_summary(preferences)
