@@ -197,6 +197,7 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         assert len(imports) == len(set(imports)), f"Duplicate imports: {kotlin}"
     assert home.count("BrowserFragmentDirections.actionGlobalHome(") >= 2
     settings = (code / "utils/Settings.kt").read_text()
+    assert "    var continuousOnboardingFeatureEnabled: Boolean\n        get() = false\n" in settings
     for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
         assert f"var {name}: Boolean\n        get() = false" in settings
     analytics = (code / "components/Analytics.kt").read_text()

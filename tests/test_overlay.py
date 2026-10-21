@@ -142,6 +142,13 @@ class Settings(private val appContext: Context) {
             default = false,
         )
 
+    /** Indicates if the continuous onboarding feature is enabled. */
+    var continuousOnboardingFeatureEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_enabled),
+            default = { FxNimbus.features.continuousOnboarding.value().enabled },
+        )
+
     var shouldUseLightTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_light_theme),
@@ -1045,6 +1052,10 @@ class OverlayTests(unittest.TestCase):
         onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
         self.assertIn("never displays Mozilla marketing", onboarding)
         self.assertNotIn("MarketingPageAdditionSupport(", onboarding)
+        self.assertIn(
+            "    var continuousOnboardingFeatureEnabled: Boolean\n        get() = false\n        set(value) = Unit\n",
+            (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text(),
+        )
         preferences = (app / "src/main/res/xml/preferences.xml").read_text()
         self.assertIn('android:key="acute_report_issue"', preferences)
         self.assertNotIn("pref_key_data_choices", preferences)

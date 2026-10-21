@@ -20,6 +20,9 @@ the public overlay, resources, tests, and workflow in this repository.
   reporting are disabled in Acute builds.
 - Unneeded Adjust preinstallation and package-deletion permissions are removed.
 - Sponsored home content and marketing onboarding screens are disabled.
+- Continuous onboarding is disabled, so existing users are not re-prompted on later
+  days with the default-browser request, a sync sign-in card or a VPN promotion.
+  Setting Acute as the default browser stays available in Settings.
 - Strict tracking protection, HTTPS-Only mode and Global Privacy Control are the
   default for every profile; saved user choices are kept. First-run onboarding,
   a one-time notice after updating, and Settings › Privacy and security explain
