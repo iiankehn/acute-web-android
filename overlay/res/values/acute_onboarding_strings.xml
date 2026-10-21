@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acute_onboarding_source_line">Acute Web is free and open-source software built on Mozilla\'s Gecko engine. See the %1$s.</string>
+    <string name="acute_onboarding_source_link_text">source and licenses</string>
+    <string name="acute_onboarding_privacy_line">Acute doesn\'t collect telemetry, diagnostics or crash reports. Read the %1$s.</string>
+    <string name="acute_onboarding_privacy_link_text">Acute privacy notice</string>
+</resources>

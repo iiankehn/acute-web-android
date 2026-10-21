@@ -715,7 +715,8 @@ class OverlayTests(unittest.TestCase):
         fixtures_158 = Path(__file__).parent / "fixtures/firefox-158.0"
         onboarding_code = app / "src/main/java/org/mozilla/fenix/onboarding"
         (onboarding_code / "view").mkdir(parents=True, exist_ok=True)
-        for name in ("OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt"):
+        for name in ("OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt",
+                     "TermsOfServiceOnboardingPage.kt"):
             (onboarding_code / "view" / name).write_text((fixtures_158 / name).read_text(encoding="utf-8"), encoding="utf-8")
         (onboarding_code / "OnboardingTelemetryRecorder.kt").write_text(
             (fixtures_158 / "OnboardingTelemetryRecorder.kt").read_text(encoding="utf-8"), encoding="utf-8")

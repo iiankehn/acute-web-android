@@ -57,6 +57,7 @@ FENIX_KOTLIN = (
     "onboarding/view/OnboardingPageUiData.kt",
     "onboarding/view/OnboardingMapper.kt",
     "onboarding/view/OnboardingScreen.kt",
+    "onboarding/view/TermsOfServiceOnboardingPage.kt",
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
     "components/Analytics.kt",
@@ -181,6 +182,11 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     # vertical scroll there crashes the menu on every web page.
     assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
     validate_private_by_default(app, code)
+    terms = (code / "onboarding/view/TermsOfServiceOnboardingPage.kt").read_text()
+    body = terms[terms.index("private fun BodyText("):terms.index("private fun BodyLinkText(")]
+    assert "onManagePrivacyPreferencesLinkClicked" not in body
+    assert "lineOneText" not in body and "lineThreeText" not in body
+    assert "R.string.acute_onboarding_privacy_line" in body
     validate_settings_and_artwork(source, checkout)
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
