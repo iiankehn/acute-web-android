@@ -4,6 +4,7 @@
 
 - [Android 2.0 handoff](DEV_2_0_HANDOFF.md): scope and where to resume.
 - [2.0 Beta audit](BETA_2_0_AUDIT.md): findings, build evidence and remaining acceptance gates.
+- [2.0 Beta 3 scope](BETA_3_SCOPE.md): the final Beta before the release candidate and its exit gates.
 - [Upstream maintenance](UPSTREAM.md): pinned Firefox source and overlay checks.
 - [Acute modifications](MODIFICATIONS.md): what Acute changes in Fenix.
 
