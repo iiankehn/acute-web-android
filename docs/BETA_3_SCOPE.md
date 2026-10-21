@@ -5,6 +5,9 @@ Beta 3 is the **final Beta before the 2.0 release candidate**. Its purpose is
 people to rely on it daily. There is no deadline; Beta 3 ships when its exit
 gates pass.
 
+Release path: **Beta 1 → Beta 2 → Beta 3 → RC → Stable.** Beta 2 ships as-is
+from `dev`; everything in this document is Beta 3 work.
+
 This document records the scope agreed on October 21, 2026. Changes to it go
 through a pull request like any other change.
 
@@ -25,7 +28,7 @@ through a pull request like any other change.
 
 ## Starting point
 
-Beta 3 builds on everything in `dev` for Beta 2: the menu crash fix,
+Beta 3 starts from the released Beta 2, which contains the menu crash fix,
 private-by-default (Strict tracking protection, HTTPS-Only, Global Privacy
 Control) and its announcements, the Settings categories, the Acute welcome
 page, and continuous onboarding turned off.
@@ -165,7 +168,7 @@ scope.
 3. **Crash reporting** and **privacy proof** in parallel; both touch startup and
    need the smoke tests.
 4. **Audit closure**, **homelab** and **small features**.
-5. **Updater proof** last, on the actual Beta 3 release.
+5. **Updater proof** last: Beta 2 → Beta 3 on the actual Beta 3 release.
 
 ## Risks and open questions
 
