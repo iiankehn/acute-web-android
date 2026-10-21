@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="acute_settings_category_appearance">Appearance</string>
+    <string name="acute_settings_category_passwords">Passwords and autofill</string>
+    <string name="acute_settings_category_browsing_data">Browsing data</string>
+    <string name="acute_settings_category_downloads_links">Downloads and links</string>
+    <string name="acute_settings_category_extensions">Extensions</string>
+</resources>

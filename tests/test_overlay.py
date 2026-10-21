@@ -1,10 +1,11 @@
 from pathlib import Path
+import re
 import tempfile
 import unittest
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from apply_overlay import apply, OverlayError  # noqa: E402
+from apply_overlay import COMPOSE_BRAND_RASTERS, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
 
 
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
@@ -141,6 +142,13 @@ class Settings(private val appContext: Context) {
             default = false,
         )
 
+    /** Indicates if the continuous onboarding feature is enabled. */
+    var continuousOnboardingFeatureEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_continuous_onboarding_enabled),
+            default = { FxNimbus.features.continuousOnboarding.value().enabled },
+        )
+
     var shouldUseLightTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_light_theme),
@@ -197,10 +205,34 @@ class Settings(private val appContext: Context) {
                 },
         )
 
+    var shouldUseHttpsOnly by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_https_only),
+            default = false,
+        )
+
+    var shouldEnableGlobalPrivacyControl by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_privacy_enable_global_privacy_control),
+            false,
+        )
+
     val shouldUseAutoBatteryTheme by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_auto_battery_theme),
             default = false,
+        )
+
+    val useStandardTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_standard_option),
+            true,
+        )
+
+    val useStrictTrackingProtection by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_tracking_protection_strict_default),
+            false,
         )
 }
 '''
@@ -232,15 +264,6 @@ ONBOARDING = '''class OnboardingFragment {
         super.onViewCreated(view, savedInstanceState)
     }
 }
-'''
-
-PREFERENCES = '''<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
-        <androidx.preference.Preference
-            android:key="@string/pref_key_data_choices"
-            app:iconSpaceReserved="false"
-            android:title="@string/preferences_data_collection" />
-</PreferenceScreen>
 '''
 
 SEARCH_PROVIDERS = '''import org.mozilla.fenix.settings.datachoices.DataChoicesSearchProvider
@@ -694,6 +717,19 @@ class OverlayTests(unittest.TestCase):
             destination = app / "src/main/java/org/mozilla/fenix" / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text((fixtures / Path(relative).name).read_text())
+        navigation = app / "src/main/java/org/mozilla/fenix/components/menu/compose/MenuNavigation.kt"
+        navigation.write_text((Path(__file__).parent / "fixtures/firefox-158.0/MenuNavigation.kt").read_text(encoding="utf-8"))
+        fixtures_158 = Path(__file__).parent / "fixtures/firefox-158.0"
+        onboarding_code = app / "src/main/java/org/mozilla/fenix/onboarding"
+        (onboarding_code / "view").mkdir(parents=True, exist_ok=True)
+        for name in ("OnboardingPageUiData.kt", "OnboardingMapper.kt", "OnboardingScreen.kt",
+                     "TermsOfServiceOnboardingPage.kt"):
+            (onboarding_code / "view" / name).write_text((fixtures_158 / name).read_text(encoding="utf-8"), encoding="utf-8")
+        (onboarding_code / "OnboardingTelemetryRecorder.kt").write_text(
+            (fixtures_158 / "OnboardingTelemetryRecorder.kt").read_text(encoding="utf-8"), encoding="utf-8")
+        (app / "src/main/res/xml").mkdir(parents=True, exist_ok=True)
+        (app / "src/main/res/xml/tracking_protection_preferences.xml").write_text(
+            (fixtures_158 / "tracking_protection_preferences.xml").read_text(encoding="utf-8"), encoding="utf-8")
         (app / "src/main/java/org/mozilla/fenix/browser").mkdir(parents=True, exist_ok=True)
         (app / "src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt").write_text(
             BASE_BROWSER_FRAGMENT)
@@ -731,7 +767,17 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/res/values-night/colors.xml").write_text(NIGHT_COLORS)
         (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
-        (app / "src/main/res/xml/preferences.xml").write_text(PREFERENCES)
+        (app / "src/main/res/xml/preferences.xml").write_text(
+            (Path(__file__).parent / "fixtures/firefox-158.0/preferences.xml").read_text())
+        for name in COMPOSE_BRAND_RASTERS:
+            (app / "src/main/res/drawable").mkdir(parents=True, exist_ok=True)
+            (app / f"src/main/res/drawable/{name}.xml").write_text("<vector />")
+        (app / "src/beta/res/drawable").mkdir(parents=True)
+        (app / "src/beta/res/drawable/ic_firefox.xml").write_text("<vector />")
+        for position in ("top", "bottom"):
+            for state in ("active", "inactive"):
+                (app / f"src/main/res/drawable/nova_onboarding_toolbar_{position}_{state}.xml").write_text(
+                    f"<vector><!-- {state} --></vector>")
         (app / "src/main/res/values/static_strings.xml").write_text(
             '<resources><string name="app_name">Firefox Fenix</string></resources>')
         (app / "src/release/res/values/static_strings.xml").write_text(
@@ -825,6 +871,8 @@ class OverlayTests(unittest.TestCase):
         for callback in ("onCustomizeReaderViewMenuClick", "onIPProtectionClick", "onIPProtectionNavigate", "onPasswordsMenuClick", "onExtensionsMenuClick", "onQuitMenuClick"):
             self.assertIn("= " + callback, menu)
         self.assertIn(".semantics { heading() }", menu)
+        navigation = (code / "components/menu/compose/MenuNavigation.kt").read_text(encoding="utf-8")
+        self.assertNotIn("verticalScroll", navigation)
         self.assertIn("isVisible = false // Acute owns", (code / "settings/CustomizationFragment.kt").read_text())
 
     def test_native_menu_continuity_preserves_bookmark_actions(self):
@@ -1004,9 +1052,22 @@ class OverlayTests(unittest.TestCase):
         onboarding = (app / "src/main/java/org/mozilla/fenix/onboarding/OnboardingFragment.kt").read_text()
         self.assertIn("never displays Mozilla marketing", onboarding)
         self.assertNotIn("MarketingPageAdditionSupport(", onboarding)
+        self.assertIn(
+            "    var continuousOnboardingFeatureEnabled: Boolean\n        get() = false\n        set(value) = Unit\n",
+            (app / "src/main/java/org/mozilla/fenix/utils/Settings.kt").read_text(),
+        )
         preferences = (app / "src/main/res/xml/preferences.xml").read_text()
         self.assertIn('android:key="acute_report_issue"', preferences)
         self.assertNotIn("pref_key_data_choices", preferences)
+        titles = re.findall(r'<androidx.preference.PreferenceCategory\n        android:title="([^"]+)"', preferences)
+        self.assertEqual(titles, [title for title, _, _ in SETTINGS_GROUPS])
+        about = preferences.split("@string/preferences_category_about", 1)[1]
+        self.assertIn('android:key="acute_report_issue"', about)
+        for name in COMPOSE_BRAND_RASTERS:
+            self.assertTrue((app / f"src/main/res/drawable-nodpi/{name}.png").is_file())
+            self.assertFalse((app / f"src/main/res/drawable/{name}.xml").exists())
+        self.assertFalse((app / "src/beta/res/drawable/ic_firefox.xml").exists())
+        self.assertIn("inactive", (app / "src/main/res/drawable/nova_onboarding_toolbar_top_active.xml").read_text())
         providers = (app / "src/main/java/org/mozilla/fenix/components/SettingsSearchProviders.kt").read_text()
         self.assertNotIn("DataChoicesSearchProvider", providers)
         reporting_strings = (app / "src/main/res/values/acute_reporting_strings.xml").read_text()

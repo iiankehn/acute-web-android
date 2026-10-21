@@ -18,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.fenix.BuildConfig
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.lang.ref.WeakReference
 import java.net.HttpURLConnection
 import java.net.URL
@@ -28,6 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Lightweight GitHub Releases update check with no Fenix-internal dependency.
  * It checks at most once every six hours and sends the selected APK to Android's normal
  * download/install flow. It never silently installs software.
+ *
+ * After an update it also shows a one-time "What's new" notice for changes that existing
+ * profiles would otherwise miss, because first-run onboarding only reaches new installs.
  */
 class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCallbacks {
     private val worker = Executors.newSingleThreadExecutor()
@@ -35,17 +39,23 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     private val main = Handler(Looper.getMainLooper())
     private var currentActivity = WeakReference<Activity>(null)
     private var pendingRelease: Release? = null
+    private var updatesEnabled = false
+    private var hadProfileAtLaunch = false
 
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
-        // Dev is delivered as isolated CI artifacts, never redirected into Stable/Beta releases.
-        if (app.packageName.endsWith(".dev")) return true
+        // Providers start before the browser creates its settings, so this tells a profile
+        // that existed before this launch apart from a new or just-cleared one.
+        hadProfileAtLaunch = File(app.dataDir, "shared_prefs/$BROWSER_PREFS.xml").exists()
         app.registerActivityLifecycleCallbacks(this)
+        // Dev is delivered as isolated CI artifacts, never redirected into Stable/Beta releases.
+        updatesEnabled = !app.packageName.endsWith(".dev")
         requestUpdateCheck()
         return true
     }
 
     private fun requestUpdateCheck() {
+        if (!updatesEnabled) return
         if (!checkInProgress.compareAndSet(false, true)) return
         worker.execute {
             try {
@@ -183,9 +193,42 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
             .show()
     }
 
+    /**
+     * Shows the notice once per profile after an update. A fresh install learns the same
+     * information from onboarding, so it only records that the notice is not needed.
+     */
+    private fun showWhatsNewIfNeeded(activity: Activity): Boolean {
+        if (activity.javaClass.simpleName != "HomeActivity") return false
+        if (activity.isFinishing || activity.isDestroyed) return false
+        val ctx = context ?: return false
+        val prefs = ctx.getSharedPreferences(PREFS, 0)
+        if (prefs.getString(KEY_WHATS_NEW_SEEN, null) == WHATS_NEW_ID) return false
+        prefs.edit().putString(KEY_WHATS_NEW_SEEN, WHATS_NEW_ID).apply()
+        if (!hadProfileAtLaunch) return false
+        val info = try {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        } catch (_: Exception) {
+            return false
+        }
+        if (info.firstInstallTime == info.lastUpdateTime) return false
+        AlertDialog.Builder(activity)
+            .setTitle("Private by default")
+            .setMessage(
+                "Acute now uses Strict tracking protection and HTTPS-Only mode by default, " +
+                    "and asks websites not to sell or share your data.\n\n" +
+                    "If you chose different settings before, they're unchanged. If a site doesn't " +
+                    "look right, tap the shield in the address bar. You can change these anytime " +
+                    "in Settings › Privacy and security.",
+            )
+            .setPositiveButton("Got it", null)
+            .show()
+        return true
+    }
+
     override fun onActivityResumed(activity: Activity) {
         currentActivity = WeakReference(activity)
         requestUpdateCheck()
+        if (showWhatsNewIfNeeded(activity)) return
         showIfReady()
     }
     override fun onActivityPaused(activity: Activity) {
@@ -239,6 +282,10 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val KEY_LAST_SUCCESS = "last_success_ms"
         private const val KEY_LAST_ATTEMPT = "last_attempt_ms"
         private const val KEY_REMIND_AFTER = "remind_after_ms"
+        private const val KEY_WHATS_NEW_SEEN = "whats_new_seen"
+        private const val BROWSER_PREFS = "fenix_preferences"
+        // Change this when a later release needs its own one-time notice.
+        private const val WHATS_NEW_ID = "2.0-private-by-default"
         private const val CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
         private const val RETRY_INTERVAL_MS = 15L * 60 * 1000
         private const val REMIND_INTERVAL_MS = 24L * 60 * 60 * 1000

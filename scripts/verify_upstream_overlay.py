@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import tomllib
 
-from apply_overlay import ROOT, apply
+from apply_overlay import COMPOSE_BRAND_RASTERS, ROOT, SETTINGS_GROUPS, apply
 
 
 FENIX_FILES = (
@@ -28,7 +28,12 @@ FENIX_FILES = (
     "app/src/main/res/values-night/colors.xml",
     "app/src/main/res/values/styles.xml",
     "app/src/main/res/xml/preferences.xml",
+    "app/src/main/res/xml/tracking_protection_preferences.xml",
     "app/src/main/res/xml/customization_preferences.xml",
+    *(f"app/src/main/res/drawable/{name}.xml" for name in COMPOSE_BRAND_RASTERS),
+    *(f"app/src/{source}/res/drawable/ic_firefox.xml" for source in ("beta", "debug", "nightly")),
+    *(f"app/src/main/res/drawable/nova_onboarding_toolbar_{position}_{state}.xml"
+      for position in ("top", "bottom") for state in ("active", "inactive")),
 )
 FENIX_KOTLIN = (
     "utils/Settings.kt",
@@ -36,6 +41,7 @@ FENIX_KOTLIN = (
     "home/ui/Homepage.kt",
     "home/ui/WordmarkAndLogo.kt",
     "components/menu/compose/MainMenu.kt",
+    "components/menu/compose/MenuNavigation.kt",
     "components/menu/MenuDialogFragment.kt",
     "components/menu/compose/MoreSettingsSubmenu.kt",
     "tabstray/redux/middleware/TabStorageMiddleware.kt",
@@ -47,6 +53,11 @@ FENIX_KOTLIN = (
     "browser/NativeShareSheetContextMenuCandidate.kt",
     "browser/desktopmode/DesktopModeRepository.kt",
     "onboarding/OnboardingFragment.kt",
+    "onboarding/OnboardingTelemetryRecorder.kt",
+    "onboarding/view/OnboardingPageUiData.kt",
+    "onboarding/view/OnboardingMapper.kt",
+    "onboarding/view/OnboardingScreen.kt",
+    "onboarding/view/TermsOfServiceOnboardingPage.kt",
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
     "components/Analytics.kt",
@@ -100,6 +111,32 @@ def validate_menu_continuity(original: str, transformed: str) -> None:
     assert not missing_labels, f"Main menu labels disappeared: {missing_labels}"
 
 
+def validate_settings_and_artwork(source: Path, checkout: Path) -> None:
+    """Settings keep every upstream entry; Compose-drawn brand art is raster-only."""
+    import xml.etree.ElementTree as ET
+    android = "{http://schemas.android.com/apk/res/android}"
+    relative = "mobile/android/fenix/app/src/main/res/xml/preferences.xml"
+    def keys(root):
+        return sorted(e.get(android + "key") for e in root.iter() if e.get(android + "key"))
+    original = ET.parse(source / relative).getroot()
+    transformed = ET.parse(checkout / relative).getroot()
+    expected = keys(original)
+    expected.remove("@string/pref_key_data_choices")
+    expected.append("acute_report_issue")
+    expected.append("acute_private_by_default")
+    assert keys(transformed) == sorted(expected), "Settings entries were lost or duplicated"
+    titles = [c.get(android + "title") for c in transformed if c.tag.endswith("PreferenceCategory")]
+    assert titles[1:] == [title for title, _, _ in SETTINGS_GROUPS], titles
+    res = checkout / "mobile/android/fenix/app/src"
+    for name in COMPOSE_BRAND_RASTERS:
+        assert (res / f"main/res/drawable-nodpi/{name}.png").is_file(), name
+        assert not list(res.glob(f"*/res/drawable*/{name}.xml")), name
+    drawable = res / "main/res/drawable"
+    for position in ("top", "bottom"):
+        assert (drawable / f"nova_onboarding_toolbar_{position}_active.xml").read_bytes() == (
+            drawable / f"nova_onboarding_toolbar_{position}_inactive.xml").read_bytes()
+
+
 def validate_output(source: Path, checkout: Path, channel: str) -> None:
     """Validate security and viewport invariants on real transformed upstream files."""
     import xml.etree.ElementTree as ET
@@ -141,6 +178,16 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         (source / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix" / menu).read_text(),
         (code / menu).read_text(),
     )
+    # MenuNavigation renders inside MenuFrame's scrolling body; a second
+    # vertical scroll there crashes the menu on every web page.
+    assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
+    validate_private_by_default(app, code)
+    terms = (code / "onboarding/view/TermsOfServiceOnboardingPage.kt").read_text()
+    body = terms[terms.index("private fun BodyText("):terms.index("private fun BodyLinkText(")]
+    assert "onManagePrivacyPreferencesLinkClicked" not in body
+    assert "lineOneText" not in body and "lineThreeText" not in body
+    assert "R.string.acute_onboarding_privacy_line" in body
+    validate_settings_and_artwork(source, checkout)
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
     # Exact source anchors can apply successfully while introducing Kotlin
@@ -150,6 +197,7 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         assert len(imports) == len(set(imports)), f"Duplicate imports: {kotlin}"
     assert home.count("BrowserFragmentDirections.actionGlobalHome(") >= 2
     settings = (code / "utils/Settings.kt").read_text()
+    assert "    var continuousOnboardingFeatureEnabled: Boolean\n        get() = false\n" in settings
     for name in ("isTelemetryEnabled", "isDailyUsagePingEnabled", "isExperimentationEnabled", "isRolloutsEnabled"):
         assert f"var {name}: Boolean\n        get() = false" in settings
     analytics = (code / "components/Analytics.kt").read_text()
@@ -168,6 +216,34 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
         assert (source / relative).read_bytes() == (checkout / relative).read_bytes(), relative
     for xml in app.rglob("*.xml"):
         ET.parse(xml)
+
+
+def validate_private_by_default(app: Path, code: Path) -> None:
+    """Strict, HTTPS-Only and GPC defaults agree in code and XML, and onboarding announces them."""
+    import xml.etree.ElementTree as ET
+    settings = (code / "utils/Settings.kt").read_text()
+    for key, default in (
+        ("pref_key_https_only", "default = true"),
+        ("pref_key_privacy_enable_global_privacy_control", "true"),
+        ("pref_key_tracking_protection_standard_option", "false"),
+        ("pref_key_tracking_protection_strict_default", "true"),
+    ):
+        assert f"R.string.{key}),\n            {default}," in settings, key
+    xml = ET.parse(app / "src/main/res/xml/tracking_protection_preferences.xml").getroot()
+    android = "{http://schemas.android.com/apk/res/android}"
+    defaults = {node.get(android + "key"): node.get(android + "defaultValue") for node in xml.iter()}
+    assert defaults["@string/pref_key_tracking_protection_standard_option"] == "false"
+    assert defaults["@string/pref_key_tracking_protection_strict_default"] == "true"
+    assert defaults["@string/pref_key_privacy_enable_global_privacy_control"] == "true"
+    titles = {node.get(android + "key"): node.get(android + "title") for node in xml.iter()}
+    assert titles["@string/pref_key_tracking_protection_standard_option"] == "@string/tracking_protection_standard"
+    assert titles["@string/pref_key_tracking_protection_strict_default"] == "@string/acute_tracking_protection_strict_default"
+    preferences = (app / "src/main/res/xml/preferences.xml").read_text()
+    assert preferences.count('android:key="acute_private_by_default"') == 1
+    fragment = (code / "onboarding/OnboardingFragment.kt").read_text()
+    assert ".withPrivateByDefaultPage()" in fragment
+    screen = (code / "onboarding/view/OnboardingScreen.kt").read_text()
+    assert screen.count("onPrivateByDefaultContinueClick") == 4
 
 
 def fetch_source(source: Path, repository: str, ref: str, paths: list[str]) -> None:
