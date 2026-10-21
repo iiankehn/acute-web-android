@@ -3,5 +3,6 @@
     <string name="acute_private_by_default_title">Private by default</string>
     <string name="acute_private_by_default_onboarding_description">Acute blocks known trackers, fingerprinters and cryptominers with Strict tracking protection, connects to websites only over secure HTTPS, and asks sites not to sell or share your data.\n\nIf a site doesn\'t look right, tap the shield in the address bar.</string>
     <string name="acute_private_by_default_continue">Continue</string>
+    <string name="acute_tracking_protection_strict_default">Strict (default)</string>
     <string name="acute_private_by_default_settings_summary">Strict tracking protection, HTTPS-Only mode and Global Privacy Control are on by default. If a site doesn\'t look right, tap the shield in the address bar.</string>
 </resources>

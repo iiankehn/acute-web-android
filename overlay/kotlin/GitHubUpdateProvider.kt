@@ -18,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.fenix.BuildConfig
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.lang.ref.WeakReference
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,9 +40,13 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
     private var currentActivity = WeakReference<Activity>(null)
     private var pendingRelease: Release? = null
     private var updatesEnabled = false
+    private var hadProfileAtLaunch = false
 
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
+        // Providers start before the browser creates its settings, so this tells a profile
+        // that existed before this launch apart from a new or just-cleared one.
+        hadProfileAtLaunch = File(app.dataDir, "shared_prefs/$BROWSER_PREFS.xml").exists()
         app.registerActivityLifecycleCallbacks(this)
         // Dev is delivered as isolated CI artifacts, never redirected into Stable/Beta releases.
         updatesEnabled = !app.packageName.endsWith(".dev")
@@ -199,6 +204,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         val prefs = ctx.getSharedPreferences(PREFS, 0)
         if (prefs.getString(KEY_WHATS_NEW_SEEN, null) == WHATS_NEW_ID) return false
         prefs.edit().putString(KEY_WHATS_NEW_SEEN, WHATS_NEW_ID).apply()
+        if (!hadProfileAtLaunch) return false
         val info = try {
             ctx.packageManager.getPackageInfo(ctx.packageName, 0)
         } catch (_: Exception) {
@@ -277,6 +283,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
         private const val KEY_LAST_ATTEMPT = "last_attempt_ms"
         private const val KEY_REMIND_AFTER = "remind_after_ms"
         private const val KEY_WHATS_NEW_SEEN = "whats_new_seen"
+        private const val BROWSER_PREFS = "fenix_preferences"
         // Change this when a later release needs its own one-time notice.
         private const val WHATS_NEW_ID = "2.0-private-by-default"
         private const val CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000

@@ -406,6 +406,13 @@ def patch_private_by_default(settings: Path, tracking_protection: Path) -> None:
          '''        android:defaultValue="true"
         android:key="@string/pref_key_privacy_enable_global_privacy_control"''',
          "Global Privacy Control screen default"),
+        # Upstream labels Standard as the default; in Acute it is Strict.
+        ('android:title="@string/preference_enhanced_tracking_protection_standard_default_1" />',
+         'android:title="@string/tracking_protection_standard" />',
+         "Standard tracking protection title"),
+        ('android:title="@string/preference_enhanced_tracking_protection_strict" />',
+         'android:title="@string/acute_tracking_protection_strict_default" />',
+         "Strict tracking protection title"),
     ):
         xml = replace_once(xml, old, new, label)
     tracking_protection.write_text(xml, encoding="utf-8")
