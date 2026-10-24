@@ -8,7 +8,7 @@ on:
       firefox_ref:
         description: Audited Mozilla Firefox commit (manual test builds only)
         required: true
-        default: 3c71aeacdb296402e41fb2084b13e797d1770642
+        default: 08d23041955657e661eef22c8fdc967735300233
   push:
     branches:
       - beta
@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/dev' }}
 
 env:
-  PINNED_FIREFOX_REF: 3c71aeacdb296402e41fb2084b13e797d1770642
+  PINNED_FIREFOX_REF: 08d23041955657e661eef22c8fdc967735300233
 
 jobs:
   audit:

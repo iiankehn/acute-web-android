@@ -150,7 +150,7 @@ class ProjectTests(unittest.TestCase):
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("3c71aeacdb296402e41fb2084b13e797d1770642", workflow)
+        self.assertIn("08d23041955657e661eef22c8fdc967735300233", workflow)
         self.assertNotIn("uses: actions/checkout@v", workflow)
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)

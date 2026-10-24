@@ -33,7 +33,7 @@ and provenance so a binary can be traced to those inputs.
 
 The currently pinned upstream source revision is:
 
-[`mozilla-firefox/firefox@3c71aeacdb296402e41fb2084b13e797d1770642`](https://github.com/mozilla-firefox/firefox/tree/3c71aeacdb296402e41fb2084b13e797d1770642)
+[`mozilla-firefox/firefox@08d23041955657e661eef22c8fdc967735300233`](https://github.com/mozilla-firefox/firefox/tree/08d23041955657e661eef22c8fdc967735300233) (Firefox for Android 158.0.2, tag `FIREFOX-ANDROID_158_0_2_RELEASE`)
 
 This is the Android 2.0 development pin. Historical Stable/Beta releases retain
 the revision in their own tag's configuration and build-input report.
