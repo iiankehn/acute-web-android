@@ -83,9 +83,11 @@ def validate_configuration() -> None:
 def validate_action_pinning() -> None:
     action = re.compile(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)", re.MULTILINE)
     immutable = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+    # A repository-local workflow runs from the same commit as its caller.
+    local_workflow = re.compile(r"^\./\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$")
     for path in WORKFLOWS.glob("*.yml"):
         for reference in action.findall(path.read_text(encoding="utf-8")):
-            if not immutable.fullmatch(reference):
+            if not (immutable.fullmatch(reference) or local_workflow.fullmatch(reference)):
                 fail(f"mutable action reference in {path.relative_to(ROOT)}: {reference}")
 
 

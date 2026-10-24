@@ -320,6 +320,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  smoke:
+    name: Emulator smoke tests
+    needs: [metadata, build]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/android-smoke.yml
+    with:
+      artifact: acute-web-${{ needs.metadata.outputs.version }}-x86_64-unsigned
+      package: ${{ needs.metadata.outputs.package }}
+
   sign:
     name: Sign and verify ${{ matrix.abi }} APK
     if: >-

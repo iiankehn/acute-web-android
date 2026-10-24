@@ -1,0 +1,132 @@
+name: Android emulator smoke tests
+
+# Runs scripts/android_smoke.py on x86_64 emulators. The APK build calls this
+# workflow with the APK it just built. A pull request that only changes the
+# smoke test itself runs it against the latest successful Dev build instead,
+# so the test can be iterated on without a 35-minute APK build.
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Unsigned x86_64 build artifact from the calling run
+        required: true
+        type: string
+      package:
+        description: Android application ID to test
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/android-smoke.yml
+      - scripts/android_smoke.py
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    name: Smoke test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: phone, Android 12
+            api: 31
+            profile: pixel_5
+          - name: tablet, Android 15
+            api: 35
+            profile: pixel_tablet
+    steps:
+      - name: Check out smoke test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Choose the APK to test
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CALLED_ARTIFACT: ${{ inputs.artifact }}
+          CALLED_PACKAGE: ${{ inputs.package }}
+        run: |
+          if [[ -n "$CALLED_ARTIFACT" ]]; then
+            {
+              echo "run_id=$GITHUB_RUN_ID"
+              echo "artifact=$CALLED_ARTIFACT"
+              echo "package=$CALLED_PACKAGE"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-android.yml/runs?branch=dev&event=push&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')"
+          artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
+            --jq '[.artifacts[] | select(.name | test("^acute-web-.*-x86_64-unsigned$")) | select(.expired | not)][0].name')"
+          [[ -n "$run_id" && -n "$artifact" && "$artifact" != null ]] || {
+            echo "::error::No unexpired x86_64 Dev build is available to test"
+            exit 1
+          }
+          {
+            echo "run_id=$run_id"
+            echo "artifact=$artifact"
+            echo "package=com.acuteweb.browser.dev"
+          } >> "$GITHUB_OUTPUT"
+          echo "Testing $artifact from Dev build run $run_id"
+
+      - name: Download APK
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ steps.source.outputs.artifact }}
+          path: apk
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Sign with a throwaway emulator key
+        # PR builds are unsigned and Android refuses unsigned APKs. This key is
+        # generated per run, never leaves the runner, and is unrelated to the
+        # release signing key.
+        run: |
+          set -euo pipefail
+          unsigned="$(find apk -name '*-unsigned.apk' -print -quit)"
+          test -n "$unsigned" || { echo "::error::No unsigned APK in the artifact"; find apk; exit 1; }
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -keystore "$RUNNER_TEMP/smoke.jks" -storepass smoke-only -keypass smoke-only \
+            -alias smoke -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Acute emulator smoke test" >/dev/null
+          "$build_tools/zipalign" -f -p 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" sign --ks "$RUNNER_TEMP/smoke.jks" --ks-pass pass:smoke-only \
+            --out "$RUNNER_TEMP/acute-smoke.apk" "$RUNNER_TEMP/aligned.apk"
+          rm -f "$RUNNER_TEMP/smoke.jks"
+
+      - name: Enable hardware acceleration for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run smoke test on ${{ matrix.name }}
+        uses: ReactiveCircus/android-emulator-runner@c9c93e6ba9c4194322e114c40970d5983d9a07cc # v2.38.0
+        env:
+          SMOKE_PACKAGE: ${{ steps.source.outputs.package }}
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          disable-animations: true
+          emulator-boot-timeout: 900
+          # The action runs each script line separately, so keep this on one line.
+          script: python3 scripts/android_smoke.py --fresh --apk "$RUNNER_TEMP/acute-smoke.apk" --package "$SMOKE_PACKAGE" --out smoke-output
+
+      - name: Keep screenshots, screen dumps and logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-api${{ matrix.api }}-${{ matrix.profile }}
+          path: smoke-output/
+          if-no-files-found: ignore
+          retention-days: 14
