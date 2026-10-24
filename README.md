@@ -97,7 +97,7 @@ downloads a large toolchain and source tree.
 git clone https://github.com/mozilla-firefox/firefox.git
 git clone --branch dev https://github.com/iiankehn/acute-web-android.git
 cd firefox
-git checkout 3c71aeacdb296402e41fb2084b13e797d1770642
+git checkout 08d23041955657e661eef22c8fdc967735300233
 python3 ./mach bootstrap --application-choice mobile_android_artifact_mode --no-interactive
 python3 ../acute-web-android/scripts/apply_overlay.py . --channel dev
 export ACUTE_TARGET_ABI=arm64-v8a

@@ -28,12 +28,19 @@ For every proposed upstream update:
 ## Support-channel policy
 
 Acute adopts upstream security fixes deliberately rather than tracking an
-unreviewed development tip. Each proposed Firefox/Gecko update is tested on
-Beta and must pass the repository audit, both native builds, package
-verification, signing-continuity checks, and physical-device acceptance.
-An ESR-style maintenance cadence is preferred where the Android source and
-GeckoView compatibility can be verified; the exact immutable commit remains the
-source of truth for every Acute build.
+unreviewed development tip. The pin follows Mozilla's Firefox for Android
+stable releases on this cadence:
+
+- **Every Beta starts by moving the pin** to the newest Firefox for Android
+  stable release (a `FIREFOX-ANDROID_*_RELEASE` tag), before other work lands.
+- **Out of cycle:** move the pin as soon as Mozilla publishes a security
+  advisory that affects Firefox for Android, without waiting for the next Beta.
+- Never pin a Beta, Nightly or untagged commit.
+
+Each pin move lands on `dev` through a pull request and must pass the
+repository audit, the pinned-upstream overlay check, both native builds, package
+verification and signing-continuity checks before it is promoted. The exact
+immutable commit remains the source of truth for every Acute build.
 
 ## Overlay policy
 
