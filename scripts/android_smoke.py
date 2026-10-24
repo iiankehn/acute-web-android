@@ -35,7 +35,9 @@ HTTPS_ONLY_SETTING = "HTTPS-Only Mode"
 HTTPS_ONLY_ERROR = "Secure site not available"  # Gecko's page title; matched ignoring case
 HTTPS_PAGE = "https://example.com/"
 HTTPS_PAGE_MARKERS = ("example.com", "Example Domain")
-HTTP_ONLY_PAGE = "http://neverssl.com/"
+# httpforever.com refuses every TLS handshake, so HTTPS-Only can never upgrade
+# it. (neverssl.com has a valid certificate and sometimes answers over HTTPS.)
+HTTP_ONLY_PAGE = "http://httpforever.com/"
 
 # First-run buttons that only move forward or decline. Buttons that change
 # system state (default browser, notifications, Sync) are never tapped.
