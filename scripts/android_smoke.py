@@ -40,6 +40,10 @@ HTTP_ONLY_PAGE = "http://neverssl.com/"
 # system state (default browser, notifications, Sync) are never tapped.
 FIRST_RUN_BUTTONS = ("Continue", "Not now", "Skip", "No Thanks", "No", "Done", "Continue browsing")
 FIRST_RUN_STEPS = 12
+# Android's own "Set Acute as your default browser app?" dialog, which upstream
+# first run opens. Answering Cancel declines and changes nothing.
+DEFAULT_BROWSER_PROMPT = re.compile(r"^Set .*Acute.* as your default browser app\?$")
+PERMISSION_CONTROLLER = "permissioncontroller/"
 
 
 class SmokeFailure(Exception):
@@ -134,10 +138,20 @@ class Smoke:
             self.sleep(1)
         raise SmokeFailure(f"Could not read the screen: {last_error}")
 
-    def in_front(self) -> bool:
+    def focus(self) -> list[str]:
         windows = self.adb.shell("dumpsys window", check=False)
-        focus = [line for line in windows.splitlines() if "mCurrentFocus" in line or "mFocusedApp" in line]
-        return any(self.package + "/" in line for line in focus)
+        return [line for line in windows.splitlines() if "mCurrentFocus" in line or "mFocusedApp" in line]
+
+    def in_front(self) -> bool:
+        return any(self.package + "/" in line for line in self.focus())
+
+    def default_browser_prompt(self, nodes: list[Node]) -> Node | None:
+        """The Cancel button of Android's default-browser dialog for Acute, if that is what's in front."""
+        if not any(DEFAULT_BROWSER_PROMPT.match(node.text) for node in nodes):
+            return None
+        if not any(PERMISSION_CONTROLLER in line for line in self.focus()):
+            return None
+        return find(nodes, text="Cancel")
 
     def running(self) -> bool:
         return bool(self.adb.shell(f"pidof {self.package}", check=False).strip())
@@ -175,8 +189,9 @@ class Smoke:
         if not self.in_front():
             raise SmokeFailure(f"Stopped before {action}: Acute isn't the app in front, so nothing was tapped")
 
-    def tap(self, node: Node, action: str) -> None:
-        self.require_front(action)
+    def tap(self, node: Node, action: str, *, system_prompt: bool = False) -> None:
+        if not system_prompt:
+            self.require_front(action)
         x, y = node.center
         self.adb.shell(f"input tap {x} {y}")
 
@@ -215,6 +230,11 @@ class Smoke:
             nodes = self.wait_for("the first screen", lambda found: bool(found), timeout=90)
             if find(nodes, text=HOME_TEXT):
                 return
+            cancel = self.default_browser_prompt(nodes)
+            if cancel is not None:
+                self.tap(cancel, "declining Android's default-browser prompt", system_prompt=True)
+                self.sleep(3)
+                continue
             button = next((find(nodes, text=label) for label in FIRST_RUN_BUTTONS if find(nodes, text=label)), None)
             if button is None:
                 self.sleep(3)

@@ -23,6 +23,8 @@ MENU = ("desc", "More options")
 SCREENS = {
     "welcome": screen("Welcome to Acute Web", "Continue"),
     "private": screen("Private by default", "Continue"),
+    "role": screen("Set Acute Dev as your default browser app?", "Acute Dev", "Chrome", "Cancel", "Set as default"),
+    "fake-role": screen("Set Acute Dev as your default browser app?", "Cancel"),
     "default": screen("Set as default browser", "Not now"),
     "home": screen("Search or enter address", MENU),
     "page": screen("example.com", "Example Domain", MENU),
@@ -34,7 +36,8 @@ SCREENS = {
 }
 TAPS = {
     ("welcome", "Continue"): "private",
-    ("private", "Continue"): "default",
+    ("private", "Continue"): "role",
+    ("role", "Cancel"): "default",
     ("default", "Not now"): "home",
     ("page", "More options"): "menu",
     ("menu", "Settings"): "settings-top",
@@ -68,6 +71,8 @@ class FakeAdb:
             return SCREENS[self.current]
         if command == "dumpsys window":
             app = PACKAGE if self.in_front else "com.example.chat"
+            if self.current == "role":
+                app = "com.google.android.permissioncontroller"
             return f"  mCurrentFocus=Window{{1 u0 {app}/{app}.MainActivity}}"
         if command.startswith("pidof"):
             return "4242\n" if self.alive else ""
@@ -107,8 +112,20 @@ class SmokeTests(unittest.TestCase):
     def test_full_flow_passes_and_never_changes_system_settings(self):
         adb = FakeAdb()
         self.run_all(adb)
-        self.assertEqual(adb.tapped, ["Continue", "Continue", "Not now", "More options", "Settings", "HTTPS-Only Mode"])
+        self.assertEqual(adb.tapped, ["Continue", "Continue", "Cancel", "Not now", "More options", "Settings",
+                                      "HTTPS-Only Mode"])
         self.assertNotIn("Set as default browser", adb.tapped)
+        self.assertNotIn("Set as default", adb.tapped)
+
+    def test_lookalike_default_browser_dialog_outside_the_system_is_not_special(self):
+        adb = FakeAdb()
+        smoke = self.smoke(adb)
+        smoke.launch()
+        adb.current = "fake-role"
+        adb.in_front = False
+        with self.assertRaises(SmokeFailure):
+            smoke.first_run()
+        self.assertEqual(adb.tapped, [])
 
     def test_stops_without_tapping_when_another_app_is_in_front(self):
         adb = FakeAdb()
