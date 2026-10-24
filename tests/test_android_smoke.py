@@ -26,7 +26,7 @@ SCREENS = {
     "role": screen("Set Acute Dev as your default browser app?", "Acute Dev", "Chrome", "Cancel", "Set as default"),
     "fake-role": screen("Set Acute Dev as your default browser app?", "Cancel"),
     "default": screen("Set as default browser", "Not now"),
-    "home": screen("Search or enter address", MENU),
+    "home": screen(("desc", "Search or enter address"), MENU),
     "page": screen("example.com", "Example Domain", MENU),
     "menu": screen("Back", "Bookmarks", "Settings"),
     "settings-top": screen("General", "Search", "Appearance"),

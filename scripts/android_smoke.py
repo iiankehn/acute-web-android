@@ -87,9 +87,11 @@ def parse_nodes(dump: str) -> list[Node]:
 
 
 def find(nodes: list[Node], *, text: str | None = None, description: str | None = None,
-         contains: bool = False) -> Node | None:
+         label: str | None = None, contains: bool = False) -> Node | None:
+    """Find a node by visible text, content description, or `label` (either one)."""
     for node in nodes:
-        for wanted, actual in ((text, node.text), (description, node.description)):
+        for wanted, actual in ((text, node.text), (description, node.description),
+                               (label, node.text), (label, node.description)):
             if wanted is None:
                 continue
             if (wanted in actual) if contains else (actual == wanted):
@@ -228,7 +230,7 @@ class Smoke:
     def first_run(self) -> None:
         for _ in range(FIRST_RUN_STEPS):
             nodes = self.wait_for("the first screen", lambda found: bool(found), timeout=90)
-            if find(nodes, text=HOME_TEXT):
+            if find(nodes, label=HOME_TEXT):
                 return
             cancel = self.default_browser_prompt(nodes)
             if cancel is not None:
@@ -242,19 +244,19 @@ class Smoke:
             self.tap(button, f"first-run button '{button.text}'")
             self.sleep(3)
         nodes = self.nodes()
-        if not find(nodes, text=HOME_TEXT):
+        if not find(nodes, label=HOME_TEXT):
             labels = ", ".join(node.label() for node in nodes[:25])
             raise SmokeFailure(f"First run didn't reach the home screen. On screen: {labels}")
 
     def https_page(self) -> None:
         self.open_url(HTTPS_PAGE)
         self.wait_for("the HTTPS page to load",
-                      lambda nodes: any(find(nodes, text=m, contains=True) for m in HTTPS_PAGE_MARKERS), timeout=90)
+                      lambda nodes: any(find(nodes, label=m, contains=True) for m in HTTPS_PAGE_MARKERS), timeout=90)
 
     def menu(self) -> None:
         nodes = self.wait_for("the menu button", lambda found: find(found, description=MENU_DESCRIPTION))
         self.tap(find(nodes, description=MENU_DESCRIPTION), "opening the main menu")
-        self.wait_for("the main menu", lambda found: find(found, text=SETTINGS_TEXT))
+        self.wait_for("the main menu", lambda found: find(found, label=SETTINGS_TEXT))
         self.swipe_up("scrolling the main menu")
         self.sleep(2)
         self.swipe_up("scrolling the main menu again")
@@ -263,20 +265,20 @@ class Smoke:
 
     def settings(self) -> None:
         nodes = self.nodes()
-        settings = find(nodes, text=SETTINGS_TEXT)
+        settings = find(nodes, label=SETTINGS_TEXT)
         if settings is None:
             self.back()
             nodes = self.wait_for("the menu button", lambda found: find(found, description=MENU_DESCRIPTION))
             self.tap(find(nodes, description=MENU_DESCRIPTION), "reopening the main menu")
-            nodes = self.wait_for("the main menu", lambda found: find(found, text=SETTINGS_TEXT))
-            settings = find(nodes, text=SETTINGS_TEXT)
+            nodes = self.wait_for("the main menu", lambda found: find(found, label=SETTINGS_TEXT))
+            settings = find(nodes, label=SETTINGS_TEXT)
         self.tap(settings, "opening Settings")
-        self.wait_for("Settings to open", lambda found: find(found, text="General") or find(found, text=PRIVACY_CATEGORY))
+        self.wait_for("Settings to open", lambda found: find(found, label="General") or find(found, label=PRIVACY_CATEGORY))
         target, seen = self.scroll_to(HTTPS_ONLY_SETTING, f"{PRIVACY_CATEGORY} › {HTTPS_ONLY_SETTING}")
         if PRIVACY_CATEGORY not in seen:
             raise SmokeFailure(f"Settings never showed the {PRIVACY_CATEGORY} group")
         self.tap(target, f"opening {HTTPS_ONLY_SETTING}")
-        self.wait_for(f"the {HTTPS_ONLY_SETTING} screen", lambda found: find(found, text=HTTPS_ONLY_SETTING), timeout=30)
+        self.wait_for(f"the {HTTPS_ONLY_SETTING} screen", lambda found: find(found, label=HTTPS_ONLY_SETTING), timeout=30)
         self.require_alive(f"opening {HTTPS_ONLY_SETTING}")
         for _ in range(2):
             self.back()
@@ -287,8 +289,8 @@ class Smoke:
         seen: set[str] = set()
         for _ in range(attempts):
             nodes = self.nodes()
-            seen.update(node.text for node in nodes)
-            target = find(nodes, text=text)
+            seen.update(node.label() for node in nodes)
+            target = find(nodes, label=text)
             if target is not None:
                 return target, seen
             self.swipe_up(f"scrolling to {what}")
@@ -297,7 +299,7 @@ class Smoke:
 
     def http_page(self) -> None:
         self.open_url(HTTP_ONLY_PAGE)
-        self.wait_for("the HTTPS-Only warning page", lambda nodes: find(nodes, text=HTTPS_ONLY_ERROR, contains=True), timeout=90)
+        self.wait_for("the HTTPS-Only warning page", lambda nodes: find(nodes, label=HTTPS_ONLY_ERROR, contains=True), timeout=90)
 
     def finish(self) -> None:
         self.require_alive("the final check")
