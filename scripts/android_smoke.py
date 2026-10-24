@@ -351,6 +351,10 @@ def run(adb: Adb, package: str, output: Path, *, apk: Path | None, fresh: bool,
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows consoles default to a legacy code page that can't print ✓ or •.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--package", default="com.acuteweb.browser.dev")
     parser.add_argument("--apk", type=Path, help="install this APK first")
