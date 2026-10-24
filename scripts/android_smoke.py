@@ -88,9 +88,12 @@ def parse_nodes(dump: str) -> list[Node]:
 
 
 def find(nodes: list[Node], *, text: str | None = None, description: str | None = None,
-         label: str | None = None, contains: bool = False) -> Node | None:
-    """Find a node by visible text, content description, or `label` (either one)."""
-    for node in nodes:
+         label: str | None = None, contains: bool = False, last: bool = False) -> Node | None:
+    """Find a node by visible text, content description, or `label` (either one).
+
+    `last` picks the final match, e.g. a menu item that shares its group heading's name.
+    """
+    for node in (reversed(nodes) if last else nodes):
         for wanted, actual in ((text, node.text), (description, node.description),
                                (label, node.text), (label, node.description)):
             if wanted is None:
@@ -265,7 +268,8 @@ class Smoke:
         self.require_alive("scrolling the main menu")
 
     def settings(self) -> None:
-        settings, _ = self.scroll_to(SETTINGS_TEXT, "Settings at the bottom of the main menu")
+        # The menu's last group is headed "Settings" too; the item comes after the heading.
+        settings, _ = self.scroll_to(SETTINGS_TEXT, "Settings at the bottom of the main menu", last=True)
         self.tap(settings, "opening Settings")
         self.wait_for("Settings to open", lambda found: find(found, label="General") or find(found, label=PRIVACY_CATEGORY))
         target, seen = self.scroll_to(HTTPS_ONLY_SETTING, f"{PRIVACY_CATEGORY} › {HTTPS_ONLY_SETTING}")
@@ -278,13 +282,13 @@ class Smoke:
             self.back()
             self.sleep(2)
 
-    def scroll_to(self, text: str, what: str, attempts: int = 8) -> tuple[Node, set[str]]:
+    def scroll_to(self, text: str, what: str, attempts: int = 8, last: bool = False) -> tuple[Node, set[str]]:
         """Scroll until `text` is visible; also return every label seen on the way."""
         seen: set[str] = set()
         for _ in range(attempts):
             nodes = self.nodes()
             seen.update(node.label() for node in nodes)
-            target = find(nodes, label=text)
+            target = find(nodes, label=text, last=last)
             if target is not None:
                 return target, seen
             self.swipe_up(f"scrolling to {what}")

@@ -29,7 +29,7 @@ SCREENS = {
     "home": screen(("desc", "Search or enter address"), MENU),
     "page": screen("example.com", "Example Domain", MENU),
     "menu": screen(("desc", "Close menu"), "Navigation", "Back", "Bookmarks"),
-    "menu-bottom": screen("Library", "Extensions", "Settings"),
+    "menu-bottom": screen("Library", "Extensions", "Settings", "Sign in", "Settings"),
     "settings-top": screen("General", "Search", "Appearance"),
     "settings-privacy": screen("Privacy and security", "Enhanced Tracking Protection", "HTTPS-Only Mode"),
     "https-only": screen("HTTPS-Only Mode", "Enable in all tabs"),
@@ -88,7 +88,10 @@ class FakeAdb:
             self.tapped.append(node.label())
             if self.on_tap:
                 self.on_tap(node.label())
-            self.current = TAPS.get((self.current, node.label()), self.current)
+            nodes = parse_nodes(SCREENS[self.current])
+            is_last = node == [n for n in nodes if n.label() == node.label()][-1]
+            if is_last:
+                self.current = TAPS.get((self.current, node.label()), self.current)
         elif command.startswith("input swipe"):
             self.current = SWIPES.get(self.current, self.current)
         elif command == "input keyevent 4":
