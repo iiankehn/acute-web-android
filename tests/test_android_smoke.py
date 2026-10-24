@@ -33,7 +33,8 @@ SCREENS = {
     "settings-top": screen("General", "Search", "Appearance"),
     "settings-privacy": screen("Privacy and security", "Enhanced Tracking Protection", "HTTPS-Only Mode"),
     "https-only": screen("HTTPS-Only Mode", "Enable in all tabs"),
-    "error": screen("Secure Site Not Available", "Continue to HTTP Site"),
+    "error": screen("Secure site not available", "Most likely, the website simply does not support HTTPS.",
+                    "Continue to HTTP Site"),
 }
 TAPS = {
     ("welcome", "Continue"): "private",

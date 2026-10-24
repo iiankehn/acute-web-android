@@ -32,7 +32,7 @@ MENU_HEADING = "Navigation"  # Acute's first main-menu group; Settings is at the
 SETTINGS_TEXT = "Settings"
 PRIVACY_CATEGORY = "Privacy and security"
 HTTPS_ONLY_SETTING = "HTTPS-Only Mode"
-HTTPS_ONLY_ERROR = "Secure Site Not Available"
+HTTPS_ONLY_ERROR = "Secure site not available"  # Gecko's page title; matched ignoring case
 HTTPS_PAGE = "https://example.com/"
 HTTPS_PAGE_MARKERS = ("example.com", "Example Domain")
 HTTP_ONLY_PAGE = "http://neverssl.com/"
@@ -297,7 +297,8 @@ class Smoke:
 
     def http_page(self) -> None:
         self.open_url(HTTP_ONLY_PAGE)
-        self.wait_for("the HTTPS-Only warning page", lambda nodes: find(nodes, label=HTTPS_ONLY_ERROR, contains=True), timeout=90)
+        self.wait_for("the HTTPS-Only warning page",
+                      lambda nodes: any(HTTPS_ONLY_ERROR.lower() in node.label().lower() for node in nodes), timeout=90)
 
     def finish(self) -> None:
         self.require_alive("the final check")
