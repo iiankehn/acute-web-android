@@ -28,7 +28,8 @@ SCREENS = {
     "default": screen("Set as default browser", "Not now"),
     "home": screen(("desc", "Search or enter address"), MENU),
     "page": screen("example.com", "Example Domain", MENU),
-    "menu": screen("Back", "Bookmarks", "Settings"),
+    "menu": screen(("desc", "Close menu"), "Navigation", "Back", "Bookmarks"),
+    "menu-bottom": screen("Library", "Extensions", "Settings"),
     "settings-top": screen("General", "Search", "Appearance"),
     "settings-privacy": screen("Privacy and security", "Enhanced Tracking Protection", "HTTPS-Only Mode"),
     "https-only": screen("HTTPS-Only Mode", "Enable in all tabs"),
@@ -40,11 +41,12 @@ TAPS = {
     ("role", "Cancel"): "default",
     ("default", "Not now"): "home",
     ("page", "More options"): "menu",
-    ("menu", "Settings"): "settings-top",
+    ("menu-bottom", "Settings"): "settings-top",
     ("settings-privacy", "HTTPS-Only Mode"): "https-only",
 }
-SWIPES = {"settings-top": "settings-privacy"}
-BACK = {"https-only": "settings-privacy", "settings-privacy": "page", "settings-top": "page", "menu": "page"}
+SWIPES = {"menu": "menu-bottom", "settings-top": "settings-privacy"}
+BACK = {"https-only": "settings-privacy", "settings-privacy": "page", "settings-top": "page", "menu": "page",
+        "menu-bottom": "page"}
 
 
 class FakeAdb:

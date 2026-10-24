@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 
 HOME_TEXT = "Search or enter address"
 MENU_DESCRIPTION = "More options"
+MENU_HEADING = "Navigation"  # Acute's first main-menu group; Settings is at the bottom
 SETTINGS_TEXT = "Settings"
 PRIVACY_CATEGORY = "Privacy and security"
 HTTPS_ONLY_SETTING = "HTTPS-Only Mode"
@@ -256,7 +257,7 @@ class Smoke:
     def menu(self) -> None:
         nodes = self.wait_for("the menu button", lambda found: find(found, description=MENU_DESCRIPTION))
         self.tap(find(nodes, description=MENU_DESCRIPTION), "opening the main menu")
-        self.wait_for("the main menu", lambda found: find(found, label=SETTINGS_TEXT))
+        self.wait_for("the main menu", lambda found: find(found, label=MENU_HEADING))
         self.swipe_up("scrolling the main menu")
         self.sleep(2)
         self.swipe_up("scrolling the main menu again")
@@ -264,14 +265,7 @@ class Smoke:
         self.require_alive("scrolling the main menu")
 
     def settings(self) -> None:
-        nodes = self.nodes()
-        settings = find(nodes, label=SETTINGS_TEXT)
-        if settings is None:
-            self.back()
-            nodes = self.wait_for("the menu button", lambda found: find(found, description=MENU_DESCRIPTION))
-            self.tap(find(nodes, description=MENU_DESCRIPTION), "reopening the main menu")
-            nodes = self.wait_for("the main menu", lambda found: find(found, label=SETTINGS_TEXT))
-            settings = find(nodes, label=SETTINGS_TEXT)
+        settings, _ = self.scroll_to(SETTINGS_TEXT, "Settings at the bottom of the main menu")
         self.tap(settings, "opening Settings")
         self.wait_for("Settings to open", lambda found: find(found, label="General") or find(found, label=PRIVACY_CATEGORY))
         target, seen = self.scroll_to(HTTPS_ONLY_SETTING, f"{PRIVACY_CATEGORY} › {HTTPS_ONLY_SETTING}")
