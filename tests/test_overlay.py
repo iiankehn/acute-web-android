@@ -5,7 +5,8 @@ import unittest
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from apply_overlay import COMPOSE_BRAND_RASTERS, MASCOT_ARTWORK, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
+from apply_overlay import (COMPOSE_BRAND_RASTERS, MASCOT_ARTWORK, PRIVATE_COLOR_OVERRIDES,  # noqa: E402
+                           SETTINGS_GROUPS, apply, OverlayError)
 
 
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
@@ -318,6 +319,22 @@ internal fun WordmarkText(color: Color?) {
 '''
 
 COLORS = '''<resources>
+<color name="fx_mobile_icon_private">@color/novaViolet50</color>
+<color name="fx_mobile_private_icon_private">@color/novaViolet50</color>
+<color name="fx_mobile_private_primary_inverse">@color/novaViolet50</color>
+<color name="fx_mobile_private_secondary_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_tertiary">@color/novaViolet50</color>
+<color name="fx_mobile_private_tertiary_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_outline_variant">@color/novaViolet50</color>
+<color name="fx_mobile_private_sheet_outline">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_bright">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_dim">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_high">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_highest">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_low">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_lowest">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_selected">@color/novaViolet50</color>
 <color name="fx_mobile_primary">@color/novaViolet70</color>
 <color name="fx_mobile_primary_container">@color/novaViolet20</color>
 <color name="fx_mobile_tertiary">@color/novaViolet50</color>
@@ -330,6 +347,7 @@ COLORS = '''<resources>
 </resources>'''
 
 NIGHT_COLORS = '''<resources>
+<color name="fx_mobile_icon_private">@color/novaViolet50</color>
 <color name="fx_mobile_primary">@color/novaViolet20</color>
 <color name="fx_mobile_on_primary">@color/novaGray80</color>
 <color name="fx_mobile_primary_container">@color/novaViolet60</color>
@@ -772,6 +790,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
         (app / "src/main/res/values/colors.xml").write_text(COLORS)
         (app / "src/main/res/values-night/colors.xml").write_text(NIGHT_COLORS)
+        (app / "src/main/res/color").mkdir(parents=True, exist_ok=True)
+        (app / "src/main/res/color/private_mode_mask_gradient.xml").write_text(
+            '<gradient android:startColor="@color/novaViolet20" android:endColor="@color/novaWhite" />')
         (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
         (app / "src/main/res/xml/preferences.xml").write_text(
@@ -1252,6 +1273,14 @@ class OverlayTests(unittest.TestCase):
         theme = (main / "java/org/mozilla/fenix/theme/FirefoxTheme.kt").read_text()
         self.assertIn("}.withAcuteAccents(theme)", theme)
         self.assertIn("primary = Color(0xFF8ABDDD)", theme)
+        self.assertIn("}.withAcuteGradients()", theme)
+        self.assertIn("            Theme.Private -> privateColorPalette\n        }.withAcuteAccents(theme)", theme)
+        self.assertIn("tabOutline = acuteAccentGradient,", theme)
+        colors = (main / "res/values/colors.xml").read_text()
+        for name in PRIVATE_COLOR_OVERRIDES:
+            self.assertNotIn(f'name="{name}">@color/novaViolet', colors)
+        self.assertIn('name="fx_mobile_icon_private">#FF0072BC<', (main / "res/values-night/colors.xml").read_text())
+        self.assertNotIn("novaViolet20", (main / "res/color/private_mode_mask_gradient.xml").read_text())
         delete_data = (main / "java/org/mozilla/fenix/settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt").read_text()
         self.assertIn("getQuantityString(R.plurals.acute_delete_data_tabs, openTabs, openTabs)", delete_data)
         self.assertIn("getQuantityString(R.plurals.acute_delete_data_addresses, historyCount, historyCount)",

@@ -1968,6 +1968,21 @@ def patch_compose_accents(path: Path) -> None:
     text = replace_once(text, "            Theme.Private -> acornPrivateColorScheme()\n        }\n",
                         "            Theme.Private -> acornPrivateColorScheme()\n        }.withAcuteAccents(theme)\n",
                         "Compose theme color scheme")
+    text = replace_once(text, "            Theme.Private -> privateColorPalette\n        }\n",
+                        "            Theme.Private -> privateColorPalette\n        }.withAcuteAccents(theme)\n",
+                        "Compose theme palette")
+    text = replace_once(text, "            Theme.Private -> privateAcornGradientScheme\n        }\n",
+                        "            Theme.Private -> privateAcornGradientScheme\n        }.withAcuteGradients()\n",
+                        "Compose theme gradients")
+    text = replace_once(text, "import mozilla.components.compose.base.theme.AcornColors\n",
+                        "import mozilla.components.compose.base.theme.AcornColors\n"
+                        "import mozilla.components.compose.base.theme.AcornGradient\n", "Compose gradient import")
+    text = replace_once(text, "import mozilla.components.compose.base.theme.AcornTheme\n",
+                        "import mozilla.components.compose.base.theme.AcornGradientType\n"
+                        "import mozilla.components.compose.base.theme.AcornTheme\n", "Compose gradient type import")
+    text = replace_once(text, "import mozilla.components.compose.base.theme.privateColorPalette\n",
+                        "import mozilla.components.compose.base.theme.privateColorPalette\n"
+                        "import mozilla.components.compose.base.utils.ColorStop\n", "Compose color stop import")
     text = text.rstrip("\n") + '''
 
 // Matches Acute's native palette (acute_native_theme.xml and the brand colors).
@@ -2020,8 +2035,90 @@ private fun ColorScheme.darkAccents(): ColorScheme =
         tertiaryContainer = Color(0xFF223B50),
         onTertiaryContainer = Color(0xFFF4F8FB),
     )
+
+// The private-mode mask and the selected-tab outline otherwise stay violet.
+private fun AcornColors.withAcuteAccents(theme: Theme): AcornColors =
+    if (theme == Theme.Private) {
+        copy(
+            iconPrivate = Color(0xFF0072BC),
+            surfaceDimVariant = Color(0xFF0A2133),
+            surfaceContainerSelected = Color(0xFF253E52),
+        )
+    } else {
+        copy(iconPrivate = Color(0xFF0072BC))
+    }
+
+private val acuteAccentGradient =
+    AcornGradient(
+        type = AcornGradientType.Linear(angleInDegrees = 96f),
+        colorStops = listOf(ColorStop(0f, Color(0xFF8ABDDD)), ColorStop(0.71f, Color(0xFF0072BC))),
+    )
+
+private fun AcornGradientScheme.withAcuteGradients(): AcornGradientScheme =
+    copy(
+        cfr =
+            AcornGradient(
+                type = AcornGradientType.Linear(angleInDegrees = 135f),
+                colorStops = listOf(ColorStop(0f, Color(0xFF005A94)), ColorStop(1f, Color(0xFF0072BC))),
+            ),
+        accent = acuteAccentGradient,
+        accentSubtle =
+            AcornGradient(
+                type = AcornGradientType.Linear(angleInDegrees = 96f),
+                colorStops = listOf(ColorStop(0.4f, Color(0x400072BC)), ColorStop(1f, Color(0x408ABDDD))),
+            ),
+        tabOutline = acuteAccentGradient,
+        privacyMask =
+            AcornGradient(
+                type = AcornGradientType.Vertical,
+                colorStops = listOf(ColorStop(0f, Color(0xFF8ABDDD)), ColorStop(1f, Color.White)),
+            ),
+    )
 '''
     path.write_text(text, encoding="utf-8")
+
+
+# View-based private surfaces and the private-mode mask icon. Acute's private
+# primary and surface colors are set in patch_branding_ui.
+PRIVATE_COLOR_OVERRIDES = {
+    "fx_mobile_icon_private": "#FF0072BC",
+    "fx_mobile_private_icon_private": "#FF0072BC",
+    "fx_mobile_private_primary_inverse": "#FF0072BC",
+    "fx_mobile_private_secondary_container": "#FF0D2A40",
+    "fx_mobile_private_tertiary": "#FF8ABDDD",
+    "fx_mobile_private_tertiary_container": "#FF071827",
+    "fx_mobile_private_outline_variant": "#FF1E3A52",
+    "fx_mobile_private_sheet_outline": "#FF071827",
+    "fx_mobile_private_surface_bright": "#FF0D2A40",
+    "fx_mobile_private_surface_dim": "#FF030C14",
+    "fx_mobile_private_surface_container": "#FF071827",
+    "fx_mobile_private_surface_container_high": "#FF0A2133",
+    "fx_mobile_private_surface_container_highest": "#FF0D2A40",
+    "fx_mobile_private_surface_container_low": "#FF05121D",
+    "fx_mobile_private_surface_container_lowest": "#FF030C14",
+    "fx_mobile_private_surface_container_selected": "#FF253E52",
+}
+
+
+def patch_color_overrides(path: Path, overrides: dict[str, str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    for name, value in overrides.items():
+        color = re.compile(rf'(<color\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</color>)', flags=re.DOTALL)
+        text, count = color.subn(lambda match: f"{match.group(1)}{value}{match.group(2)}", text, count=1)
+        if count != 1:
+            raise OverlayError(f"Could not locate color {name} in {path}")
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_private_colors(res: Path) -> None:
+    """Give private browsing Acute's blues instead of the Nova violets."""
+    patch_color_overrides(res / "values/colors.xml", PRIVATE_COLOR_OVERRIDES)
+    patch_color_overrides(res / "values-night/colors.xml", {"fx_mobile_icon_private": "#FF0072BC"})
+    mask = res / "color/private_mode_mask_gradient.xml"
+    text = mask.read_text(encoding="utf-8") if mask.is_file() else ""
+    text = replace_once(text, 'android:startColor="@color/novaViolet20"', 'android:startColor="#FF8ABDDD"',
+                        "private mask gradient")
+    mask.write_text(text, encoding="utf-8")
 
 
 # English copy that names the wrong product, speaks in Mozilla's voice, or does
@@ -2333,6 +2430,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_product_branding(fenix)
     patch_english_copy(values / "strings.xml")
     patch_compose_accents(compose_theme)
+    patch_private_colors(fenix / "app/src/main/res")
     patch_tracking_protection_banner(etp_banner)
     patch_delete_data_counts(delete_data)
     patch_privacy_report_default(settings)
