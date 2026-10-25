@@ -27,6 +27,7 @@ FENIX_FILES = (
     "app/src/beta/res/values/static_strings.xml",
     "app/src/main/res/values/colors.xml",
     "app/src/main/res/values-night/colors.xml",
+    "app/src/main/res/color/private_mode_mask_gradient.xml",
     "app/src/main/res/values/styles.xml",
     "app/src/main/res/xml/preferences.xml",
     "app/src/main/res/xml/tracking_protection_preferences.xml",
