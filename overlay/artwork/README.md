@@ -25,4 +25,17 @@ Make each image about 4× the listed size, in the same proportions
 | `ic_kit_shield_on_state.png` | VPN feature (normally hidden) | 58 × 60 |
 | `ic_kit_shield_off_state.png` | VPN feature (normally hidden) | 58 × 60 |
 | `firefox_as_default_banner_illustration.png` | Menu banner (normally hidden) | 78 × 53 |
-| `acute_error_page.png` | Error pages, such as "Address not found" | 96 × 96 |
+
+## Page states
+
+Error pages and the crashed-tab screen. These six are required; the build
+fails if one is missing. They are shown up to 320 dp wide.
+
+| File | Shown for |
+|---|---|
+| `acute_connection_failed.png` | Connection reset, interrupted or timed out; unknown proxy; any error without its own image |
+| `acute_page_not_found.png` | Address not found, connection refused, malformed address, file not found |
+| `acute_not_encrypted.png` | HTTPS-Only warning (site doesn't support HTTPS) |
+| `acute_certificate_error.png` | Certificate and secure-connection errors, blocked port |
+| `acute_offline.png` | No internet connection |
+| `acute_tab_crashed.png` | Crashed tab screen; corrupted or unsafe content; redirect loop |

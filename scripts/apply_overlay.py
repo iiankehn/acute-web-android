@@ -2103,7 +2103,25 @@ def patch_privacy_report_default(settings: Path) -> None:
     settings.write_text(text, encoding="utf-8")
 
 
-ERROR_PAGE_IMAGE = "acute_error_page.png"
+# Upstream error-page image (without ".svg") -> Acute artwork in overlay/artwork.
+# The padlock covers both certificate errors and the HTTPS-Only warning; the
+# HTTPS-Only page is the one that offers to continue over HTTP.
+ERROR_PAGE_ARTWORK = {
+    "mozac_error_unplugged": "acute_connection_failed.png",
+    "mozac_error_eye_roll": "acute_connection_failed.png",
+    "mozac_error_asleep": "acute_connection_failed.png",
+    "mozac_error_hourglass": "acute_connection_failed.png",
+    "mozac_error_confused": "acute_page_not_found.png",
+    "mozac_error_question_file": "acute_page_not_found.png",
+    "mozac_error_no_internet": "acute_offline.png",
+    "mozac_error_no_internet_connection": "acute_offline.png",
+    "mozac_error_surprised": "acute_tab_crashed.png",
+    "mozac_error_shred_file": "acute_tab_crashed.png",
+    "mozac_error_inspect": "acute_tab_crashed.png",
+}
+ERROR_PAGE_LOCK = ("acute_not_encrypted.png", "acute_certificate_error.png")
+ERROR_PAGE_DEFAULT = "acute_connection_failed.png"
+TAB_CRASHED_ARTWORK = "acute_tab_crashed"
 ERROR_PAGE_COLORS = {
     "--primary-button-color: #312a65;": "--primary-button-color: #0072bc;",
     "--secondary-button-text-color: #20123a;": "--secondary-button-text-color: #00243d;",
@@ -2115,27 +2133,62 @@ ERROR_PAGE_COLORS = {
 }
 
 
+def error_page_image_script() -> str:
+    images = "".join(f'    {name}: "{image}",\n' for name, image in ERROR_PAGE_ARTWORK.items())
+    return f"""
+// Acute artwork for each kind of error page.
+function acuteErrorImage(queryMap) {{
+  const name = queryMap.image.replace(/\\.svg$/, "");
+  if (name === "mozac_error_lock") {{
+    return queryMap.showContinueHttp === "true" ? "{ERROR_PAGE_LOCK[0]}" : "{ERROR_PAGE_LOCK[1]}";
+  }}
+  const images = {{
+{images}  }};
+  return images[name] || "{ERROR_PAGE_DEFAULT}";
+}}
+"""
+
+
 def patch_error_pages(assets: Path) -> None:
-    """Show the Acute mark and blue buttons on Fenix's error pages."""
+    """Show Acute artwork and blue buttons on Fenix's error pages."""
     for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
         path = assets / script
         text = path.read_text(encoding="utf-8") if path.is_file() else ""
         text = replace_once(text, 'errorImage.src = "resource://android/assets/" + queryMap.image;',
-                            f'errorImage.src = "resource://android/assets/{ERROR_PAGE_IMAGE}";',
+                            'errorImage.src = "resource://android/assets/" + acuteErrorImage(queryMap);',
                             f"error page image in {script}")
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text.rstrip("\n") + "\n" + error_page_image_script(), encoding="utf-8")
     shared = assets / "shared_error_style.css"
     text = shared.read_text(encoding="utf-8") if shared.is_file() else ""
     if "#errorPageContainer" not in text:
         raise OverlayError("Missing expected Fenix anchor: shared error page style")
-    shared.write_text(text.rstrip("\n") + "\n\n#errorImage {\n  width: 96px;\n  height: 96px;\n}\n",
-                      encoding="utf-8")
+    shared.write_text(text.rstrip("\n") + "\n\n#errorImage {\n  display: block;\n  width: 100%;\n"
+                      "  max-width: 320px;\n  height: auto;\n  margin: 0 auto;\n}\n", encoding="utf-8")
     styles = assets / "low_and_medium_risk_error_style.css"
     text = styles.read_text(encoding="utf-8") if styles.is_file() else ""
     for old, new in ERROR_PAGE_COLORS.items():
         text = replace_once(text, old, new, f"error page color {old}")
     styles.write_text(text, encoding="utf-8")
-    shutil.copy2(artwork(Path(ERROR_PAGE_IMAGE).stem), assets / ERROR_PAGE_IMAGE)
+    for image in {*ERROR_PAGE_ARTWORK.values(), *ERROR_PAGE_LOCK, ERROR_PAGE_DEFAULT}:
+        source = ARTWORK / image
+        if not source.is_file():
+            raise OverlayError(f"Missing Acute artwork: overlay/artwork/{image}")
+        shutil.copy2(source, assets / image)
+
+
+def patch_tab_crashed_artwork(fenix: Path) -> None:
+    """The crashed-tab screen shows Acute's artwork instead of Firefox's."""
+    layout = fenix / "app/src/main/res/layout/view_crash_reporter.xml"
+    text = layout.read_text(encoding="utf-8") if layout.is_file() else ""
+    text = replace_once(text, 'app:srcCompat="@drawable/fenix_error_1"',
+                        f'app:srcCompat="@drawable/{TAB_CRASHED_ARTWORK}"', "crashed tab artwork")
+    layout.write_text(text, encoding="utf-8")
+    source = ARTWORK / f"{TAB_CRASHED_ARTWORK}.png"
+    if not source.is_file():
+        raise OverlayError(f"Missing Acute artwork: overlay/artwork/{source.name}")
+    raster = fenix / f"app/src/main/res/drawable-nodpi/{TAB_CRASHED_ARTWORK}.png"
+    raster.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, raster)
 
 
 def copy_overlay(fenix: Path, channel: str) -> None:
@@ -2284,6 +2337,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_delete_data_counts(delete_data)
     patch_privacy_report_default(settings)
     patch_error_pages(fenix / "app/src/main/assets")
+    patch_tab_crashed_artwork(fenix)
     copy_overlay(fenix, channel)
     patch_onboarding_artwork(fenix)
     patch_mascot_artwork(fenix)

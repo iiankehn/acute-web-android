@@ -791,6 +791,7 @@ class OverlayTests(unittest.TestCase):
             ("highRiskErrorPages.js", "assets"),
             ("shared_error_style.css", "assets"),
             ("low_and_medium_risk_error_style.css", "assets"),
+            ("view_crash_reporter.xml", "res/layout"),
         ):
             (app / "src/main" / relative).mkdir(parents=True, exist_ok=True)
             (app / "src/main" / relative / name).write_text((fixtures_1582 / name).read_text(encoding="utf-8"),
@@ -1231,6 +1232,8 @@ class OverlayTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         artwork = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(artwork))
+        for image in apply_overlay.ARTWORK.glob("*.png"):
+            (artwork / image.name).write_bytes(image.read_bytes())
         (artwork / "fox_ai_on_state.png").write_bytes(b"ACUTE-ART")
         original = apply_overlay.ARTWORK
         apply_overlay.ARTWORK = artwork
@@ -1262,8 +1265,17 @@ class OverlayTests(unittest.TestCase):
         settings = (main / "java/org/mozilla/fenix/utils/Settings.kt").read_text()
         self.assertIn("pref_key_privacy_report_tab_manager),\n            default = false,", settings)
         for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
-            self.assertIn('"resource://android/assets/acute_error_page.png"', (main / "assets" / script).read_text())
-        self.assertTrue((main / "assets/acute_error_page.png").is_file())
+            text = (main / "assets" / script).read_text()
+            self.assertIn('"resource://android/assets/" + acuteErrorImage(queryMap);', text)
+            self.assertIn('? "acute_not_encrypted.png" : "acute_certificate_error.png"', text)
+            self.assertIn('mozac_error_no_internet: "acute_offline.png"', text)
+        artwork_dir = Path(__file__).resolve().parents[1] / "overlay/artwork"
+        for image in ("acute_connection_failed.png", "acute_page_not_found.png", "acute_not_encrypted.png",
+                      "acute_certificate_error.png", "acute_offline.png", "acute_tab_crashed.png"):
+            self.assertEqual((main / "assets" / image).read_bytes(), (artwork_dir / image).read_bytes())
+        crash = (main / "res/layout/view_crash_reporter.xml").read_text()
+        self.assertIn('app:srcCompat="@drawable/acute_tab_crashed"', crash)
+        self.assertTrue((main / "res/drawable-nodpi/acute_tab_crashed.png").is_file())
         style = (main / "assets/low_and_medium_risk_error_style.css").read_text()
         self.assertNotIn("#7542e5", style)
         self.assertIn("--primary-button-color: #0072bc;", style)
