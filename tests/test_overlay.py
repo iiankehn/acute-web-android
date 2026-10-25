@@ -5,7 +5,7 @@ import unittest
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from apply_overlay import COMPOSE_BRAND_RASTERS, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
+from apply_overlay import COMPOSE_BRAND_RASTERS, MASCOT_ARTWORK, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
 
 
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
@@ -117,6 +117,13 @@ class Settings(private val appContext: Context) {
     var isTelemetryEnabled by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_telemetry),
+            default = true,
+        )
+
+    /** Indicates whether or not the privacy report should be shown in the tab manager. */
+    var showPrivacyReportInTabManager by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_privacy_report_tab_manager),
             default = true,
         )
     var isDailyUsagePingEnabled by
@@ -772,6 +779,22 @@ class OverlayTests(unittest.TestCase):
         for name in COMPOSE_BRAND_RASTERS:
             (app / "src/main/res/drawable").mkdir(parents=True, exist_ok=True)
             (app / f"src/main/res/drawable/{name}.xml").write_text("<vector />")
+        for relative in MASCOT_ARTWORK:
+            (app / "src/main/res" / relative).parent.mkdir(parents=True, exist_ok=True)
+            (app / "src/main/res" / relative).write_text("<vector />")
+        fixtures_1582 = Path(__file__).parent / "fixtures/firefox-158.0.2"
+        for name, relative in (
+            ("FirefoxTheme.kt", "java/org/mozilla/fenix/theme"),
+            ("DeleteBrowsingDataFragment.kt", "java/org/mozilla/fenix/settings/deletebrowsingdata"),
+            ("tracking_protection_learn_more_preference.xml", "res/layout"),
+            ("lowMediumErrorPages.js", "assets"),
+            ("highRiskErrorPages.js", "assets"),
+            ("shared_error_style.css", "assets"),
+            ("low_and_medium_risk_error_style.css", "assets"),
+        ):
+            (app / "src/main" / relative).mkdir(parents=True, exist_ok=True)
+            (app / "src/main" / relative / name).write_text((fixtures_1582 / name).read_text(encoding="utf-8"),
+                                                            encoding="utf-8")
         (app / "src/beta/res/drawable").mkdir(parents=True)
         (app / "src/beta/res/drawable/ic_firefox.xml").write_text("<vector />")
         for position in ("top", "bottom"):
@@ -791,6 +814,14 @@ class OverlayTests(unittest.TestCase):
             '<string name="marketing">Tell a partner that you’re a Firefox user.</string>'
             '<string name="onboarding_term_of_service_line_one_link_text_2">Firefox Terms of Use</string>'
             '<string name="sync_connect_device_dialog">Sign in to Firefox on another device.</string>'
+            '<string name="sign_in_instructions" tools:ignore="BrandUsage"><![CDATA[On your computer open Firefox '
+            'and go to <b>https://firefox.com/pair</b>]]></string>'
+            '<string name="sign_in_create_account_text" tools:ignore="BrandUsage"><![CDATA[No account? '
+            '<u>Create one</u> to sync Firefox between devices.]]></string>'
+            '<string name="preference_enhanced_tracking_protection">Enhanced Tracking Protection</string>'
+            '<string name="preference_enhanced_tracking_protection_summary">Now featuring Total Cookie '
+            'Protection, our most powerful barrier yet against cross-site trackers.</string>'
+            '<string name="preferences_downloads_2">Download Settings</string>'
             '</resources>')
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
@@ -1115,7 +1146,11 @@ class OverlayTests(unittest.TestCase):
             '<string name="customize_toggle_contile">Sponsored shortcuts</string>'
             '<string name="pair_instructions_2">Visit firefox.com/pair</string>'
             '<string name="sign_in_instructions">Visit firefox.com/pair</string>'
+            '<string name="sign_in_create_account_text">Create one to sync Firefox between devices.</string>'
             '<string name="about_content">Firefox</string>'
+            '<string name="preference_enhanced_tracking_protection">Enhanced Tracking Protection</string>'
+            '<string name="preference_enhanced_tracking_protection_summary">our most powerful barrier yet</string>'
+            '<string name="preferences_downloads_2">Download Settings</string>'
             "</resources>"
         )
         apply(root, channel="beta")
@@ -1126,7 +1161,13 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("Google Play", branded)
         self.assertNotIn("Sponsored", branded)
         self.assertIn('<string name="pair_instructions_2">Visit firefox.com/pair</string>', branded)
-        self.assertIn('<string name="sign_in_instructions">Visit firefox.com/pair</string>', branded)
+        self.assertIn("Sync uses a Mozilla account. On your computer, open Firefox and go to "
+                      "<b>https://firefox.com/pair</b>", branded)
+        self.assertIn("<u>Create a Mozilla account</u> to sync between devices.", branded)
+        self.assertNotIn("Firefox between devices", branded)
+        self.assertNotIn("most powerful barrier", branded)
+        self.assertIn('name="preference_enhanced_tracking_protection">Tracking Protection<', branded)
+        self.assertIn('name="preferences_downloads_2">Downloads<', branded)
 
     def test_product_identity_gate_rejects_upstream_promotions(self):
         temp, root = self.make_checkout()
@@ -1183,6 +1224,49 @@ class OverlayTests(unittest.TestCase):
         )
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
+
+    def test_device_test_fixes_brand_compose_screens_and_error_pages(self):
+        import apply_overlay
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        artwork = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(artwork))
+        (artwork / "fox_ai_on_state.png").write_bytes(b"ACUTE-ART")
+        original = apply_overlay.ARTWORK
+        apply_overlay.ARTWORK = artwork
+        try:
+            apply(root, channel="dev")
+        finally:
+            apply_overlay.ARTWORK = original
+        main = root / "mobile/android/fenix/app/src/main"
+        res = root / "mobile/android/fenix/app/src"
+        for relative in MASCOT_ARTWORK:
+            name = Path(relative).stem
+            self.assertEqual([p.name for p in res.glob(f"*/res/drawable*/{name}.*")], [f"{name}.png"])
+        self.assertEqual((main / "res/drawable-nodpi/fox_ai_on_state.png").read_bytes(), b"ACUTE-ART")
+        mark = Path(__file__).resolve().parents[1] / "overlay/res/drawable-nodpi/acute_brand_mark_transparent.png"
+        self.assertEqual((main / "res/drawable-nodpi/kit_sleeping_under_laptop.png").read_bytes(), mark.read_bytes())
+        theme = (main / "java/org/mozilla/fenix/theme/FirefoxTheme.kt").read_text()
+        self.assertIn("}.withAcuteAccents(theme)", theme)
+        self.assertIn("primary = Color(0xFF8ABDDD)", theme)
+        delete_data = (main / "java/org/mozilla/fenix/settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt").read_text()
+        self.assertIn("getQuantityString(R.plurals.acute_delete_data_tabs, openTabs, openTabs)", delete_data)
+        self.assertIn("getQuantityString(R.plurals.acute_delete_data_addresses, historyCount, historyCount)",
+                      delete_data)
+        plurals = (main / "res/values/acute_settings_strings.xml").read_text()
+        self.assertIn('<item quantity="one">%d tab</item>', plurals)
+        banner = (main / "res/layout/tracking_protection_learn_more_preference.xml").read_text()
+        self.assertNotIn("ic_etp_artwork", banner)
+        self.assertNotIn("guideline", banner)
+        self.assertEqual(banner.count('app:layout_constraintEnd_toEndOf="parent"'), 2)
+        settings = (main / "java/org/mozilla/fenix/utils/Settings.kt").read_text()
+        self.assertIn("pref_key_privacy_report_tab_manager),\n            default = false,", settings)
+        for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
+            self.assertIn('"resource://android/assets/acute_error_page.png"', (main / "assets" / script).read_text())
+        self.assertTrue((main / "assets/acute_error_page.png").is_file())
+        style = (main / "assets/low_and_medium_risk_error_style.css").read_text()
+        self.assertNotIn("#7542e5", style)
+        self.assertIn("--primary-button-color: #0072bc;", style)
 
     def test_beta_channel_has_separate_identity(self):
         temp, root = self.make_checkout()

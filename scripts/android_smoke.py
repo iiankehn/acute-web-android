@@ -236,13 +236,13 @@ class Smoke:
     def first_run(self) -> None:
         for _ in range(FIRST_RUN_STEPS):
             nodes = self.wait_for("the first screen", lambda found: bool(found), timeout=90)
-            if find(nodes, label=HOME_TEXT):
-                return
             cancel = self.default_browser_prompt(nodes)
             if cancel is not None:
                 self.tap(cancel, "declining Android's default-browser prompt", system_prompt=True)
                 self.sleep(3)
                 continue
+            if self.browser_ready(nodes):
+                return
             button = next((find(nodes, text=label) for label in FIRST_RUN_BUTTONS if find(nodes, text=label)), None)
             if button is None:
                 self.sleep(3)
@@ -250,9 +250,14 @@ class Smoke:
             self.tap(button, f"first-run button '{button.text}'")
             self.sleep(3)
         nodes = self.nodes()
-        if not find(nodes, label=HOME_TEXT):
+        if not self.browser_ready(nodes):
             labels = ", ".join(node.label() for node in nodes[:25])
             raise SmokeFailure(f"First run didn't reach the home screen. On screen: {labels}")
+
+    @staticmethod
+    def browser_ready(nodes: list[Node]) -> bool:
+        # An existing profile can reopen its last tab instead of the home screen.
+        return bool(find(nodes, label=HOME_TEXT) or find(nodes, description=MENU_DESCRIPTION))
 
     def https_page(self) -> None:
         self.open_url(HTTPS_PAGE)
