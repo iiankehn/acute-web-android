@@ -27,6 +27,10 @@ Every change moves through the channels in one direction: **Dev → Beta → Sta
    releases or update the website, and the Dev updater is disabled.
 2. **Beta.** Once a Dev build has been tested on a device, `dev` is promoted to
    `beta` and tagged `vMAJOR.MINOR.PATCH-beta.NUMBER` to publish a prerelease.
+   The tag must match `release.candidate` in `acute-android.toml` (and
+   `BETA_CANDIDATE` in the workflow, which the audit keeps equal); a mismatched
+   tag fails before anything is built. Untagged `beta` pushes are labeled with
+   that candidate. After publishing, bump the candidate to the next Beta.
 3. **Stable.** When a Beta has been tested and the feature set is locked in, `beta`
    is promoted to `main` and tagged `vMAJOR.MINOR.PATCH`. A feature reaches `main`
    only after its tests pass, its branding and documentation are complete, and it

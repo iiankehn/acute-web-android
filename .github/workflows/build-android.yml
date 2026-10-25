@@ -62,6 +62,8 @@ jobs:
         id: version
         env:
           MANUAL_FIREFOX_REF: ${{ inputs.firefox_ref }}
+          # The Beta being prepared; matches release.candidate in acute-android.toml.
+          BETA_CANDIDATE: 2.0.0-beta.3
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
@@ -71,6 +73,10 @@ jobs:
               kind=release
               package=com.acuteweb.browser
             elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+              if [[ "$version" != "$BETA_CANDIDATE" ]]; then
+                echo "Tag v$version does not match the Beta candidate $BETA_CANDIDATE in acute-android.toml"
+                exit 1
+              fi
               channel=beta
               task=fenix:assembleBeta
               kind=beta
@@ -106,10 +112,10 @@ jobs:
             elif [[ "$GITHUB_REF" == "refs/heads/beta" ]]; then
               echo "task=fenix:assembleBeta" >> "$GITHUB_OUTPUT"
               echo "kind=beta" >> "$GITHUB_OUTPUT"
-              # Keep branch builds parseable by the GitHub updater. The
-              # monotonically increasing ACUTE_BUILD_NUMBER still permits
-              # install-over updates between Beta artifacts.
-              echo "version=2.0.0-beta.1" >> "$GITHUB_OUTPUT"
+              # Branch builds carry the Beta being prepared, in the form the
+              # GitHub updater parses. The monotonically increasing
+              # ACUTE_BUILD_NUMBER still permits install-over updates.
+              echo "version=$BETA_CANDIDATE" >> "$GITHUB_OUTPUT"
               echo "package=com.acuteweb.browser.beta" >> "$GITHUB_OUTPUT"
               echo "channel=beta" >> "$GITHUB_OUTPUT"
             else
