@@ -5,4 +5,12 @@
     <string name="acute_settings_category_browsing_data">Browsing data</string>
     <string name="acute_settings_category_downloads_links">Downloads and links</string>
     <string name="acute_settings_category_extensions">Extensions</string>
+    <plurals name="acute_delete_data_tabs">
+        <item quantity="one">%d tab</item>
+        <item quantity="other">%d tabs</item>
+    </plurals>
+    <plurals name="acute_delete_data_addresses">
+        <item quantity="one">%d address</item>
+        <item quantity="other">%d addresses</item>
+    </plurals>
 </resources>

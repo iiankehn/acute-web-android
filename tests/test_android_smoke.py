@@ -169,6 +169,14 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(stable.crash_report(), "")
         self.assertIn("FATAL EXCEPTION", self.smoke(adb).crash_report())
 
+    def test_existing_profile_that_reopens_its_last_tab_is_ready(self):
+        adb = FakeAdb()
+        smoke = self.smoke(adb)
+        smoke.launch()
+        adb.current = "page"
+        smoke.first_run()
+        self.assertEqual(adb.tapped, [])
+
     def test_first_run_that_never_reaches_home_fails(self):
         adb = FakeAdb()
         smoke = self.smoke(adb)

@@ -1913,6 +1913,284 @@ def patch_onboarding_artwork(fenix: Path) -> None:
         shutil.copy2(inactive, active)
 
 
+# Fox and Kit mascot illustrations in settings screens and empty states. Each
+# is drawn with painterResource, so it becomes a raster: Acute's own artwork from
+# overlay/artwork/<name>.png when present, otherwise a copy of the Acute mark.
+ARTWORK = ROOT / "overlay/artwork"
+
+
+def artwork(name: str) -> Path:
+    custom = ARTWORK / f"{name}.png"
+    return custom if custom.is_file() else ROOT / "overlay/res/drawable-nodpi/acute_brand_mark_transparent.png"
+
+
+MASCOT_ARTWORK = (
+    "drawable/fox_ai_on_state.xml",
+    "drawable/fox_exclamation_alert.xml",
+    "drawable/illustration_fox_box_inside_light.xml",
+    "drawable/ic_kit_bookmarks_empty_state.xml",
+    "drawable/ic_kit_heart.xml",
+    "drawable/ic_kit_plug_error.xml",
+    "drawable/ic_kit_shield_off_state.xml",
+    "drawable/ic_kit_shield_on_state.xml",
+    "drawable/kit_devices_sync.xml",
+    "drawable/kit_devices_sync_error.xml",
+    "drawable/kit_expressive_full.xml",
+    "drawable/kit_head_protection_blocker_banner.xml",
+    "drawable/kit_plug_error.xml",
+    "drawable/kit_search_error.xml",
+    "drawable-nodpi/firefox_as_default_banner_illustration.xml",
+    "drawable-nodpi/kit_sleeping_under_laptop.webp",
+)
+
+
+def patch_mascot_artwork(fenix: Path) -> None:
+    """Replace upstream mascot illustrations with Acute artwork."""
+    res = fenix / "app/src/main/res"
+    for relative in MASCOT_ARTWORK:
+        upstream = res / relative
+        if not upstream.is_file():
+            raise OverlayError(f"Missing expected Fenix drawable: {relative}")
+        name = upstream.stem
+        for existing in (fenix / "app/src").glob(f"*/res/drawable*/{name}.*"):
+            existing.unlink()
+        raster = res / f"drawable-nodpi/{name}.png"
+        raster.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(artwork(name), raster)
+
+
+def patch_compose_accents(path: Path) -> None:
+    """Give Compose screens Acute's blue instead of the Acorn violet accents."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, "import androidx.compose.runtime.ReadOnlyComposable\n",
+                        "import androidx.compose.runtime.ReadOnlyComposable\nimport androidx.compose.ui.graphics.Color\n",
+                        "Compose theme Color import")
+    text = replace_once(text, "            Theme.Private -> acornPrivateColorScheme()\n        }\n",
+                        "            Theme.Private -> acornPrivateColorScheme()\n        }.withAcuteAccents(theme)\n",
+                        "Compose theme color scheme")
+    text = text.rstrip("\n") + '''
+
+// Matches Acute's native palette (acute_native_theme.xml and the brand colors).
+private fun ColorScheme.withAcuteAccents(theme: Theme): ColorScheme =
+    when (theme) {
+        Theme.Light ->
+            copy(
+                primary = Color(0xFF0072BC),
+                onPrimary = Color.White,
+                primaryContainer = Color(0xFFD8EEFC),
+                onPrimaryContainer = Color(0xFF00243D),
+                inversePrimary = Color(0xFF8ABDDD),
+                secondaryContainer = Color(0xFFD8EEFC),
+                onSecondaryContainer = Color(0xFF00243D),
+                tertiary = Color(0xFF0072BC),
+                onTertiary = Color.White,
+                tertiaryContainer = Color(0xFFD8EEFC),
+                onTertiaryContainer = Color(0xFF00243D),
+            )
+        Theme.Private ->
+            darkAccents().copy(
+                background = Color(0xFF071827),
+                surface = Color(0xFF071827),
+                surfaceVariant = Color(0xFF0D2A40),
+                surfaceTint = Color(0xFF1E3A52),
+                outlineVariant = Color(0xFF1E3A52),
+                secondaryContainer = Color(0xFF0D2A40),
+                surfaceBright = Color(0xFF0D2A40),
+                surfaceDim = Color(0xFF030C14),
+                surfaceContainer = Color(0xFF071827),
+                surfaceContainerHigh = Color(0xFF0A2133),
+                surfaceContainerHighest = Color(0xFF0D2A40),
+                surfaceContainerLow = Color(0xFF05121D),
+                surfaceContainerLowest = Color(0xFF030C14),
+            )
+        else -> darkAccents()
+    }
+
+private fun ColorScheme.darkAccents(): ColorScheme =
+    copy(
+        primary = Color(0xFF8ABDDD),
+        onPrimary = Color(0xFF101216),
+        primaryContainer = Color(0xFF223B50),
+        onPrimaryContainer = Color(0xFFF4F8FB),
+        inversePrimary = Color(0xFF0072BC),
+        secondaryContainer = Color(0xFF282D35),
+        onSecondaryContainer = Color(0xFFF4F8FB),
+        tertiary = Color(0xFF8ABDDD),
+        onTertiary = Color(0xFF101216),
+        tertiaryContainer = Color(0xFF223B50),
+        onTertiaryContainer = Color(0xFFF4F8FB),
+    )
+'''
+    path.write_text(text, encoding="utf-8")
+
+
+# English copy that names the wrong product, speaks in Mozilla's voice, or does
+# not fit its screen. Firefox sync still pairs through desktop Firefox and a
+# Mozilla account, so those instructions keep saying so.
+ACUTE_ENGLISH_COPY = {
+    "sign_in_instructions":
+        "<![CDATA[Sync uses a Mozilla account. On your computer, open Firefox and go to "
+        "<b>https://firefox.com/pair</b>]]>",
+    "sign_in_create_account_text":
+        "<![CDATA[No account? <u>Create a Mozilla account</u> to sync between devices.]]>",
+    "preference_enhanced_tracking_protection": "Tracking Protection",
+    "preference_enhanced_tracking_protection_summary":
+        "Blocks trackers that follow you across sites, including cross-site cookies.",
+    "preferences_downloads_2": "Downloads",
+}
+
+
+def patch_english_copy(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    for name, value in ACUTE_ENGLISH_COPY.items():
+        string = re.compile(rf'(<string\b[^>]*\bname="{re.escape(name)}"[^>]*>).*?(</string>)', flags=re.DOTALL)
+        text, count = string.subn(lambda match: f"{match.group(1)}{value}{match.group(2)}", text, count=1)
+        if count != 1:
+            raise OverlayError(f"Could not locate English string {name}")
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_tracking_protection_banner(path: Path) -> None:
+    """Drop the Firefox illustration so the explanation uses the full banner width."""
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(text, 'android:background="#FF0250BB"',
+                        'android:background="@color/acute_native_blue_container"', "ETP banner background")
+    image = re.search(r"\n    <ImageView\b.*?/>\n", text, flags=re.DOTALL)
+    if image is None or "@drawable/ic_etp_artwork" not in image.group(0):
+        raise OverlayError("Missing expected Fenix anchor: ETP banner artwork")
+    text = text.replace(image.group(0), "\n", 1).replace(">\n\n\n", ">\n\n", 1)
+    guideline = re.search(r"\n    <androidx\.constraintlayout\.widget\.Guideline\b.*?/>\n", text, flags=re.DOTALL)
+    if guideline is None:
+        raise OverlayError("Missing expected Fenix anchor: ETP banner guideline")
+    text = text.replace(guideline.group(0), "\n", 1).replace("\n\n</androidx", "\n</androidx", 1)
+    end = 'app:layout_constraintEnd_toStartOf="@id/guideline"'
+    if text.count(end) != 2:
+        raise OverlayError("Missing expected Fenix anchor: ETP banner text width")
+    text = text.replace(end, 'android:layout_marginEnd="16dp"\n        app:layout_constraintEnd_toEndOf="parent"')
+    text = replace_once(text, 'android:textColor="@color/photonLightGrey05"',
+                        'android:textColor="@color/acute_native_text"', "ETP banner text color")
+    text = replace_once(text, 'android:textColor="@color/photonLightGrey30"',
+                        'android:textColor="@color/acute_native_blue_soft"', "ETP banner link color")
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_delete_data_counts(path: Path) -> None:
+    """Count open tabs and history entries with plurals ("1 tab", not "1 tabs")."""
+    text = path.read_text(encoding="utf-8")
+    for old, plural, count in (
+        ("R.string.preferences_delete_browsing_data_tabs_subtitle", "acute_delete_data_tabs", "openTabs"),
+        ("R.string.preferences_delete_browsing_data_browsing_data_subtitle", "acute_delete_data_addresses",
+         "historyCount"),
+    ):
+        call = re.search(rf"resources\.getString\(\s*{re.escape(old)},\s*{count},\s*\)", text)
+        if call is None:
+            raise OverlayError(f"Missing expected Fenix anchor: {old}")
+        text = text.replace(call.group(0), f"resources.getQuantityString(R.plurals.{plural}, {count}, {count})", 1)
+    path.write_text(text, encoding="utf-8")
+
+
+def patch_privacy_report_default(settings: Path) -> None:
+    """The tab manager's tracker card sits below the last tab, mid-screen; keep it opt-in."""
+    text = settings.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "            appContext.getPreferenceKey(R.string.pref_key_privacy_report_tab_manager),\n"
+        "            default = true,\n",
+        "            appContext.getPreferenceKey(R.string.pref_key_privacy_report_tab_manager),\n"
+        "            default = false,\n",
+        "tab manager privacy report default",
+    )
+    settings.write_text(text, encoding="utf-8")
+
+
+# Upstream error-page image (without ".svg") -> Acute artwork in overlay/artwork.
+# The padlock covers both certificate errors and the HTTPS-Only warning; the
+# HTTPS-Only page is the one that offers to continue over HTTP.
+ERROR_PAGE_ARTWORK = {
+    "mozac_error_unplugged": "acute_connection_failed.png",
+    "mozac_error_eye_roll": "acute_connection_failed.png",
+    "mozac_error_asleep": "acute_connection_failed.png",
+    "mozac_error_hourglass": "acute_connection_failed.png",
+    "mozac_error_confused": "acute_page_not_found.png",
+    "mozac_error_question_file": "acute_page_not_found.png",
+    "mozac_error_no_internet": "acute_offline.png",
+    "mozac_error_no_internet_connection": "acute_offline.png",
+    "mozac_error_surprised": "acute_tab_crashed.png",
+    "mozac_error_shred_file": "acute_tab_crashed.png",
+    "mozac_error_inspect": "acute_tab_crashed.png",
+}
+ERROR_PAGE_LOCK = ("acute_not_encrypted.png", "acute_certificate_error.png")
+ERROR_PAGE_DEFAULT = "acute_connection_failed.png"
+TAB_CRASHED_ARTWORK = "acute_tab_crashed"
+ERROR_PAGE_COLORS = {
+    "--primary-button-color: #312a65;": "--primary-button-color: #0072bc;",
+    "--secondary-button-text-color: #20123a;": "--secondary-button-text-color: #00243d;",
+    "--primary-color: #3e2976;": "--primary-color: #0072bc;",
+    "--header-color: #312a65;": "--header-color: #00243d;",
+    "--primary-button-color: #7542e5;": "--primary-button-color: #0072bc;",
+    "--secondary-button-text-color: #312a65;": "--secondary-button-text-color: #00243d;",
+    "--primary-color: #cdb7ff;": "--primary-color: #8abddd;",
+}
+
+
+def error_page_image_script() -> str:
+    images = "".join(f'    {name}: "{image}",\n' for name, image in ERROR_PAGE_ARTWORK.items())
+    return f"""
+// Acute artwork for each kind of error page.
+function acuteErrorImage(queryMap) {{
+  const name = queryMap.image.replace(/\\.svg$/, "");
+  if (name === "mozac_error_lock") {{
+    return queryMap.showContinueHttp === "true" ? "{ERROR_PAGE_LOCK[0]}" : "{ERROR_PAGE_LOCK[1]}";
+  }}
+  const images = {{
+{images}  }};
+  return images[name] || "{ERROR_PAGE_DEFAULT}";
+}}
+"""
+
+
+def patch_error_pages(assets: Path) -> None:
+    """Show Acute artwork and blue buttons on Fenix's error pages."""
+    for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
+        path = assets / script
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        text = replace_once(text, 'errorImage.src = "resource://android/assets/" + queryMap.image;',
+                            'errorImage.src = "resource://android/assets/" + acuteErrorImage(queryMap);',
+                            f"error page image in {script}")
+        path.write_text(text.rstrip("\n") + "\n" + error_page_image_script(), encoding="utf-8")
+    shared = assets / "shared_error_style.css"
+    text = shared.read_text(encoding="utf-8") if shared.is_file() else ""
+    if "#errorPageContainer" not in text:
+        raise OverlayError("Missing expected Fenix anchor: shared error page style")
+    shared.write_text(text.rstrip("\n") + "\n\n#errorImage {\n  display: block;\n  width: 100%;\n"
+                      "  max-width: 320px;\n  height: auto;\n  margin: 0 auto;\n}\n", encoding="utf-8")
+    styles = assets / "low_and_medium_risk_error_style.css"
+    text = styles.read_text(encoding="utf-8") if styles.is_file() else ""
+    for old, new in ERROR_PAGE_COLORS.items():
+        text = replace_once(text, old, new, f"error page color {old}")
+    styles.write_text(text, encoding="utf-8")
+    for image in {*ERROR_PAGE_ARTWORK.values(), *ERROR_PAGE_LOCK, ERROR_PAGE_DEFAULT}:
+        source = ARTWORK / image
+        if not source.is_file():
+            raise OverlayError(f"Missing Acute artwork: overlay/artwork/{image}")
+        shutil.copy2(source, assets / image)
+
+
+def patch_tab_crashed_artwork(fenix: Path) -> None:
+    """The crashed-tab screen shows Acute's artwork instead of Firefox's."""
+    layout = fenix / "app/src/main/res/layout/view_crash_reporter.xml"
+    text = layout.read_text(encoding="utf-8") if layout.is_file() else ""
+    text = replace_once(text, 'app:srcCompat="@drawable/fenix_error_1"',
+                        f'app:srcCompat="@drawable/{TAB_CRASHED_ARTWORK}"', "crashed tab artwork")
+    layout.write_text(text, encoding="utf-8")
+    source = ARTWORK / f"{TAB_CRASHED_ARTWORK}.png"
+    if not source.is_file():
+        raise OverlayError(f"Missing Acute artwork: overlay/artwork/{source.name}")
+    raster = fenix / f"app/src/main/res/drawable-nodpi/{TAB_CRASHED_ARTWORK}.png"
+    raster.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, raster)
+
+
 def copy_overlay(fenix: Path, channel: str) -> None:
     java_target = fenix / "app/src/main/java/org/mozilla/fenix/acute"
     java_target.mkdir(parents=True, exist_ok=True)
@@ -2006,11 +2284,15 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     customization = fenix / "app/src/main/java/org/mozilla/fenix/settings/CustomizationFragment.kt"
     values = fenix / "app/src/main/res/values"
     night_colors = fenix / "app/src/main/res/values-night/colors.xml"
+    compose_theme = fenix / "app/src/main/java/org/mozilla/fenix/theme/FirefoxTheme.kt"
+    delete_data = fenix / "app/src/main/java/org/mozilla/fenix/settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt"
+    etp_banner = fenix / "app/src/main/res/layout/tracking_protection_learn_more_preference.xml"
     required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics, crash_reporter,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding, *onboarding_views, onboarding_telemetry,
                 preferences, tracking_protection, search_providers, desktop_mode, core, about, customization,
-                values / "static_strings.xml", values / "strings.xml", night_colors]
+                values / "static_strings.xml", values / "strings.xml", night_colors,
+                compose_theme, delete_data, etp_banner]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise OverlayError("Missing expected Fenix files: " + ", ".join(missing))
@@ -2049,8 +2331,16 @@ def apply(checkout: Path, channel: str = "stable") -> None:
         replace_product_branding(static_strings.read_text(encoding="utf-8")), encoding="utf-8"
     )
     patch_product_branding(fenix)
+    patch_english_copy(values / "strings.xml")
+    patch_compose_accents(compose_theme)
+    patch_tracking_protection_banner(etp_banner)
+    patch_delete_data_counts(delete_data)
+    patch_privacy_report_default(settings)
+    patch_error_pages(fenix / "app/src/main/assets")
+    patch_tab_crashed_artwork(fenix)
     copy_overlay(fenix, channel)
     patch_onboarding_artwork(fenix)
+    patch_mascot_artwork(fenix)
     validate_product_identity(fenix)
     (checkout / MARKER).write_text(
         f"Acute Web Android overlay applied ({channel})\n", encoding="utf-8"

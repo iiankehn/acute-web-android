@@ -12,7 +12,8 @@ import subprocess
 import tempfile
 import tomllib
 
-from apply_overlay import COMPOSE_BRAND_RASTERS, ROOT, SETTINGS_GROUPS, apply
+from apply_overlay import (COMPOSE_BRAND_RASTERS, ERROR_PAGE_ARTWORK, ERROR_PAGE_LOCK, MASCOT_ARTWORK, ROOT,
+                           SETTINGS_GROUPS, TAB_CRASHED_ARTWORK, apply)
 
 
 FENIX_FILES = (
@@ -30,6 +31,12 @@ FENIX_FILES = (
     "app/src/main/res/xml/preferences.xml",
     "app/src/main/res/xml/tracking_protection_preferences.xml",
     "app/src/main/res/xml/customization_preferences.xml",
+    "app/src/main/res/layout/tracking_protection_learn_more_preference.xml",
+    "app/src/main/res/layout/view_crash_reporter.xml",
+    *(f"app/src/main/assets/{name}" for name in (
+        "lowMediumErrorPages.js", "highRiskErrorPages.js", "shared_error_style.css",
+        "low_and_medium_risk_error_style.css")),
+    *(f"app/src/main/res/{path}" for path in MASCOT_ARTWORK),
     *(f"app/src/main/res/drawable/{name}.xml" for name in COMPOSE_BRAND_RASTERS),
     *(f"app/src/{source}/res/drawable/ic_firefox.xml" for source in ("beta", "debug", "nightly")),
     *(f"app/src/main/res/drawable/nova_onboarding_toolbar_{position}_{state}.xml"
@@ -63,6 +70,8 @@ FENIX_KOTLIN = (
     "components/Analytics.kt",
     "settings/about/AboutFragment.kt",
     "settings/CustomizationFragment.kt",
+    "settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt",
+    "theme/FirefoxTheme.kt",
 )
 COMPONENT_FILES = (
     "lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt",
@@ -131,6 +140,17 @@ def validate_settings_and_artwork(source: Path, checkout: Path) -> None:
     for name in COMPOSE_BRAND_RASTERS:
         assert (res / f"main/res/drawable-nodpi/{name}.png").is_file(), name
         assert not list(res.glob(f"*/res/drawable*/{name}.xml")), name
+    for relative in MASCOT_ARTWORK:
+        name = Path(relative).stem
+        assert [p.name for p in res.glob(f"*/res/drawable*/{name}.*")] == [f"{name}.png"], name
+    assets = res / "main/assets"
+    for image in {*ERROR_PAGE_ARTWORK.values(), *ERROR_PAGE_LOCK}:
+        assert (assets / image).is_file(), image
+    for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
+        assert "acuteErrorImage(queryMap);" in (assets / script).read_text(encoding="utf-8"), script
+    crash_layout = (res / "main/res/layout/view_crash_reporter.xml").read_text(encoding="utf-8")
+    assert f"@drawable/{TAB_CRASHED_ARTWORK}" in crash_layout
+    assert (res / f"main/res/drawable-nodpi/{TAB_CRASHED_ARTWORK}.png").is_file()
     drawable = res / "main/res/drawable"
     for position in ("top", "bottom"):
         assert (drawable / f"nova_onboarding_toolbar_{position}_active.xml").read_bytes() == (
