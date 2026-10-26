@@ -1091,6 +1091,7 @@ def patch_manifest(path: Path) -> None:
             android:exported="false"
             android:initOrder="100" />
 """
+    provider += '        <activity android:name="org.mozilla.fenix.acute.ReportIssueActivity" android:exported="false" />\n'
     provider += '        <receiver android:name="com.adjust.sdk.AdjustPreinstallReferrerReceiver" tools:node="remove" />\n'
     # This dependency provider runs before Application.onCreate, independently
     # of the disabled MetricController service list. Acute does not use attribution.
@@ -1366,7 +1367,7 @@ def patch_marketing_policy(settings: Path, onboarding: Path) -> None:
     onboarding.write_text(onboarding_text, encoding="utf-8")
 
 
-def patch_user_reporting(settings: Path, preferences: Path, search_providers: Path) -> None:
+def patch_user_reporting(settings: Path, preferences: Path, search_providers: Path, channel: str) -> None:
     """Remove upload controls and direct voluntary bug reports to GitHub."""
     settings_text = settings.read_text(encoding="utf-8")
     crash_choice = '''    var crashReportChoice by
@@ -1397,12 +1398,13 @@ def patch_user_reporting(settings: Path, preferences: Path, search_providers: Pa
             android:title="@string/acute_report_issue_title"
             android:summary="@string/acute_report_issue_summary">
             <intent
-                android:action="android.intent.action.VIEW"
-                android:data="@string/acute_issues_url" />
+                android:targetPackage="ACUTE_REPORT_PACKAGE"
+                android:targetClass="org.mozilla.fenix.acute.ReportIssueActivity" />
         </androidx.preference.Preference>
 '''
     preference_text = replace_once(
-        preference_text, data_choices, issue_link, "data collection settings entry"
+        preference_text, data_choices, issue_link.replace("ACUTE_REPORT_PACKAGE",
+            "com.acuteweb.browser" + ("" if channel == "stable" else "." + channel)), "data collection settings entry"
     )
     preferences.write_text(preference_text, encoding="utf-8")
 
@@ -1748,7 +1750,7 @@ def patch_about_page(path: Path) -> None:
             ),
             AboutPageItem(
                 AboutItem.ExternalLink(SUPPORT, ACUTE_ISSUES_URL),
-                getString(R.string.about_support),
+                getString(R.string.acute_report_issue_title),
             ),
             AboutPageItem(
                 AboutItem.ExternalLink(PRIVACY_NOTICE, ACUTE_PRIVACY_URL),
@@ -1760,6 +1762,15 @@ def patch_about_page(path: Path) -> None:
             ),
 '''
     text = replace_once(text, old_list, new_list, "About product links")
+    text = replace_once(
+        text, "    private fun openLinkInNormalTab(url: String) {\n",
+        "    private fun openLinkInNormalTab(url: String) {\n"
+        "        if (url == ACUTE_ISSUES_URL) {\n"
+        "            startActivity(android.content.Intent(requireContext(), org.mozilla.fenix.acute.ReportIssueActivity::class.java))\n"
+        "            return\n"
+        "        }\n",
+        "About local issue review",
+    )
     old_event = '''                    WHATS_NEW -> {
                         WhatsNew.userViewedWhatsNew(requireContext())
                         Events.whatsNewTapped.record(Events.WhatsNewTappedExtra(source = "ABOUT"))
@@ -2354,6 +2365,10 @@ def copy_overlay(fenix: Path, channel: str) -> None:
     shutil.copy2(ROOT / "overlay/kotlin/GitHubUpdateProvider.kt",
                  java_target / "GitHubUpdateProvider.kt")
 
+    for name in ("LocalCrashReports.kt", "ReportIssueActivity.kt"):
+        shutil.copy2(ROOT / "overlay/kotlin" / name, java_target / name)
+    shutil.copy2(ROOT / "overlay/java/CrashReportSanitizer.java", java_target / "CrashReportSanitizer.java")
+
     source_res = ROOT / "overlay/res"
     resource_targets = [fenix / "app/src/main/res"]
     for build_type in ("debug", "nightly", "beta", "release"):
@@ -2474,7 +2489,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_marketing_policy(settings, onboarding)
     patch_private_by_default_onboarding(onboarding.parent)
     patch_acute_terms_page(onboarding.parent / "view/TermsOfServiceOnboardingPage.kt")
-    patch_user_reporting(settings, preferences, search_providers)
+    patch_user_reporting(settings, preferences, search_providers, channel)
     patch_settings_categories(preferences)
     patch_private_by_default_summary(preferences)
     patch_branding_ui(fenix)

@@ -210,6 +210,17 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert "lineOneText" not in body and "lineThreeText" not in body
     assert "R.string.acute_onboarding_privacy_line" in body
     validate_settings_and_artwork(source, checkout)
+    reports = [a for a in application.findall("activity")
+               if a.get(android + "name") == "org.mozilla.fenix.acute.ReportIssueActivity"]
+    assert len(reports) == 1 and reports[0].get(android + "exported") == "false"
+    issue = ET.parse(app / "src/main/res/xml/preferences.xml").getroot()
+    entry = next(p for p in issue.iter() if p.get(android + "key") == "acute_report_issue")
+    intent = entry.find("intent")
+    expected_package = "com.acuteweb.browser" + ("" if channel == "stable" else "." + channel)
+    assert intent.get(android + "targetPackage") == expected_package
+    assert intent.get(android + "targetClass") == "org.mozilla.fenix.acute.ReportIssueActivity"
+    assert "ReportIssueActivity::class.java" in (code / "settings/about/AboutFragment.kt").read_text()
+
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
     # Exact source anchors can apply successfully while introducing Kotlin

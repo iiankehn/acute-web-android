@@ -688,6 +688,8 @@ class AboutFragment {
             ),
         )
     }
+    private fun openLinkInNormalTab(url: String) {
+    }
     fun clicked(item: AboutItem) {
         when (item.type) {
                     WHATS_NEW -> {
@@ -860,6 +862,22 @@ class OverlayTests(unittest.TestCase):
 }
 ''')
         return temp, root
+
+    def test_reports_use_private_activity_and_correct_channel(self):
+        for channel in ("stable", "beta", "dev"):
+            temp, root = self.make_checkout()
+            self.addCleanup(temp.cleanup)
+            apply(root, channel=channel)
+            app = root / "mobile/android/fenix/app"
+            xml = (app / "src/main/res/xml/preferences.xml").read_text()
+            package = "com.acuteweb.browser" + ("" if channel == "stable" else "." + channel)
+            self.assertIn(f'android:targetPackage="{package}"', xml)
+            self.assertIn('android:targetClass="org.mozilla.fenix.acute.ReportIssueActivity"', xml)
+            self.assertIn('ReportIssueActivity" android:exported="false"', (app / "src/main/AndroidManifest.xml").read_text())
+            code = app / "src/main/java/org/mozilla/fenix/acute"
+            for name in ("LocalCrashReports.kt", "ReportIssueActivity.kt", "CrashReportSanitizer.java"):
+                self.assertTrue((code / name).is_file())
+            self.assertIn("LocalCrashReports.install(app)", (code / "GitHubUpdateProvider.kt").read_text())
 
     def test_glean_never_initializes_and_anchor_drift_fails(self):
         from apply_overlay import patch_glean_startup

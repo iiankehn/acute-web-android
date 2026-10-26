@@ -92,6 +92,12 @@ def verify(text):
         node["tag"] == "grant-uri-permission" for node in provider["children"]
     ):
         raise ValueError("Compiled updater provider must not grant URI access")
+    for node in app["children"]:
+        if string_value(node["attrs"].get("android:name")) == "org.mozilla.fenix.acute.ReportIssueActivity":
+            if not is_false(node["attrs"].get("android:exported")) or any(
+                child["tag"] == "intent-filter" for child in node["children"]
+            ):
+                raise ValueError("Crash review activity must remain private without external intent filters")
     for provider in app["children"]:
         attrs = provider["attrs"]
         if provider["tag"] == "provider" and string_value(attrs.get("android:name")) == "org.mozilla.gecko.GeckoClipboardContentProvider":

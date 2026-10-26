@@ -78,6 +78,12 @@ crash that took an hour to find. **Gate 1**
 - Done: a forced test crash on the Pixel shows up in a pre-filled issue; tests
   cover what is and isn't recorded.
 
+Implementation progress: local Java/Kotlin main-process recording and the
+opt-in editable GitHub draft flow are implemented. The JVM sanitizer and
+channel wiring have regression coverage. Native crashes are not covered.
+APK/emulator validation and the physical-device forced-crash/review test are
+still required; Gate 1 remains open. See [CRASH_REPORTING.md](CRASH_REPORTING.md).
+
 ### 3. Prove the privacy claims
 
 **Gate 4**
