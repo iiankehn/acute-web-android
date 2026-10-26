@@ -737,6 +737,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
+        (app / "src/main/java/org/mozilla/fenix/components/GleanHelper.kt").write_text(
+            (Path(__file__).parent / "fixtures/firefox-158.0.2/GleanHelper.kt").read_text(encoding="utf-8"), encoding="utf-8")
         fixtures = Path(__file__).parent / "fixtures/firefox-157.0.1"
         for relative in ("components/toolbar/BrowserToolbarMiddleware.kt", "components/menu/compose/MainMenu.kt", "components/Analytics.kt"):
             destination = app / "src/main/java/org/mozilla/fenix" / relative
@@ -858,6 +860,22 @@ class OverlayTests(unittest.TestCase):
 }
 ''')
         return temp, root
+
+    def test_glean_never_initializes_and_anchor_drift_fails(self):
+        from apply_overlay import patch_glean_startup
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        path = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/GleanHelper.kt"
+        original = path.read_text(encoding="utf-8")
+        apply(root, channel="dev")
+        patched = path.read_text(encoding="utf-8")
+        self.assertIn("fun initializeGlean(applicationContext: Context", patched)
+        for call in ("Glean.initialize(", "Glean.registerPings(", "Glean.applyServerKnobsConfig(",
+                     "ConceptFetchHttpUploader(", "restorePersistedDebugViewTag("):
+            self.assertNotIn(call, patched)
+        path.write_text(original.replace("Glean.initialize(", "Glean.changedInitialize("), encoding="utf-8")
+        with self.assertRaises(OverlayError):
+            patch_glean_startup(path)
 
     def test_styles_display_and_edit_address_fields(self):
         temp, root = self.make_checkout()

@@ -39,3 +39,16 @@ notices and source availability are provided in the app and in this repository.
 Security issues should be reported according to [SECURITY.md](../SECURITY.md).
 Ordinary bugs and feature requests belong on the
 [GitHub Issues page](https://github.com/iiankehn/acute-web-android/issues).
+
+## Telemetry startup hardening (Beta 3)
+
+The overlay replaces the pinned Fenix `initializeGlean` implementation with a
+no-op, preserving its signature for startup and onboarding callers. It no
+longer registers Fenix pings, applies remote metric configuration, creates the
+Glean upload client, initializes the backend or restores diagnostic tags.
+Existing upload-consent and crash-service restrictions remain in place.
+
+This is source evidence, not a network-capture result. Engine-level telemetry,
+Firebase/web push and other retained services still require runtime inspection.
+The Beta 3 privacy exit gate remains open until startup, first run, idle,
+browsing and update-check traffic have been captured and reviewed.
