@@ -76,6 +76,15 @@ class CompiledManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'clipboard'):
                 verify(CLEAN_MANIFEST + changed)
 
+    def test_crash_review_cannot_be_exported(self):
+        activity = '''    E: activity (line=5)
+      A: android:name="org.mozilla.fenix.acute.ReportIssueActivity"
+      A: android:exported(0x01010010)=(type 0x12)0x0
+'''
+        verify(CLEAN_MANIFEST + activity)
+        with self.assertRaisesRegex(ValueError, "Crash review"):
+            verify(CLEAN_MANIFEST + activity.replace("0x12)0x0", "0x12)0xffffffff"))
+
     def test_shared_uid_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'UID'):
             verify(CLEAN_MANIFEST.replace('  E: application', '  A: android:sharedUserId="shared"\n  E: application'))

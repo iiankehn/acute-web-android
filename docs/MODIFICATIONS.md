@@ -75,3 +75,16 @@ For the exact source relationship and reproduction instructions, see
 - Disable Fenix Glean initialization at its shared helper so startup and
   onboarding cannot start that backend through the helper, even for existing
   profiles. Runtime network validation remains pending.
+
+## Beta 3 local crash review
+
+- Retain one bounded Java/Kotlin main-process crash in private, backup-excluded
+  storage. Record version, Android version, model, exception types and stack
+  symbols/line numbers; omit exception messages, filenames, thread names and
+  suppressed exceptions. Preserve Android termination behavior.
+- Settings and About › Report an issue open a local review flow. Including the
+  last crash is opt-in, the full draft is editable, and GitHub receives text
+  only after the tester presses Open GitHub draft. Delete local crash removes
+  the retained record. No new permissions or exported entry points.
+- Native engine/tab crashes are not captured by this handler. Physical-device
+  forced-crash, storage-failure and draft-opening validation remain pending.

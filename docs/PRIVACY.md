@@ -52,3 +52,21 @@ This is source evidence, not a network-capture result. Engine-level telemetry,
 Firebase/web push and other retained services still require runtime inspection.
 The Beta 3 privacy exit gate remains open until startup, first run, idle,
 browsing and update-check traffic have been captured and reviewed.
+
+## Local crash records (Beta 3 development)
+
+Acute retains the most recent main-process Java/Kotlin crash in its private
+backup-excluded directory. The bounded record includes app version, Android
+version, model, exception types and up to 12 frames per cause (three causes,
+4,000 characters maximum). It omits exception messages, filenames, thread
+names and suppressed exceptions. It does not read page contents, browsing
+history, URLs, account data or native crash dumps. Native engine/tab crashes
+are outside this handler. Android itself may retain system crash logs under
+its own settings.
+
+Nothing is uploaded automatically. About or Settings › Report an issue offers
+Include last crash (off by default), then an editable preview. Opening the
+GitHub draft sends its approved text to GitHub in a URL, which the browser may
+retain in history; submitting it creates a public issue. Canceling before
+opening the URL sends nothing. Delete local crash removes the retained record;
+a later crash replaces it. Device validation remains pending.
