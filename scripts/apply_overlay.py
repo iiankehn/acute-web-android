@@ -948,6 +948,66 @@ def patch_runtime_privacy(settings_path: Path, analytics_path: Path) -> None:
     analytics_path.write_text(text, encoding="utf-8")
 
 
+
+
+def patch_glean_startup(path: Path) -> None:
+    """Keep startup and onboarding callers compatible without initializing Glean."""
+    text = path.read_text(encoding="utf-8")
+    original = '''    logger.debug("Initializing Glean (uploadEnabled=$isTelemetryUploadEnabled})")
+
+    // for performance reasons, this is only available in Nightly or Debug builds
+    val customEndpoint =
+        if (Config.channel.isNightlyOrDebug) {
+            // for testing, if custom glean server url is set in the secret menu, use it to initialize Glean
+            getCustomGleanServerUrlIfAvailable(applicationContext)
+        } else {
+            null
+        }
+
+    val configuration =
+        Configuration(
+            channel = BuildConfig.BUILD_TYPE,
+            httpClient =
+                ConceptFetchHttpUploader(
+                    lazy(LazyThreadSafetyMode.NONE) { client },
+                    supportsOhttp = true,
+                ),
+            enableEventTimestamps = FxNimbus.features.glean.value().enableEventTimestamps,
+            delayPingLifetimeIo = FxNimbus.features.glean.value().delayPingLifetimeIo,
+            pingLifetimeThreshold = FxNimbus.features.glean.value().pingLifetimeThreshold,
+            pingLifetimeMaxTime = FxNimbus.features.glean.value().pingLifetimeMaxTime,
+        )
+
+    // Since Glean v63.0.0, custom pings need to be registered prior to Glean init
+    // in order to ensure they are enabled and able to collect data.
+    // See https://bugzilla.mozilla.org/1934931 for more information.
+    Glean.registerPings(Pings)
+
+    // Set the metric configuration from Nimbus.
+    Glean.applyServerKnobsConfig(FxNimbus.features.glean.value().gleanMetricConfiguration.toJSONObject().toString())
+
+    Glean.initialize(
+        applicationContext = applicationContext,
+        configuration = configuration.setCustomEndpointIfAvailable(customEndpoint),
+        uploadEnabled = isTelemetryUploadEnabled,
+        buildInfo = GleanBuildInfo.buildInfo,
+    )
+
+    // Re-apply any debug view tag persisted from a previous run so it survives the restart (Nightly/Debug only).
+    DefaultGleanDebugToolsStorage.restorePersistedDebugViewTag(applicationContext.components.settings)
+}'''
+    text = replace_once(text, original,
+                        "    // Acute never initializes the telemetry backend. No upload client or pings.\n}",
+                        "disabled Glean initialization")
+    # The implementation no longer needs SDK/configuration imports.
+    text = "\n".join(line for line in text.split("\n")
+                     if not line.startswith("import ") or line in {
+                         "import android.content.Context",
+                         "import mozilla.components.concept.fetch.Client",
+                         "import mozilla.components.support.base.log.logger.Logger",
+                     })
+    path.write_text(text, encoding="utf-8")
+
 def patch_disabled_crash_constructor(path: Path) -> None:
     """Permit an explicit disabled reporter without constructing an upload service."""
     text = path.read_text(encoding="utf-8")
@@ -2408,6 +2468,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_native_menu(main_menu)
     patch_menu_navigation_scroll(main_menu.with_name("MenuNavigation.kt"))
     patch_runtime_privacy(settings, analytics)
+    patch_glean_startup(analytics.with_name("GleanHelper.kt"))
     patch_private_by_default(settings, tracking_protection)
     patch_disabled_crash_constructor(crash_reporter)
     patch_marketing_policy(settings, onboarding)

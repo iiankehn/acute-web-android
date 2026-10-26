@@ -94,6 +94,11 @@ crash that took an hour to find. **Gate 1**
 - Done: a capture report in the repository; no traffic contradicts the welcome
   page; PRIVACY.md matches the capture.
 
+Source implementation progress: the shared Fenix `initializeGlean` helper is
+now a no-op, covered by an immutable upstream fixture and fail-closed overlay
+regressions. APK/device validation, network capture and Firebase/web push
+assessment remain pending; this does not close Gate 4.
+
 ### 4. Close the audit
 
 **Gate 2.** From [BETA_2_0_AUDIT.md](BETA_2_0_AUDIT.md):

@@ -69,3 +69,9 @@ extensions. Those foundations retain their original licenses and notices.
 
 For the exact source relationship and reproduction instructions, see
 [`SOURCE_AND_LICENSE.md`](SOURCE_AND_LICENSE.md).
+
+## Beta 3 telemetry startup hardening
+
+- Disable Fenix Glean initialization at its shared helper so startup and
+  onboarding cannot start that backend through the helper, even for existing
+  profiles. Runtime network validation remains pending.

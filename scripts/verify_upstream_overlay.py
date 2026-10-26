@@ -69,6 +69,7 @@ FENIX_KOTLIN = (
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
     "components/Analytics.kt",
+    "components/GleanHelper.kt",
     "settings/about/AboutFragment.kt",
     "settings/CustomizationFragment.kt",
     "settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt",
@@ -225,6 +226,10 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert "services = emptyList()," in analytics
     assert "telemetryServices = emptyList()," in analytics
     assert "            enabled = false," in analytics
+    glean = (code / "components/GleanHelper.kt").read_text()
+    assert "Glean.initialize(" not in glean
+    assert "ConceptFetchHttpUploader(" not in glean
+    assert "Glean.registerPings(" not in glean
     crash = (checkout / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt").read_text()
     assert "require(!enabled || services.isNotEmpty() || telemetryServices.isNotEmpty())" in crash
     for relative in (
