@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from shell_support import bash_executable
+
 ROOT = Path(__file__).resolve().parents[1]
 
 class WorkflowMetadataTests(unittest.TestCase):
@@ -17,10 +19,10 @@ class WorkflowMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "output"
             env = dict(os.environ, GITHUB_REF=ref, GITHUB_REF_NAME=ref.split("/")[-1],
-                       GITHUB_EVENT_NAME=event, GITHUB_RUN_NUMBER="501", GITHUB_OUTPUT=str(output),
+                       GITHUB_EVENT_NAME=event, GITHUB_RUN_NUMBER="501", GITHUB_OUTPUT=output.as_posix(),
                        PINNED_FIREFOX_REF="08d23041955657e661eef22c8fdc967735300233", MANUAL_FIREFOX_REF=manual,
                        BETA_CANDIDATE=candidate)
-            result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", script], env=env, capture_output=True, text=True)
+            result = subprocess.run([bash_executable(), "-e", "-o", "pipefail", "-c", script], env=env, capture_output=True, text=True)
             values = dict(line.split("=", 1) for line in output.read_text().splitlines()) if output.exists() else {}
             return result, values
 

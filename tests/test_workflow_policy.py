@@ -6,6 +6,8 @@ import tempfile
 import textwrap
 import unittest
 
+from shell_support import bash_executable
+
 
 WORKFLOW = Path(__file__).resolve().parents[1] / '.github/workflows/build-android.yml'
 
@@ -22,8 +24,8 @@ class SigningShellPolicyTests(unittest.TestCase):
             report = root / ('acute-unsigned-badging.txt' if kind == 'debug' else 'dist/manifest-permissions-arm64-v8a.txt')
             if content is not None:
                 report.write_text(content, encoding='utf-8')
-            env = dict(os.environ, RUNNER_TEMP=directory, ABI='arm64-v8a')
-            return subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script], cwd=root, env=env, capture_output=True)
+            env = dict(os.environ, RUNNER_TEMP=root.as_posix(), ABI='arm64-v8a')
+            return subprocess.run([bash_executable(), '-e', '-o', 'pipefail', '-c', script], cwd=root, env=env, capture_output=True)
 
     def test_debuggable_and_missing_reports_block_signing(self):
         self.assertEqual(self.run_policy('debug', "package: name='com.acuteweb.browser.dev'\n").returncode, 0)
