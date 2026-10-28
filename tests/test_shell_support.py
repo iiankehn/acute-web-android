@@ -18,7 +18,7 @@ class ShellSelectionTests(unittest.TestCase):
                 git.parent.mkdir(parents=True, exist_ok=True)
                 git.touch()
                 with patch("shell_support.os", SimpleNamespace(name="nt")), patch("shell_support.shutil.which", return_value=str(git)):
-                    self.assertEqual(Path(bash_executable()), bash)
+                    self.assertTrue(Path(bash_executable()).samefile(bash))
 
     def test_windows_without_git_bash_fails_instead_of_using_wsl(self):
         with patch("shell_support.os", SimpleNamespace(name="nt")), patch("shell_support.shutil.which", return_value=None):
