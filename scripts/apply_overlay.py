@@ -1008,6 +1008,19 @@ def patch_glean_startup(path: Path) -> None:
                      })
     path.write_text(text, encoding="utf-8")
 
+def patch_push_log_privacy(path: Path) -> None:
+    """Retain push transport without placing registration identifiers in logs."""
+    text = path.read_text(encoding="utf-8")
+    for old, new, label in (
+        ('logger.info("Got new Firebase token: $newToken")',
+         'logger.info("Firebase registration token refreshed")', "push token logging"),
+        ('logger.info("Processing message with chId: $chId")',
+         'logger.info("Processing push message")', "push channel logging"),
+    ):
+        text = replace_once(text, old, new, label)
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_disabled_crash_constructor(path: Path) -> None:
     """Permit an explicit disabled reporter without constructing an upload service."""
     text = path.read_text(encoding="utf-8")
@@ -2432,6 +2445,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     toolbar_middleware = fenix / "app/src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarMiddleware.kt"
     analytics = fenix / "app/src/main/java/org/mozilla/fenix/components/Analytics.kt"
     crash_reporter = checkout / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt"
+    push_service = checkout / "mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt"
     main_menu = fenix / "app/src/main/java/org/mozilla/fenix/components/menu/compose/MainMenu.kt"
     browser_fragment = fenix / "app/src/main/java/org/mozilla/fenix/browser/BaseBrowserFragment.kt"
     clipping_behavior = (
@@ -2459,7 +2473,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     compose_theme = fenix / "app/src/main/java/org/mozilla/fenix/theme/FirefoxTheme.kt"
     delete_data = fenix / "app/src/main/java/org/mozilla/fenix/settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt"
     etp_banner = fenix / "app/src/main/res/layout/tracking_protection_learn_more_preference.xml"
-    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics, crash_reporter,
+    required = [gradle, manifest, release_manifest, beta_manifest, settings, home_activity, browser_toolbar, toolbar_middleware, main_menu, analytics, crash_reporter, push_service,
                 display_toolbar, edit_toolbar, toolbar_surface, browser_fragment,
                 clipping_behavior, toolbar_behavior, onboarding, *onboarding_views, onboarding_telemetry,
                 preferences, tracking_protection, search_providers, desktop_mode, core, about, customization,
@@ -2486,6 +2500,7 @@ def apply(checkout: Path, channel: str = "stable") -> None:
     patch_glean_startup(analytics.with_name("GleanHelper.kt"))
     patch_private_by_default(settings, tracking_protection)
     patch_disabled_crash_constructor(crash_reporter)
+    patch_push_log_privacy(push_service)
     patch_marketing_policy(settings, onboarding)
     patch_private_by_default_onboarding(onboarding.parent)
     patch_acute_terms_page(onboarding.parent / "view/TermsOfServiceOnboardingPage.kt")

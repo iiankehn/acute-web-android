@@ -861,7 +861,28 @@ class OverlayTests(unittest.TestCase):
     }
 }
 ''')
+        push = root / "mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt"
+        push.parent.mkdir(parents=True, exist_ok=True)
+        push.write_text((Path(__file__).parent / "fixtures/firefox-158.0.2/AbstractFirebasePushService.kt").read_text(encoding="utf-8"), encoding="utf-8")
         return temp, root
+
+    def test_push_identifiers_are_not_logged_and_drift_fails_closed(self):
+        from apply_overlay import patch_push_log_privacy
+        fixture = (Path(__file__).parent / "fixtures/firefox-158.0.2/AbstractFirebasePushService.kt").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Push.kt"
+            path.write_text(fixture, encoding="utf-8")
+            patch_push_log_privacy(path)
+            output = path.read_text(encoding="utf-8")
+            self.assertNotIn('logger.info("Got new Firebase token: $newToken")', output)
+            self.assertNotIn('logger.info("Processing message with chId: $chId")', output)
+            self.assertIn("PushProcessor.requireInstance.onNewToken(newToken)", output)
+            self.assertIn("PushProcessor.requireInstance.onMessageReceived(message.data)", output)
+            for old in ('logger.info("Got new Firebase token: $newToken")',
+                        'logger.info("Processing message with chId: $chId")'):
+                path.write_text(fixture.replace(old, 'logger.info("changed")'), encoding="utf-8")
+                with self.assertRaises(OverlayError):
+                    patch_push_log_privacy(path)
 
     def test_reports_use_private_activity_and_correct_channel(self):
         for channel in ("stable", "beta", "dev"):
