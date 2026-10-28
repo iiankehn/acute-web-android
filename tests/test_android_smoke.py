@@ -33,6 +33,10 @@ SCREENS = {
     "settings-top": screen("General", "Search", "Appearance"),
     "settings-privacy": screen("Privacy and security", "Enhanced Tracking Protection", "HTTPS-Only Mode"),
     "https-only": screen("HTTPS-Only Mode", "Enable in all tabs"),
+    "settings-report": screen("About", "Report an issue"),
+    "report-options": screen("Report an issue", "Include last crash", "Review issue draft", "Cancel").replace(
+        'text="Include last crash"', 'text="Include last crash" checked="false"'),
+    "report-preview": screen("Review issue draft", "What happened?", "Open GitHub draft", "Cancel"),
     "error": screen("Secure site not available", "Most likely, the website simply does not support HTTPS.",
                     "Continue to HTTP Site"),
 }
@@ -44,9 +48,12 @@ TAPS = {
     ("page", "More options"): "menu",
     ("menu-bottom", "Settings"): "settings-top",
     ("settings-privacy", "HTTPS-Only Mode"): "https-only",
+    ("settings-report", "Report an issue"): "report-options",
+    ("report-options", "Review issue draft"): "report-preview",
+    ("report-preview", "Cancel"): "settings-report",
 }
-SWIPES = {"menu": "menu-bottom", "settings-top": "settings-privacy"}
-BACK = {"https-only": "settings-privacy", "settings-privacy": "page", "settings-top": "page", "menu": "page",
+SWIPES = {"menu": "menu-bottom", "settings-top": "settings-privacy", "settings-privacy": "settings-report"}
+BACK = {"settings-report": "page", "https-only": "settings-privacy", "settings-privacy": "page", "settings-top": "page", "menu": "page",
         "menu-bottom": "page"}
 
 
@@ -111,15 +118,69 @@ class SmokeTests(unittest.TestCase):
     def run_all(self, adb):
         smoke = self.smoke(adb)
         for check in (smoke.launch, smoke.first_run, smoke.https_page, smoke.menu, smoke.settings,
-                      smoke.http_page, smoke.finish):
+                      smoke.report_issue, smoke.http_page, smoke.finish):
             check()
         return smoke
+
+    def test_issue_review_cancels_without_opening_github(self):
+        adb = FakeAdb()
+        adb.current = "page"
+        smoke = self.smoke(adb)
+        smoke.report_issue()
+        self.assertEqual(adb.current, "page")
+        self.assertNotIn("Open GitHub draft", adb.tapped)
+        self.assertNotIn("Include last crash", adb.tapped)
+        self.assertIn("Cancel", adb.tapped)
+
+    def test_native_dialog_uppercase_buttons_are_supported(self):
+        originals = {key: SCREENS[key] for key in ("report-options", "report-preview")}
+        original_taps = dict(TAPS)
+        try:
+            for key in originals:
+                for label in ("Review issue draft", "Open GitHub draft", "Cancel"):
+                    SCREENS[key] = SCREENS[key].replace(label, label.upper())
+            TAPS[("report-options", "REVIEW ISSUE DRAFT")] = "report-preview"
+            TAPS[("report-preview", "CANCEL")] = "settings-report"
+            adb = FakeAdb()
+            adb.current = "page"
+            self.smoke(adb).report_issue()
+            self.assertEqual(adb.current, "page")
+            self.assertNotIn("OPEN GITHUB DRAFT", adb.tapped)
+        finally:
+            SCREENS.update(originals)
+            TAPS.clear()
+            TAPS.update(original_taps)
+
+    def test_issue_review_rejects_preselected_crash(self):
+        original = SCREENS["report-options"]
+        try:
+            SCREENS["report-options"] = original.replace('checked="false"', 'checked="true"')
+            adb = FakeAdb()
+            adb.current = "page"
+            with self.assertRaisesRegex(SmokeFailure, "unchecked"):
+                self.smoke(adb).report_issue()
+            self.assertNotIn("Review issue draft", adb.tapped)
+        finally:
+            SCREENS["report-options"] = original
+
+    def test_unchecked_crash_cannot_leak_into_issue_draft(self):
+        original = SCREENS["report-preview"]
+        try:
+            SCREENS["report-preview"] = original.replace("What happened?", "What happened? Acute Web local Java/Kotlin crash")
+            adb = FakeAdb()
+            adb.current = "page"
+            with self.assertRaisesRegex(SmokeFailure, "must not be included"):
+                self.smoke(adb).report_issue()
+            self.assertNotIn("Open GitHub draft", adb.tapped)
+        finally:
+            SCREENS["report-preview"] = original
 
     def test_full_flow_passes_and_never_changes_system_settings(self):
         adb = FakeAdb()
         self.run_all(adb)
         self.assertEqual(adb.tapped, ["Continue", "Continue", "Cancel", "Not now", "More options", "Settings",
-                                      "HTTPS-Only Mode"])
+                                      "HTTPS-Only Mode", "More options", "Settings", "Report an issue",
+                                      "Review issue draft", "Cancel"])
         self.assertNotIn("Set as default browser", adb.tapped)
         self.assertNotIn("Set as default", adb.tapped)
 

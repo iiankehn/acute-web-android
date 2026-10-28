@@ -8,7 +8,8 @@ The same checks run on CI emulators and on a tester's phone:
 3. open the main menu on that page and scroll it (the Beta 1 crash);
 4. open Settings, find Privacy and security, and open HTTPS-Only Mode;
 5. load an HTTP-only site and expect the HTTPS-Only warning page;
-6. finish with the browser still running and no crash recorded.
+6. review and cancel an issue draft without opening GitHub;
+7. finish with the browser still running and no crash recorded.
 
 Before every tap, swipe or key press the script confirms Acute is the app in
 front, so it never touches another app on a phone someone is using.
@@ -59,6 +60,7 @@ class Node:
     description: str
     package: str
     bounds: tuple[int, int, int, int]
+    checked: bool | None = None
 
     @property
     def center(self) -> tuple[int, int]:
@@ -85,7 +87,8 @@ def parse_nodes(dump: str) -> list[Node]:
         text = element.get("text", "").strip()
         description = element.get("content-desc", "").strip()
         if text or description:
-            nodes.append(Node(text, description, element.get("package", ""), bounds))
+            nodes.append(Node(text, description, element.get("package", ""), bounds,
+                              element.get("checked") == "true" if "checked" in element.attrib else None))
     return nodes
 
 
@@ -302,6 +305,37 @@ class Smoke:
             self.sleep(2)
         raise SmokeFailure(f"Couldn't find {what} in Settings")
 
+    def report_issue(self) -> None:
+        """Check the local opt-in/review/cancel flow; never tap Open GitHub draft."""
+        self.open_url(HTTPS_PAGE)
+        self.wait_for("browser controls", self.browser_ready)
+        self.menu()
+        settings, _ = self.scroll_to(SETTINGS_TEXT, "Settings in the menu", last=True)
+        self.tap(settings, "opening Settings for issue review")
+        self.wait_for("Settings", lambda nodes: find(nodes, label="General"))
+        entry, _ = self.scroll_to("Report an issue", "Report an issue")
+        self.tap(entry, "opening local issue options")
+        def dialog_label(nodes, label):
+            return next((node for node in nodes if node.label().casefold() == label.casefold()), None)
+        nodes = self.wait_for("local crash opt-in", lambda nodes: dialog_label(nodes, "Include last crash"))
+        include = dialog_label(nodes, "Include last crash")
+        if include.checked is not False:
+            raise SmokeFailure("Include last crash must be explicitly unchecked by default")
+        review = dialog_label(nodes, "Review issue draft")
+        if review is None:
+            raise SmokeFailure("Local issue options have no review action")
+        self.tap(review, "reviewing the issue draft")
+        nodes = self.wait_for("editable issue draft", lambda nodes: dialog_label(nodes, "Open GitHub draft"))
+        draft = find(nodes, text="What happened?", contains=True)
+        if draft is None or "Acute Web local Java/Kotlin crash" in draft.text:
+            raise SmokeFailure("Unchecked crash details must not be included in the draft")
+        cancel = dialog_label(nodes, "Cancel")
+        if cancel is None:
+            raise SmokeFailure("Issue preview has no Cancel action")
+        self.tap(cancel, "canceling without opening GitHub")
+        self.wait_for("Settings after cancel", lambda nodes: find(nodes, label="Report an issue"))
+        self.back()
+
     def http_page(self) -> None:
         self.open_url(HTTP_ONLY_PAGE)
         self.wait_for("the HTTPS-Only warning page",
@@ -340,6 +374,7 @@ def run(adb: Adb, package: str, output: Path, *, apk: Path | None, fresh: bool,
         ("HTTPS page loads", smoke.https_page),
         ("Main menu opens and scrolls on a web page", smoke.menu),
         (f"Settings › {PRIVACY_CATEGORY} › {HTTPS_ONLY_SETTING}", smoke.settings),
+        ("Issue draft is opt-in and can be canceled locally", smoke.report_issue),
         ("HTTP-only site shows the HTTPS-Only warning", smoke.http_page),
         ("No crash and still running", smoke.finish),
     ]
