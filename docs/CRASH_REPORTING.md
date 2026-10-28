@@ -27,3 +27,12 @@ and force-stop are not crash-record tests.
 The local behavioral sanitizer suite requires a Java 17+ runtime with the
 `jdk.compiler` module (in addition to the existing Python and Node tools).
 Run `make audit`; APK compilation and emulator smoke run in GitHub Actions.
+
+## Automated review-flow coverage
+
+The standard emulator smoke sequence now opens Settings › Report an issue,
+checks that Include last crash is unchecked, opens the preview, checks that
+unchecked crash details are absent and cancels back to Settings. It never
+presses Open GitHub draft or includes a saved crash. The foreground guard stays
+active before each tap. This exercises the review UI on both CI profiles;
+it does not establish forced-crash capture, deletion or network-capture results.
