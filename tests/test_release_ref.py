@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from shell_support import bash_executable
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/verify_release_ref.sh'
 
 
@@ -33,7 +35,7 @@ class ReleaseRefTests(unittest.TestCase):
                 if checkout:
                     git('checkout', '--detach', tag)
                 env = dict(os.environ, GITHUB_REF=f'refs/tags/{tag}')
-                return subprocess.run(['bash', str(SCRIPT)], cwd=root, env=env, capture_output=True, text=True)
+                return subprocess.run([bash_executable(), SCRIPT.as_posix()], cwd=root, env=env, capture_output=True, text=True)
             for tag in ('v1.0.0', 'v2.0.0-beta.1'):
                 result = verify(tag)
                 self.assertEqual(result.returncode, 0, result.stderr)
