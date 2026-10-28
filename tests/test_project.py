@@ -64,11 +64,18 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(beta_asset.read_bytes()).hexdigest(), beta_hash)
 
     def test_android_branding_has_no_ios_dependency(self):
+        # Approved website hyperlinks are navigation, not build/asset inputs.
+        # Only these exact href attributes are exempt; all other references,
+        # including every README/build/overlay reference, stay prohibited.
+        website = (ROOT / "docs/index.html").read_text()
+        for href in ("https://github.com/iiankehn/acute-web-ios/releases",
+                     "https://github.com/iiankehn/acute-web-ios"):
+            website = website.replace(f'href="{href}"', '')
         tracked_text = (
             (ROOT / "README.md").read_text()
             + (ROOT / "scripts/apply_overlay.py").read_text()
             + (ROOT / ".github/workflows/build-android.yml").read_text()
-            + (ROOT / "docs/index.html").read_text()
+            + website
         ).lower()
         self.assertNotIn("acute-web-ios", tracked_text)
         self.assertNotIn("acutewebicon-clear.png", tracked_text)
