@@ -88,3 +88,9 @@ For the exact source relationship and reproduction instructions, see
   the retained record. No new permissions or exported entry points.
 - Native engine/tab crashes are not captured by this handler. Physical-device
   forced-crash, storage-failure and draft-opening validation remain pending.
+
+## Beta 3 push log privacy
+
+- Remove Firebase registration tokens and message channel IDs from upstream
+  push logs. Retain push transport and callbacks while the Firebase/Web Push
+  privacy review continues. No runtime traffic result is claimed.

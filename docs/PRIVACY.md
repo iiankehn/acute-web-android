@@ -70,3 +70,35 @@ GitHub draft sends its approved text to GitHub in a URL, which the browser may
 retain in history; submitting it creates a public issue. Canceling before
 opening the URL sends nothing. Delete local crash removes the retained record;
 a later crash replaces it. Device validation remains pending.
+
+## Firebase messaging source review (Beta 3)
+
+The pinned Fenix manifest enables Firebase messaging auto-initialization, while
+setting `firebase_analytics_collection_enabled=false` and
+`firebase_analytics_collection_deactivated=true`. These are distinct controls:
+disabled Firebase analytics does not mean Firebase messaging is disabled.
+
+The retained Firebase push implementation initializes Firebase, handles token
+refresh, checks Google Play Services availability, and forwards channel-tagged
+messages to Android Components AutoPush. Its callers support Web Push and
+Send Tab. Fenix checks for a configured push project ID before creating its
+AutoPush configuration; this source check alone does not prove whether a
+particular Acute APK registers with Firebase or which hosts it contacts.
+
+Acute removes the upstream log statements containing the Firebase registration
+token and received message channel ID. The transport and callbacks are retained
+while their runtime behavior is audited. This is an interim implementation
+state, not a completed keep/remove decision or proof of zero network activity.
+
+Source evidence at immutable Firefox `08d23041955657e661eef22c8fdc967735300233`:
+
+- `mobile/android/fenix/app/src/main/AndroidManifest.xml`
+- `mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/Push.kt`
+- `mobile/android/fenix/app/src/main/java/org/mozilla/fenix/push/FirebasePushService.kt`
+- `mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt`
+
+Remaining evidence: inspect the candidate APK configuration and capture startup,
+first-run, idle and push-related traffic on emulator environments with and
+without Google Play Services. Record destinations and configuration without
+publishing registration tokens or message identifiers. The privacy gate stays
+open until observed behavior and product disclosures agree.

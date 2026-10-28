@@ -77,6 +77,7 @@ FENIX_KOTLIN = (
 )
 COMPONENT_FILES = (
     "lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt",
+    "lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/ui/FullDisplayToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserEditToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt",
@@ -204,6 +205,14 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     # vertical scroll there crashes the menu on every web page.
     assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
     validate_private_by_default(app, code)
+    push_path = "mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt"
+    original_push = (source / push_path).read_text()
+    push = (checkout / push_path).read_text()
+    expected_push = original_push.replace('logger.info("Got new Firebase token: $newToken")',
+                                          'logger.info("Firebase registration token refreshed")').replace(
+        'logger.info("Processing message with chId: $chId")', 'logger.info("Processing push message")')
+    assert push == expected_push, "Push behavior changed beyond identifier log removal"
+
     terms = (code / "onboarding/view/TermsOfServiceOnboardingPage.kt").read_text()
     body = terms[terms.index("private fun BodyText("):terms.index("private fun BodyLinkText(")]
     assert "onManagePrivacyPreferencesLinkClicked" not in body
