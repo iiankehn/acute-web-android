@@ -64,11 +64,18 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(beta_asset.read_bytes()).hexdigest(), beta_hash)
 
     def test_android_branding_has_no_ios_dependency(self):
+        # Approved website hyperlinks are navigation, not build/asset inputs.
+        # Only these exact href attributes are exempt; all other references,
+        # including every README/build/overlay reference, stay prohibited.
+        website = (ROOT / "docs/index.html").read_text()
+        for href in ("https://github.com/iiankehn/acute-web-ios/releases",
+                     "https://github.com/iiankehn/acute-web-ios"):
+            website = website.replace(f'href="{href}"', '')
         tracked_text = (
             (ROOT / "README.md").read_text()
             + (ROOT / "scripts/apply_overlay.py").read_text()
             + (ROOT / ".github/workflows/build-android.yml").read_text()
-            + (ROOT / "docs/index.html").read_text()
+            + website
         ).lower()
         self.assertNotIn("acute-web-ios", tracked_text)
         self.assertNotIn("acutewebicon-clear.png", tracked_text)
@@ -150,12 +157,14 @@ class ProjectTests(unittest.TestCase):
 
     def test_release_inputs_are_pinned_and_attested(self):
         workflow = (ROOT / ".github/workflows/build-android.yml").read_text()
-        self.assertIn("3c71aeacdb296402e41fb2084b13e797d1770642", workflow)
+        self.assertIn("08d23041955657e661eef22c8fdc967735300233", workflow)
         self.assertNotIn("uses: actions/checkout@v", workflow)
         self.assertNotIn("uses: actions/setup-java@v", workflow)
         self.assertIn("attest-build-provenance@4d101475", workflow)
         self.assertIn("sha256sum", workflow)
-        self.assertIn("version=2.0.0-beta.1", workflow)
+        self.assertIn("BETA_CANDIDATE: 2.0.0-beta.3\n", workflow)
+        self.assertIn('echo "version=$BETA_CANDIDATE"', workflow)
+        self.assertNotIn("version=2.0.0-beta.1", workflow)
         self.assertIn("2.0.0-dev.${GITHUB_RUN_NUMBER}", workflow)
         self.assertIn("ACUTE_VERSION_NAME: ${{ needs.metadata.outputs.version }}", workflow)
         self.assertNotIn("0.2.1-smoke.", workflow)

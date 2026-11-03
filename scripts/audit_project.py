@@ -70,8 +70,13 @@ def validate_configuration() -> None:
         fail("APK packaging is not constrained to the Gecko artifact ABI")
     if 'python3 acute-overlay/scripts/verify_apk_native.py "$apk" "$ABI"' not in workflow:
         fail("APK build does not reject partial foreign native architectures")
-    if f"version={candidate}" not in workflow:
+    if not re.fullmatch(r"\d+\.\d+\.\d+-beta\.\d+", candidate):
+        fail("release candidate must be a Beta version such as 2.0.0-beta.3")
+    if workflow.count(f"BETA_CANDIDATE: {candidate}\n") != 1:
         fail("workflow and project configuration disagree on the release candidate")
+    for use in ('echo "version=$BETA_CANDIDATE"', '"$version" != "$BETA_CANDIDATE"'):
+        if use not in workflow:
+            fail("Beta builds and tags are not tied to the release candidate")
     # The website may hide Beta downloads until a Beta is published. A build
     # candidate is not a published release and must not gate Stable fixes.
     if 'data-release-version="beta"' in website and not re.search(
@@ -83,9 +88,11 @@ def validate_configuration() -> None:
 def validate_action_pinning() -> None:
     action = re.compile(r"^\s*(?:-\s*)?uses:\s*([^\s#]+)", re.MULTILINE)
     immutable = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+    # A repository-local workflow runs from the same commit as its caller.
+    local_workflow = re.compile(r"^\./\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$")
     for path in WORKFLOWS.glob("*.yml"):
         for reference in action.findall(path.read_text(encoding="utf-8")):
-            if not immutable.fullmatch(reference):
+            if not (immutable.fullmatch(reference) or local_workflow.fullmatch(reference)):
                 fail(f"mutable action reference in {path.relative_to(ROOT)}: {reference}")
 
 

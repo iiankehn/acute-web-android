@@ -44,6 +44,7 @@ class GitHubUpdateProvider : ContentProvider(), Application.ActivityLifecycleCal
 
     override fun onCreate(): Boolean {
         val app = context?.applicationContext as? Application ?: return false
+        LocalCrashReports.install(app)
         // Providers start before the browser creates its settings, so this tells a profile
         // that existed before this launch apart from a new or just-cleared one.
         hadProfileAtLaunch = File(app.dataDir, "shared_prefs/$BROWSER_PREFS.xml").exists()

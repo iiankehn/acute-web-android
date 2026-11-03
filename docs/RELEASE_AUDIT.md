@@ -44,6 +44,28 @@ Firefox/Gecko line is not adopted by name alone: Android source compatibility,
 GeckoView behavior, the overlay, and both native builds must all pass on Beta
 first.
 
+## Smoke tests
+
+`scripts/android_smoke.py` drives an installed build over adb: launch and first
+run, an HTTPS page, the main menu on that page (opened and scrolled), Settings ›
+Privacy and security › HTTPS-Only Mode, the HTTPS-Only warning for an HTTP-only
+site, and a final check that Acute is still running with no crash recorded.
+
+Every APK build runs it on two x86_64 emulators (a phone on Android 12 and a
+tablet on Android 15) through `.github/workflows/android-smoke.yml`, and keeps
+screenshots, screen dumps and logs as artifacts. A pull request that only
+changes the smoke test runs it against the latest Dev build.
+
+To run the same checks on a phone connected over USB:
+
+```bash
+python3 scripts/android_smoke.py --package com.acuteweb.browser.dev
+```
+
+Add `--fresh` to test first run as well; it erases that app's profile. The
+script checks that Acute is in front before every tap and stops if another app
+takes over the screen.
+
 ## Physical-device acceptance
 
 ARM64 and x86_64 are separate supported native architectures.

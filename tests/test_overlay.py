@@ -5,7 +5,8 @@ import unittest
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from apply_overlay import COMPOSE_BRAND_RASTERS, SETTINGS_GROUPS, apply, OverlayError  # noqa: E402
+from apply_overlay import (COMPOSE_BRAND_RASTERS, MASCOT_ARTWORK, PRIVATE_COLOR_OVERRIDES,  # noqa: E402
+                           SETTINGS_GROUPS, apply, OverlayError)
 
 
 GRADLE = '''import com.android.build.api.variant.FilterConfiguration
@@ -117,6 +118,13 @@ class Settings(private val appContext: Context) {
     var isTelemetryEnabled by
         booleanPreference(
             appContext.getPreferenceKey(R.string.pref_key_telemetry),
+            default = true,
+        )
+
+    /** Indicates whether or not the privacy report should be shown in the tab manager. */
+    var showPrivacyReportInTabManager by
+        booleanPreference(
+            appContext.getPreferenceKey(R.string.pref_key_privacy_report_tab_manager),
             default = true,
         )
     var isDailyUsagePingEnabled by
@@ -311,6 +319,22 @@ internal fun WordmarkText(color: Color?) {
 '''
 
 COLORS = '''<resources>
+<color name="fx_mobile_icon_private">@color/novaViolet50</color>
+<color name="fx_mobile_private_icon_private">@color/novaViolet50</color>
+<color name="fx_mobile_private_primary_inverse">@color/novaViolet50</color>
+<color name="fx_mobile_private_secondary_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_tertiary">@color/novaViolet50</color>
+<color name="fx_mobile_private_tertiary_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_outline_variant">@color/novaViolet50</color>
+<color name="fx_mobile_private_sheet_outline">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_bright">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_dim">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_high">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_highest">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_low">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_lowest">@color/novaViolet50</color>
+<color name="fx_mobile_private_surface_container_selected">@color/novaViolet50</color>
 <color name="fx_mobile_primary">@color/novaViolet70</color>
 <color name="fx_mobile_primary_container">@color/novaViolet20</color>
 <color name="fx_mobile_tertiary">@color/novaViolet50</color>
@@ -323,6 +347,7 @@ COLORS = '''<resources>
 </resources>'''
 
 NIGHT_COLORS = '''<resources>
+<color name="fx_mobile_icon_private">@color/novaViolet50</color>
 <color name="fx_mobile_primary">@color/novaViolet20</color>
 <color name="fx_mobile_on_primary">@color/novaGray80</color>
 <color name="fx_mobile_primary_container">@color/novaViolet60</color>
@@ -663,6 +688,8 @@ class AboutFragment {
             ),
         )
     }
+    private fun openLinkInNormalTab(url: String) {
+    }
     fun clicked(item: AboutItem) {
         when (item.type) {
                     WHATS_NEW -> {
@@ -712,6 +739,8 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/HomeActivity.kt").write_text(HOME_ACTIVITY)
         (app / "src/main/java/org/mozilla/fenix/components/toolbar/BrowserToolbarComposable.kt").write_text(
             BROWSER_TOOLBAR)
+        (app / "src/main/java/org/mozilla/fenix/components/GleanHelper.kt").write_text(
+            (Path(__file__).parent / "fixtures/firefox-158.0.2/GleanHelper.kt").read_text(encoding="utf-8"), encoding="utf-8")
         fixtures = Path(__file__).parent / "fixtures/firefox-157.0.1"
         for relative in ("components/toolbar/BrowserToolbarMiddleware.kt", "components/menu/compose/MainMenu.kt", "components/Analytics.kt"):
             destination = app / "src/main/java/org/mozilla/fenix" / relative
@@ -765,6 +794,9 @@ class OverlayTests(unittest.TestCase):
         (app / "src/main/java/org/mozilla/fenix/home/ui/Wordmark.kt").write_text(WORDMARK)
         (app / "src/main/res/values/colors.xml").write_text(COLORS)
         (app / "src/main/res/values-night/colors.xml").write_text(NIGHT_COLORS)
+        (app / "src/main/res/color").mkdir(parents=True, exist_ok=True)
+        (app / "src/main/res/color/private_mode_mask_gradient.xml").write_text(
+            '<gradient android:startColor="@color/novaViolet20" android:endColor="@color/novaWhite" />')
         (app / "src/main/res/values/styles.xml").write_text(STYLES)
         (app / "src/main/res/xml/customization_preferences.xml").write_text(CUSTOMIZATION)
         (app / "src/main/res/xml/preferences.xml").write_text(
@@ -772,6 +804,23 @@ class OverlayTests(unittest.TestCase):
         for name in COMPOSE_BRAND_RASTERS:
             (app / "src/main/res/drawable").mkdir(parents=True, exist_ok=True)
             (app / f"src/main/res/drawable/{name}.xml").write_text("<vector />")
+        for relative in MASCOT_ARTWORK:
+            (app / "src/main/res" / relative).parent.mkdir(parents=True, exist_ok=True)
+            (app / "src/main/res" / relative).write_text("<vector />")
+        fixtures_1582 = Path(__file__).parent / "fixtures/firefox-158.0.2"
+        for name, relative in (
+            ("FirefoxTheme.kt", "java/org/mozilla/fenix/theme"),
+            ("DeleteBrowsingDataFragment.kt", "java/org/mozilla/fenix/settings/deletebrowsingdata"),
+            ("tracking_protection_learn_more_preference.xml", "res/layout"),
+            ("lowMediumErrorPages.js", "assets"),
+            ("highRiskErrorPages.js", "assets"),
+            ("shared_error_style.css", "assets"),
+            ("low_and_medium_risk_error_style.css", "assets"),
+            ("view_crash_reporter.xml", "res/layout"),
+        ):
+            (app / "src/main" / relative).mkdir(parents=True, exist_ok=True)
+            (app / "src/main" / relative / name).write_text((fixtures_1582 / name).read_text(encoding="utf-8"),
+                                                            encoding="utf-8")
         (app / "src/beta/res/drawable").mkdir(parents=True)
         (app / "src/beta/res/drawable/ic_firefox.xml").write_text("<vector />")
         for position in ("top", "bottom"):
@@ -791,6 +840,14 @@ class OverlayTests(unittest.TestCase):
             '<string name="marketing">Tell a partner that you’re a Firefox user.</string>'
             '<string name="onboarding_term_of_service_line_one_link_text_2">Firefox Terms of Use</string>'
             '<string name="sync_connect_device_dialog">Sign in to Firefox on another device.</string>'
+            '<string name="sign_in_instructions" tools:ignore="BrandUsage"><![CDATA[On your computer open Firefox '
+            'and go to <b>https://firefox.com/pair</b>]]></string>'
+            '<string name="sign_in_create_account_text" tools:ignore="BrandUsage"><![CDATA[No account? '
+            '<u>Create one</u> to sync Firefox between devices.]]></string>'
+            '<string name="preference_enhanced_tracking_protection">Enhanced Tracking Protection</string>'
+            '<string name="preference_enhanced_tracking_protection_summary">Now featuring Total Cookie '
+            'Protection, our most powerful barrier yet against cross-site trackers.</string>'
+            '<string name="preferences_downloads_2">Download Settings</string>'
             '</resources>')
         (app / "src/main/res/values-es/strings.xml").write_text(
             '<resources><string name="welcome">Bienvenido a Firefox</string></resources>')
@@ -804,7 +861,60 @@ class OverlayTests(unittest.TestCase):
     }
 }
 ''')
+        push = root / "mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt"
+        push.parent.mkdir(parents=True, exist_ok=True)
+        push.write_text((Path(__file__).parent / "fixtures/firefox-158.0.2/AbstractFirebasePushService.kt").read_text(encoding="utf-8"), encoding="utf-8")
         return temp, root
+
+    def test_push_identifiers_are_not_logged_and_drift_fails_closed(self):
+        from apply_overlay import patch_push_log_privacy
+        fixture = (Path(__file__).parent / "fixtures/firefox-158.0.2/AbstractFirebasePushService.kt").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Push.kt"
+            path.write_text(fixture, encoding="utf-8")
+            patch_push_log_privacy(path)
+            output = path.read_text(encoding="utf-8")
+            self.assertNotIn('logger.info("Got new Firebase token: $newToken")', output)
+            self.assertNotIn('logger.info("Processing message with chId: $chId")', output)
+            self.assertIn("PushProcessor.requireInstance.onNewToken(newToken)", output)
+            self.assertIn("PushProcessor.requireInstance.onMessageReceived(message.data)", output)
+            for old in ('logger.info("Got new Firebase token: $newToken")',
+                        'logger.info("Processing message with chId: $chId")'):
+                path.write_text(fixture.replace(old, 'logger.info("changed")'), encoding="utf-8")
+                with self.assertRaises(OverlayError):
+                    patch_push_log_privacy(path)
+
+    def test_reports_use_private_activity_and_correct_channel(self):
+        for channel in ("stable", "beta", "dev"):
+            temp, root = self.make_checkout()
+            self.addCleanup(temp.cleanup)
+            apply(root, channel=channel)
+            app = root / "mobile/android/fenix/app"
+            xml = (app / "src/main/res/xml/preferences.xml").read_text()
+            package = "com.acuteweb.browser" + ("" if channel == "stable" else "." + channel)
+            self.assertIn(f'android:targetPackage="{package}"', xml)
+            self.assertIn('android:targetClass="org.mozilla.fenix.acute.ReportIssueActivity"', xml)
+            self.assertIn('ReportIssueActivity" android:exported="false"', (app / "src/main/AndroidManifest.xml").read_text())
+            code = app / "src/main/java/org/mozilla/fenix/acute"
+            for name in ("LocalCrashReports.kt", "ReportIssueActivity.kt", "CrashReportSanitizer.java"):
+                self.assertTrue((code / name).is_file())
+            self.assertIn("LocalCrashReports.install(app)", (code / "GitHubUpdateProvider.kt").read_text())
+
+    def test_glean_never_initializes_and_anchor_drift_fails(self):
+        from apply_overlay import patch_glean_startup
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        path = root / "mobile/android/fenix/app/src/main/java/org/mozilla/fenix/components/GleanHelper.kt"
+        original = path.read_text(encoding="utf-8")
+        apply(root, channel="dev")
+        patched = path.read_text(encoding="utf-8")
+        self.assertIn("fun initializeGlean(applicationContext: Context", patched)
+        for call in ("Glean.initialize(", "Glean.registerPings(", "Glean.applyServerKnobsConfig(",
+                     "ConceptFetchHttpUploader(", "restorePersistedDebugViewTag("):
+            self.assertNotIn(call, patched)
+        path.write_text(original.replace("Glean.initialize(", "Glean.changedInitialize("), encoding="utf-8")
+        with self.assertRaises(OverlayError):
+            patch_glean_startup(path)
 
     def test_styles_display_and_edit_address_fields(self):
         temp, root = self.make_checkout()
@@ -1115,7 +1225,11 @@ class OverlayTests(unittest.TestCase):
             '<string name="customize_toggle_contile">Sponsored shortcuts</string>'
             '<string name="pair_instructions_2">Visit firefox.com/pair</string>'
             '<string name="sign_in_instructions">Visit firefox.com/pair</string>'
+            '<string name="sign_in_create_account_text">Create one to sync Firefox between devices.</string>'
             '<string name="about_content">Firefox</string>'
+            '<string name="preference_enhanced_tracking_protection">Enhanced Tracking Protection</string>'
+            '<string name="preference_enhanced_tracking_protection_summary">our most powerful barrier yet</string>'
+            '<string name="preferences_downloads_2">Download Settings</string>'
             "</resources>"
         )
         apply(root, channel="beta")
@@ -1126,7 +1240,13 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("Google Play", branded)
         self.assertNotIn("Sponsored", branded)
         self.assertIn('<string name="pair_instructions_2">Visit firefox.com/pair</string>', branded)
-        self.assertIn('<string name="sign_in_instructions">Visit firefox.com/pair</string>', branded)
+        self.assertIn("Sync uses a Mozilla account. On your computer, open Firefox and go to "
+                      "<b>https://firefox.com/pair</b>", branded)
+        self.assertIn("<u>Create a Mozilla account</u> to sync between devices.", branded)
+        self.assertNotIn("Firefox between devices", branded)
+        self.assertNotIn("most powerful barrier", branded)
+        self.assertIn('name="preference_enhanced_tracking_protection">Tracking Protection<', branded)
+        self.assertIn('name="preferences_downloads_2">Downloads<', branded)
 
     def test_product_identity_gate_rejects_upstream_promotions(self):
         temp, root = self.make_checkout()
@@ -1183,6 +1303,68 @@ class OverlayTests(unittest.TestCase):
         )
         with self.assertRaises(OverlayError):
             apply(root, channel="beta")
+
+    def test_device_test_fixes_brand_compose_screens_and_error_pages(self):
+        import apply_overlay
+        temp, root = self.make_checkout()
+        self.addCleanup(temp.cleanup)
+        artwork = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(artwork))
+        for image in apply_overlay.ARTWORK.glob("*.png"):
+            (artwork / image.name).write_bytes(image.read_bytes())
+        (artwork / "fox_ai_on_state.png").write_bytes(b"ACUTE-ART")
+        original = apply_overlay.ARTWORK
+        apply_overlay.ARTWORK = artwork
+        try:
+            apply(root, channel="dev")
+        finally:
+            apply_overlay.ARTWORK = original
+        main = root / "mobile/android/fenix/app/src/main"
+        res = root / "mobile/android/fenix/app/src"
+        for relative in MASCOT_ARTWORK:
+            name = Path(relative).stem
+            self.assertEqual([p.name for p in res.glob(f"*/res/drawable*/{name}.*")], [f"{name}.png"])
+        self.assertEqual((main / "res/drawable-nodpi/fox_ai_on_state.png").read_bytes(), b"ACUTE-ART")
+        mark = Path(__file__).resolve().parents[1] / "overlay/res/drawable-nodpi/acute_brand_mark_transparent.png"
+        self.assertEqual((main / "res/drawable-nodpi/kit_sleeping_under_laptop.png").read_bytes(), mark.read_bytes())
+        theme = (main / "java/org/mozilla/fenix/theme/FirefoxTheme.kt").read_text()
+        self.assertIn("}.withAcuteAccents(theme)", theme)
+        self.assertIn("primary = Color(0xFF8ABDDD)", theme)
+        self.assertIn("}.withAcuteGradients()", theme)
+        self.assertIn("            Theme.Private -> privateColorPalette\n        }.withAcuteAccents(theme)", theme)
+        self.assertIn("tabOutline = acuteAccentGradient,", theme)
+        colors = (main / "res/values/colors.xml").read_text()
+        for name in PRIVATE_COLOR_OVERRIDES:
+            self.assertNotIn(f'name="{name}">@color/novaViolet', colors)
+        self.assertIn('name="fx_mobile_icon_private">#FF0072BC<', (main / "res/values-night/colors.xml").read_text())
+        self.assertNotIn("novaViolet20", (main / "res/color/private_mode_mask_gradient.xml").read_text())
+        delete_data = (main / "java/org/mozilla/fenix/settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt").read_text()
+        self.assertIn("getQuantityString(R.plurals.acute_delete_data_tabs, openTabs, openTabs)", delete_data)
+        self.assertIn("getQuantityString(R.plurals.acute_delete_data_addresses, historyCount, historyCount)",
+                      delete_data)
+        plurals = (main / "res/values/acute_settings_strings.xml").read_text()
+        self.assertIn('<item quantity="one">%d tab</item>', plurals)
+        banner = (main / "res/layout/tracking_protection_learn_more_preference.xml").read_text()
+        self.assertNotIn("ic_etp_artwork", banner)
+        self.assertNotIn("guideline", banner)
+        self.assertEqual(banner.count('app:layout_constraintEnd_toEndOf="parent"'), 2)
+        settings = (main / "java/org/mozilla/fenix/utils/Settings.kt").read_text()
+        self.assertIn("pref_key_privacy_report_tab_manager),\n            default = false,", settings)
+        for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
+            text = (main / "assets" / script).read_text()
+            self.assertIn('"resource://android/assets/" + acuteErrorImage(queryMap);', text)
+            self.assertIn('? "acute_not_encrypted.png" : "acute_certificate_error.png"', text)
+            self.assertIn('mozac_error_no_internet: "acute_offline.png"', text)
+        artwork_dir = Path(__file__).resolve().parents[1] / "overlay/artwork"
+        for image in ("acute_connection_failed.png", "acute_page_not_found.png", "acute_not_encrypted.png",
+                      "acute_certificate_error.png", "acute_offline.png", "acute_tab_crashed.png"):
+            self.assertEqual((main / "assets" / image).read_bytes(), (artwork_dir / image).read_bytes())
+        crash = (main / "res/layout/view_crash_reporter.xml").read_text()
+        self.assertIn('app:srcCompat="@drawable/acute_tab_crashed"', crash)
+        self.assertTrue((main / "res/drawable-nodpi/acute_tab_crashed.png").is_file())
+        style = (main / "assets/low_and_medium_risk_error_style.css").read_text()
+        self.assertNotIn("#7542e5", style)
+        self.assertIn("--primary-button-color: #0072bc;", style)
 
     def test_beta_channel_has_separate_identity(self):
         temp, root = self.make_checkout()

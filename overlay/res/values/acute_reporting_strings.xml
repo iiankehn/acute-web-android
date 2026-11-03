@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="acute_report_issue_title">Report an issue</string>
-    <string name="acute_report_issue_summary">Open Acute Web Issues on GitHub</string>
+    <string name="acute_report_issue_summary">Review an issue draft and optionally include the last local crash</string>
     <string name="acute_issues_url" translatable="false">https://github.com/iiankehn/acute-web-android/issues/new/choose</string>
+    <string name="acute_report_review_notice">Crash details stay on this device. Select Include last crash to review them before sharing. Java/Kotlin crashes only; native engine and tab crashes are not recorded.</string>
+    <string name="acute_include_last_crash">Include last crash</string>
+    <string name="acute_no_local_crash">No local crash is available.</string>
+    <string name="acute_review_draft">Review issue draft</string>
+    <string name="acute_delete_crash">Delete local crash</string>
+    <string name="acute_issue_template">What happened?\n\nSteps to reproduce:\n\nExpected result:\n</string>
+    <string name="acute_issue_public_warning">Review and edit the entire draft. Opening GitHub sends this text to GitHub in the URL. Submit the issue on GitHub only if you want it to be public.</string>
+    <string name="acute_open_github_draft">Open GitHub draft</string>
+    <string name="acute_no_issue_handler">No browser could open the GitHub draft.</string>
+    <string name="acute_issue_too_long">This draft is too long for a GitHub link. Shorten the text before opening it.</string>
 </resources>

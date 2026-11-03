@@ -12,7 +12,8 @@ import subprocess
 import tempfile
 import tomllib
 
-from apply_overlay import COMPOSE_BRAND_RASTERS, ROOT, SETTINGS_GROUPS, apply
+from apply_overlay import (COMPOSE_BRAND_RASTERS, ERROR_PAGE_ARTWORK, ERROR_PAGE_LOCK, MASCOT_ARTWORK, ROOT,
+                           SETTINGS_GROUPS, TAB_CRASHED_ARTWORK, apply)
 
 
 FENIX_FILES = (
@@ -26,10 +27,17 @@ FENIX_FILES = (
     "app/src/beta/res/values/static_strings.xml",
     "app/src/main/res/values/colors.xml",
     "app/src/main/res/values-night/colors.xml",
+    "app/src/main/res/color/private_mode_mask_gradient.xml",
     "app/src/main/res/values/styles.xml",
     "app/src/main/res/xml/preferences.xml",
     "app/src/main/res/xml/tracking_protection_preferences.xml",
     "app/src/main/res/xml/customization_preferences.xml",
+    "app/src/main/res/layout/tracking_protection_learn_more_preference.xml",
+    "app/src/main/res/layout/view_crash_reporter.xml",
+    *(f"app/src/main/assets/{name}" for name in (
+        "lowMediumErrorPages.js", "highRiskErrorPages.js", "shared_error_style.css",
+        "low_and_medium_risk_error_style.css")),
+    *(f"app/src/main/res/{path}" for path in MASCOT_ARTWORK),
     *(f"app/src/main/res/drawable/{name}.xml" for name in COMPOSE_BRAND_RASTERS),
     *(f"app/src/{source}/res/drawable/ic_firefox.xml" for source in ("beta", "debug", "nightly")),
     *(f"app/src/main/res/drawable/nova_onboarding_toolbar_{position}_{state}.xml"
@@ -61,11 +69,15 @@ FENIX_KOTLIN = (
     "components/SettingsSearchProviders.kt",
     "components/Core.kt",
     "components/Analytics.kt",
+    "components/GleanHelper.kt",
     "settings/about/AboutFragment.kt",
     "settings/CustomizationFragment.kt",
+    "settings/deletebrowsingdata/DeleteBrowsingDataFragment.kt",
+    "theme/FirefoxTheme.kt",
 )
 COMPONENT_FILES = (
     "lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt",
+    "lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/ui/FullDisplayToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserEditToolbar.kt",
     "compose/browser-toolbar/src/main/java/mozilla/components/compose/browser/toolbar/BrowserToolbar.kt",
@@ -131,6 +143,17 @@ def validate_settings_and_artwork(source: Path, checkout: Path) -> None:
     for name in COMPOSE_BRAND_RASTERS:
         assert (res / f"main/res/drawable-nodpi/{name}.png").is_file(), name
         assert not list(res.glob(f"*/res/drawable*/{name}.xml")), name
+    for relative in MASCOT_ARTWORK:
+        name = Path(relative).stem
+        assert [p.name for p in res.glob(f"*/res/drawable*/{name}.*")] == [f"{name}.png"], name
+    assets = res / "main/assets"
+    for image in {*ERROR_PAGE_ARTWORK.values(), *ERROR_PAGE_LOCK}:
+        assert (assets / image).is_file(), image
+    for script in ("lowMediumErrorPages.js", "highRiskErrorPages.js"):
+        assert "acuteErrorImage(queryMap);" in (assets / script).read_text(encoding="utf-8"), script
+    crash_layout = (res / "main/res/layout/view_crash_reporter.xml").read_text(encoding="utf-8")
+    assert f"@drawable/{TAB_CRASHED_ARTWORK}" in crash_layout
+    assert (res / f"main/res/drawable-nodpi/{TAB_CRASHED_ARTWORK}.png").is_file()
     drawable = res / "main/res/drawable"
     for position in ("top", "bottom"):
         assert (drawable / f"nova_onboarding_toolbar_{position}_active.xml").read_bytes() == (
@@ -182,12 +205,31 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     # vertical scroll there crashes the menu on every web page.
     assert "verticalScroll" not in (code / "components/menu/compose/MenuNavigation.kt").read_text()
     validate_private_by_default(app, code)
+    push_path = "mobile/android/android-components/components/lib/push-firebase/src/main/java/mozilla/components/lib/push/firebase/AbstractFirebasePushService.kt"
+    original_push = (source / push_path).read_text()
+    push = (checkout / push_path).read_text()
+    expected_push = original_push.replace('logger.info("Got new Firebase token: $newToken")',
+                                          'logger.info("Firebase registration token refreshed")').replace(
+        'logger.info("Processing message with chId: $chId")', 'logger.info("Processing push message")')
+    assert push == expected_push, "Push behavior changed beyond identifier log removal"
+
     terms = (code / "onboarding/view/TermsOfServiceOnboardingPage.kt").read_text()
     body = terms[terms.index("private fun BodyText("):terms.index("private fun BodyLinkText(")]
     assert "onManagePrivacyPreferencesLinkClicked" not in body
     assert "lineOneText" not in body and "lineThreeText" not in body
     assert "R.string.acute_onboarding_privacy_line" in body
     validate_settings_and_artwork(source, checkout)
+    reports = [a for a in application.findall("activity")
+               if a.get(android + "name") == "org.mozilla.fenix.acute.ReportIssueActivity"]
+    assert len(reports) == 1 and reports[0].get(android + "exported") == "false"
+    issue = ET.parse(app / "src/main/res/xml/preferences.xml").getroot()
+    entry = next(p for p in issue.iter() if p.get(android + "key") == "acute_report_issue")
+    intent = entry.find("intent")
+    expected_package = "com.acuteweb.browser" + ("" if channel == "stable" else "." + channel)
+    assert intent.get(android + "targetPackage") == expected_package
+    assert intent.get(android + "targetClass") == "org.mozilla.fenix.acute.ReportIssueActivity"
+    assert "ReportIssueActivity::class.java" in (code / "settings/about/AboutFragment.kt").read_text()
+
     home = (code / "HomeActivity.kt").read_text()
     assert home.count("import org.mozilla.fenix.browser.BrowserFragmentDirections\n") == 1
     # Exact source anchors can apply successfully while introducing Kotlin
@@ -204,6 +246,10 @@ def validate_output(source: Path, checkout: Path, channel: str) -> None:
     assert "services = emptyList()," in analytics
     assert "telemetryServices = emptyList()," in analytics
     assert "            enabled = false," in analytics
+    glean = (code / "components/GleanHelper.kt").read_text()
+    assert "Glean.initialize(" not in glean
+    assert "ConceptFetchHttpUploader(" not in glean
+    assert "Glean.registerPings(" not in glean
     crash = (checkout / "mobile/android/android-components/components/lib/crash/src/main/java/mozilla/components/lib/crash/CrashReporter.kt").read_text()
     assert "require(!enabled || services.isNotEmpty() || telemetryServices.isNotEmpty())" in crash
     for relative in (
