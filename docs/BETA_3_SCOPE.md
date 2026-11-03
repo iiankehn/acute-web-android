@@ -192,3 +192,12 @@ scope.
   changes; workstream 7 starts with an investigation.
 - **Crash reports can contain sensitive data** in stack traces; the
   "nothing leaves without review" rule is non-negotiable.
+
+## Windows audit evidence
+
+The validation workflow includes a Windows 2025 job using Python 3.12, Java 21,
+Node and Git Bash. It runs all `make audit` commands explicitly, so Windows
+does not require Make. UTF-8 is enabled for Python. The Linux audit and full
+pinned-upstream verification remain required. Adding the job does not establish
+a Windows pass: its first successful CI result must be recorded before closing
+the Windows work item. Physical-device testing remains deferred.
