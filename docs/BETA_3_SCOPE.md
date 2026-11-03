@@ -159,6 +159,14 @@ assessment remain pending; this does not close Gate 4.
   restarting Acute. If an item proves impossible without engine changes, record
   that here and keep the current documented behavior.
 
+Investigation result: the pinned public GeckoView/Android Components permission
+bridge does not expose the native HTTPS-Only exception type; local-name suffixes
+are not part of the engine IP-literal exemption. Persistent exceptions and
+automatic local-name exemptions remain unimplemented/deferred, with the current
+explicit continue behavior retained. See [HOMELAB_HTTPS_REVIEW.md](HOMELAB_HTTPS_REVIEW.md)
+for the immutable source evidence, limits and revisit criteria. No runtime
+homelab test is marked passed by this review.
+
 ### 8. Small features
 
 Allowed if each one comes with tests, needs no new permissions, and doesn't
